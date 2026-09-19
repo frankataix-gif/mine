@@ -211,6 +211,7 @@ const DEFAULT_SETTINGS = {
 };
 
 let settings = load(LS_SET, DEFAULT_SETTINGS);
+if (!settings.accessCode) settings.accessCode = localStorage.getItem('mine_access_code') || '';
 let records = load(LS_REC, []);
 
 function load(key, def) {
