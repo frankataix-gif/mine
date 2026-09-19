@@ -187,7 +187,6 @@
       <h3>数据</h3>
       <button class="primary btn-block" id="syncNow">立即同步</button>
       <button class="secondary btn-block" id="exportCsv" style="margin-top:8px">导出CSV备份</button>
-      <button class="secondary btn-block" id="logout" style="margin-top:8px">退出登录（换密码）</button>
       <button class="danger btn-block" id="wipeLocal" style="margin-top:8px">清空本机数据</button>
       <div class="hint">清空只删本机缓存，云端已同步的数据不受影响</div>
     </div>
@@ -195,17 +194,6 @@
 </main>
 
 <div id="modalRoot"></div>
-
-<!-- 登录门：未验证密码前挡住整个应用 -->
-<div id="loginGate" class="hidden" style="position:fixed;inset:0;background:var(--bg);z-index:500;display:flex;align-items:center;justify-content:center">
-  <div class="card" style="width:min(90%,340px)">
-    <h3 style="font-size:16px;color:var(--text);margin-bottom:14px">钽铌矿生产统计</h3>
-    <label>访问密码</label>
-    <input type="password" id="loginPw" autocomplete="current-password" style="margin-top:4px">
-    <button class="primary btn-block" id="loginBtn" style="margin-top:12px">进入</button>
-    <div id="loginErr" style="color:var(--danger);font-size:13px;min-height:18px;margin-top:8px"></div>
-  </div>
-</div>
 
 <script>
 /* ================= 数据层 ================= */
@@ -496,13 +484,6 @@ $('exportCsv').onclick = () => {
   a.download = '生产记录_' + today() + '.csv'; a.click();
 };
 
-$('logout').onclick = () => {
-  settings.accessCode = '';
-  localStorage.removeItem('mine_access_code');
-  save();
-  location.reload();
-};
-
 $('wipeLocal').onclick = () => {
   showModal(`<h3>清空本机数据？</h3><p style="color:var(--muted)">本机记录将全部删除，已同步到云端的不受影响。此操作不可撤销。</p>
     <div class="btns"><button class="secondary" id="wc">取消</button><button class="danger" id="wo">确认清空</button></div>`);
@@ -527,59 +508,9 @@ function switchTab(name) {
 }
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
 
-/* ================= 登录门 ================= */
-function showLogin(msg) {
-  $('loginGate').classList.remove('hidden');
-  if (msg) $('loginErr').textContent = msg;
-  $('loginPw').focus();
-}
-async function verifyCode(code) {
-  try {
-    const res = await fetch(settings.workerUrl || location.origin, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'read', path: settings.remotePath, code })
-    });
-    return res.ok;
-  } catch (e) { return true; }
-}
-$('loginBtn').onclick = async () => {
-  const code = $('loginPw').value.trim(); if (!code) return;
-  $('loginErr').textContent = '验证中…';
-  let res = null;
-  try {
-    res = await fetch(settings.workerUrl || location.origin, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'read', path: settings.remotePath, code })
-    });
-  } catch (e) {}
-  if (res && res.ok) {
-    settings.accessCode = code;
-    localStorage.setItem('mine_access_code', code);
-    save();
-    $('loginGate').classList.add('hidden');
-    initApp();
-  } else if (res && res.status === 401) {
-    $('loginErr').textContent = '密码错误';
-  } else {
-    $('loginErr').textContent = '连不上服务器，检查网络后重试';
-  }
-};
-$('loginPw').addEventListener('keydown', e => { if (e.key === 'Enter') $('loginBtn').click(); });
-
-function initApp() {
-  initEntry(); renderHistory(); renderStats(); renderSettings(); updateSyncStatus();
-  trySync();
-}
-async function boot() {
-  const code = settings.accessCode || localStorage.getItem('mine_access_code') || '';
-  if (!code) { showLogin(); return; }
-  settings.accessCode = code;
-  if (navigator.onLine && !await verifyCode(code)) { showLogin('密码已失效，请重新输入'); return; }
-  initApp();
-}
-
 /* ================= 启动 ================= */
-boot();
+initEntry(); renderHistory(); renderStats(); renderSettings(); updateSyncStatus();
+trySync();
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('mine_sw.js').catch(() => {});
 }
