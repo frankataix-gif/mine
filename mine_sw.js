@@ -1,5 +1,5 @@
-const CACHE = 'mine-prod-v1';
-const ASSETS = ['./mine_production.html'];
+const CACHE = 'mine-prod-v2';
+const ASSETS = ['./mine_production.html', './'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
@@ -10,17 +10,16 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  // 同步请求直接走网络，不缓存
+  // 数据同步请求不缓存，直接走网络
   if (e.request.method !== 'GET') return;
+  // 网络优先：有网拿最新版并更新缓存，断网回退到缓存（离线可用）
   e.respondWith(
-    caches.match(e.request, { ignoreSearch: true }).then(hit => hit ||
-      fetch(e.request).then(res => {
-        if (res.ok && e.request.url.startsWith(self.location.origin)) {
-          const clone = res.clone();
-          caches.open(CACHE).then(c => c.put(e.request, clone));
-        }
-        return res;
-      }).catch(() => caches.match('./mine_production.html'))
-    )
+    fetch(e.request).then(res => {
+      if (res.ok && e.request.url.startsWith(self.location.origin)) {
+        const clone = res.clone();
+        caches.open(CACHE).then(c => c.put(e.request, clone));
+      }
+      return res;
+    }).catch(() => caches.match(e.request).then(hit => hit || caches.match('./mine_production.html')))
   );
 });
