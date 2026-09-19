@@ -40,8 +40,9 @@
   .quick-btns { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
   .quick-btns button { min-height: 34px; padding: 4px 12px; font-size: 13px; background: #eff6ff; color: var(--primary); border: 1px solid #bfdbfe; }
   .output-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
-  .output-row input[name=pname] { flex: 1.4; }
-  .output-row input[name=pkg] { flex: 1; }
+  .output-row input[name=pname] { flex: 1.2; }
+  .output-row input[name=pkg] { flex: 0.8; }
+  .output-row input[name=pgrade] { flex: 0.8; }
   .output-row .del { min-height: 36px; min-width: 36px; padding: 0; background: #fee2e2; color: var(--danger); border-radius: 8px; }
   .rec-item { background: var(--card); border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
   .rec-item .meta { font-size: 12px; color: var(--muted); margin-top: 3px; }
@@ -118,10 +119,11 @@
       <div class="quick-btns" id="quickProducts"></div>
       <div id="outputRows"></div>
       <button class="secondary btn-block" id="addOutput">+ 加一行产品</button>
+      <div class="hint">每行：产品名 + 重量kg + 品位%（XRF读数，可空）</div>
     </div>
 
     <div class="card">
-      <h3>品位抽检（可选）</h3>
+      <h3>入选品位（可选）</h3>
       <div class="row">
         <div><label>Ta %</label><input type="number" id="fTa" min="0" step="0.01" inputmode="decimal" placeholder="XRF读数"></div>
         <div><label>Nb %</label><input type="number" id="fNb" min="0" step="0.01" inputmode="decimal" placeholder="XRF读数"></div>
@@ -236,22 +238,29 @@ function initEntry() {
 function refreshLineSelect() {
   $('fLine').innerHTML = settings.lines.map(l => `<option>${l}</option>`).join('');
 }
+const LINE_PRODUCTS = {
+  '洗矿机': ['细泥-1.5mm', '中砂1.5-4mm', '粗砂4-10mm', '大石头+10mm'],
+  '摇床': ['精矿', '中矿', '尾矿'],
+  '手选组': ['手选精矿', '手选废石'],
+};
 function renderQuickProducts() {
-  $('quickProducts').innerHTML = settings.products.map(p => `<button data-p="${p}">${p}</button>`).join('');
+  const prods = LINE_PRODUCTS[$('fLine').value] || settings.products;
+  $('quickProducts').innerHTML = prods.map(p => `<button data-p="${p}">${p}</button>`).join('');
   $('quickProducts').querySelectorAll('button').forEach(b => b.onclick = () => addOutputRow(b.dataset.p));
 }
-function addOutputRow(name = '', kg = '') {
+function addOutputRow(name = '', kg = '', grade = '') {
   const div = document.createElement('div');
   div.className = 'output-row';
-  div.innerHTML = `<input name="pname" placeholder="产品名" value="${name}"><input name="pkg" type="number" min="0" step="0.01" inputmode="decimal" placeholder="kg" value="${kg}"><button class="del">×</button>`;
+  div.innerHTML = `<input name="pname" placeholder="产品名" value="${name}"><input name="pkg" type="number" min="0" step="0.01" inputmode="decimal" placeholder="kg" value="${kg}"><input name="pgrade" type="number" min="0" step="0.01" inputmode="decimal" placeholder="品位%" value="${grade}"><button class="del">×</button>`;
   div.querySelector('.del').onclick = () => { if ($('outputRows').children.length > 1) div.remove(); };
   $('outputRows').appendChild(div);
 }
+$('fLine').addEventListener('change', renderQuickProducts);
 $('addOutput').onclick = () => addOutputRow();
 
 $('saveBtn').onclick = () => {
   const outputs = [...$('outputRows').querySelectorAll('.output-row')]
-    .map(r => ({ product: r.querySelector('[name=pname]').value.trim(), kg: num(r.querySelector('[name=pkg]').value) }))
+    .map(r => ({ product: r.querySelector('[name=pname]').value.trim(), kg: num(r.querySelector('[name=pkg]').value), grade: num(r.querySelector('[name=pgrade]').value) || null }))
     .filter(o => o.product || o.kg > 0);
   if (!outputs.length && !num($('fInput').value) && !num($('fRuntime').value)) {
     toast('至少填一项：处理量、运行时长或产出'); return;
@@ -297,7 +306,7 @@ function loadToForm(rec) {
   $('fDate').value = rec.date; $('fShift').value = rec.shift; $('fLine').value = rec.line;
   $('fRuntime').value = rec.runtime_h || ''; $('fInput').value = rec.input_t || '';
   $('outputRows').innerHTML = '';
-  (rec.outputs.length ? rec.outputs : [{}]).forEach(o => addOutputRow(o.product || '', o.kg || ''));
+  (rec.outputs.length ? rec.outputs : [{}]).forEach(o => addOutputRow(o.product || '', o.kg || '', o.grade ?? ''));
   $('fTa').value = rec.ta_pct ?? ''; $('fNb').value = rec.nb_pct ?? '';
   $('fDown').value = rec.downtime_h || ''; $('fDownReason').value = rec.downtime_reason || '';
   $('fNote').value = rec.note || '';
@@ -310,7 +319,7 @@ function renderHistory() {
   const list = records.filter(r => !r.deleted).sort((a, b) => (b.date + b.created_at).localeCompare(a.date + a.created_at));
   if (!list.length) { $('historyList').innerHTML = '<div class="empty">暂无记录</div>'; return; }
   $('historyList').innerHTML = list.map(r => {
-    const outTxt = r.outputs.map(o => `${o.product}${o.kg}kg`).join('、') || '—';
+    const outTxt = r.outputs.map(o => `${o.product}${o.kg}kg${o.grade != null ? '@' + o.grade + '%' : ''}`).join('、') || '—';
     return `<div class="rec-item" data-id="${r.id}">
       <div><b>${r.date} ${r.shift}</b> · ${r.line}
         <div class="meta">${outTxt}${r.synced ? '' : '<span class="unsync" title="待同步"></span>'}</div></div>
@@ -322,7 +331,7 @@ function renderHistory() {
 
 function showDetail(id) {
   const r = records.find(x => x.id === id); if (!r) return;
-  const outs = r.outputs.map(o => `${o.product}: ${o.kg} kg`).join('<br>') || '无';
+  const outs = r.outputs.map(o => `${o.product}: ${o.kg} kg${o.grade != null ? ' · ' + o.grade + '%' : ''}`).join('<br>') || '无';
   showModal(`<h3>${r.date} ${r.shift} · ${r.line}</h3>
     <table>
       <tr><td>运行时长</td><td>${r.runtime_h || '—'} h</td></tr>
@@ -475,7 +484,7 @@ $('exportCsv').onclick = () => {
   const head = '日期,班次,产线,运行h,处理量t,产出明细,Ta%,Nb%,停机h,停机原因,备注,记录人\n';
   const body = live.map(r => [
     r.date, r.shift, r.line, r.runtime_h, r.input_t,
-    r.outputs.map(o => `${o.product}:${o.kg}kg`).join(';'),
+    r.outputs.map(o => `${o.product}:${o.kg}kg${o.grade != null ? '@' + o.grade + '%' : ''}`).join(';'),
     r.ta_pct ?? '', r.nb_pct ?? '', r.downtime_h, `"${(r.downtime_reason || '').replace(/"/g, '""')}"`,
     `"${(r.note || '').replace(/"/g, '""')}"`, r.recorder
   ].join(',')).join('\n');
