@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>钽铌矿生产统计</title>
+<style>
+  :root {
+    --primary: #2563eb;
+    --danger: #ef4444;
+    --bg: #f1f5f9;
+    --card: #ffffff;
+    --text: #1e293b;
+    --muted: #64748b;
+    --border: #e2e8f0;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: var(--bg); color: var(--text); font-size: 15px; }
+  header { background: var(--primary); color: #fff; padding: 12px 16px; position: sticky; top: 0; z-index: 10; }
+  header h1 { font-size: 17px; font-weight: 600; }
+  #syncStatus { font-size: 12px; opacity: .9; margin-top: 2px; }
+  #syncStatus.pending { color: #fde047; }
+  nav { display: flex; background: var(--card); border-bottom: 1px solid var(--border); position: sticky; top: 58px; z-index: 9; }
+  nav button { flex: 1; padding: 12px 0; border: none; background: none; font-size: 14px; color: var(--muted); border-bottom: 2px solid transparent; min-height: 44px; }
+  nav button.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+  main { padding: 12px; max-width: 640px; margin: 0 auto; }
+  .card { background: var(--card); border-radius: 10px; padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+  .card h3 { font-size: 14px; color: var(--muted); margin-bottom: 10px; font-weight: 600; }
+  label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+  input, select, textarea { width: 100%; padding: 9px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 15px; background: #fff; box-sizing: border-box; }
+  input[type=date] { width: 160px; }
+  .row { display: flex; gap: 10px; margin-bottom: 10px; }
+  .row > div { flex: 1; }
+  .field { margin-bottom: 10px; }
+  button { min-height: 44px; padding: 8px 16px; border-radius: 8px; border: none; font-size: 15px; cursor: pointer; }
+  .primary { background: var(--primary); color: #fff; }
+  .secondary { background: var(--border); color: var(--text); }
+  .danger { background: var(--danger); color: #fff; }
+  .btn-block { width: 100%; margin-top: 6px; }
+  .quick-btns { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .quick-btns button { min-height: 34px; padding: 4px 12px; font-size: 13px; background: #eff6ff; color: var(--primary); border: 1px solid #bfdbfe; }
+  .output-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
+  .output-row input[name=pname] { flex: 1.4; }
+  .output-row input[name=pkg] { flex: 1; }
+  .output-row .del { min-height: 36px; min-width: 36px; padding: 0; background: #fee2e2; color: var(--danger); border-radius: 8px; }
+  .rec-item { background: var(--card); border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+  .rec-item .meta { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .rec-item .nums { text-align: right; font-size: 13px; }
+  .unsync { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #f59e0b; margin-left: 6px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { padding: 7px 6px; border-bottom: 1px solid var(--border); text-align: right; }
+  th { color: var(--muted); font-weight: 500; text-align: right; }
+  th:first-child, td:first-child { text-align: left; }
+  .modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; z-index: 100; }
+  .modal { background: #fff; border-radius: 12px; width: min(90%, 420px); max-height: 85vh; overflow-y: auto; padding: 16px; }
+  .modal h3 { margin-bottom: 12px; font-size: 16px; }
+  .modal .btns { display: flex; gap: 10px; margin-top: 14px; }
+  .modal .btns button { flex: 1; }
+  .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #1e293b; color: #fff; padding: 10px 20px; border-radius: 20px; font-size: 14px; z-index: 200; }
+  .empty { text-align: center; color: var(--muted); padding: 40px 0; font-size: 14px; }
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+  .stat-box { background: var(--card); border-radius: 10px; padding: 14px; text-align: center; }
+  .stat-box .v { font-size: 22px; font-weight: 700; color: var(--primary); }
+  .stat-box .k { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .hidden { display: none; }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>钽铌矿生产统计</h1>
+  <div id="syncStatus">检查网络中…</div>
+</header>
+
+<nav>
+  <button data-tab="entry" class="active">记一笔</button>
+  <button data-tab="history">历史</button>
+  <button data-tab="stats">统计</button>
+  <button data-tab="settings">设置</button>
+</nav>
+
+<main>
+  <!-- ============ 记一笔 ============ -->
+  <section id="tab-entry">
+    <div class="card">
+      <div class="row">
+        <div>
+          <label>日期</label>
+          <input type="date" id="fDate">
+        </div>
+        <div>
+          <label>班次</label>
+          <select id="fShift">
+            <option>全天</option><option>早班</option><option>中班</option><option>晚班</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>产线 / 工序</label>
+        <select id="fLine"></select>
+      </div>
+      <div class="row">
+        <div>
+          <label>运行时长（小时）</label>
+          <input type="number" id="fRuntime" min="0" step="0.5" inputmode="decimal" placeholder="如 6.5">
+        </div>
+        <div>
+          <label>处理量（吨）</label>
+          <input type="number" id="fInput" min="0" step="0.1" inputmode="decimal" placeholder="给矿量">
+        </div>
+      </div>
+      <div class="hint">处理量估算办法：铲斗数 × 每斗吨数，或 给料时间 × 小时流量</div>
+    </div>
+
+    <div class="card">
+      <h3>产出明细</h3>
+      <div class="quick-btns" id="quickProducts"></div>
+      <div id="outputRows"></div>
+      <button class="secondary btn-block" id="addOutput">+ 加一行产品</button>
+    </div>
+
+    <div class="card">
+      <h3>品位抽检（可选）</h3>
+      <div class="row">
+        <div><label>Ta %</label><input type="number" id="fTa" min="0" step="0.01" inputmode="decimal" placeholder="XRF读数"></div>
+        <div><label>Nb %</label><input type="number" id="fNb" min="0" step="0.01" inputmode="decimal" placeholder="XRF读数"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <div><label>停机时长（小时）</label><input type="number" id="fDown" min="0" step="0.5" inputmode="decimal" placeholder="0"></div>
+        <div><label>停机原因</label><input type="text" id="fDownReason" placeholder="如：缺柴油/断筛网"></div>
+      </div>
+      <div class="field">
+        <label>备注</label>
+        <textarea id="fNote" rows="2" placeholder="异常、故障、缺料等"></textarea>
+      </div>
+    </div>
+
+    <button class="primary btn-block" id="saveBtn" style="height:50px;font-size:16px">保存记录</button>
+    <div style="height:20px"></div>
+  </section>
+
+  <!-- ============ 历史 ============ -->
+  <section id="tab-history" class="hidden">
+    <div id="historyList"></div>
+  </section>
+
+  <!-- ============ 统计 ============ -->
+  <section id="tab-stats" class="hidden">
+    <div class="stat-grid" id="statCards"></div>
+    <div class="card">
+      <h3>按日汇总（最近30天）</h3>
+      <div style="overflow-x:auto"><table id="dailyTable"></table></div>
+    </div>
+    <div class="card">
+      <h3>按产品汇总（累计）</h3>
+      <div style="overflow-x:auto"><table id="prodTable"></table></div>
+    </div>
+  </section>
+
+  <!-- ============ 设置 ============ -->
+  <section id="tab-settings" class="hidden">
+    <div class="card">
+      <div class="field"><label>记录人</label><input type="text" id="sRecorder" placeholder="你的名字"></div>
+      <div class="field"><label>计划工作时长（小时/天，算运转率用）</label><input type="number" id="sPlanHours" min="1" step="0.5"></div>
+      <div class="field">
+        <label>同步服务器（Worker 地址）</label>
+        <input type="text" id="sWorker" placeholder="https://xxx.workers.dev/">
+        <div class="hint">从 Worker 地址打开页面时此项自动生效，无需填写</div>
+      </div>
+      <div class="field">
+        <label>访问密码</label>
+        <input type="text" id="sCode" placeholder="Worker 里设置的 ACCESS_CODE">
+      </div>
+      <button class="primary btn-block" id="saveSettings">保存设置</button>
+    </div>
+    <div class="card">
+      <h3>产线管理</h3>
+      <div id="lineList"></div>
+      <div class="row"><div><input type="text" id="newLine" placeholder="新产线名，如：跳汰机"></div>
+      <div style="flex:0 0 90px"><button class="secondary" id="addLine" style="width:100%">添加</button></div></div>
+    </div>
+    <div class="card">
+      <h3>数据</h3>
+      <button class="primary btn-block" id="syncNow">立即同步</button>
+      <button class="secondary btn-block" id="exportCsv" style="margin-top:8px">导出CSV备份</button>
+      <button class="danger btn-block" id="wipeLocal" style="margin-top:8px">清空本机数据</button>
+      <div class="hint">清空只删本机缓存，云端已同步的数据不受影响</div>
+    </div>
+  </section>
+</main>
+
+<div id="modalRoot"></div>
+
+<script>
+/* ================= 数据层 ================= */
+const LS_REC = 'mine_records_v1';
+const LS_SET = 'mine_settings_v1';
+
+const DEFAULT_SETTINGS = {
+  recorder: '',
+  planHours: 10,
+  workerUrl: '',
+  accessCode: '',
+  remotePath: 'data/production_log.json',
+  lines: ['洗矿机', '摇床', '手选组'],
+  products: ['手选精矿', '摇床精矿', '跳汰精矿', '中矿', '尾矿']
+};
+
+let settings = load(LS_SET, DEFAULT_SETTINGS);
+let records = load(LS_REC, []);
+
+function load(key, def) {
+  try { const v = JSON.parse(localStorage.getItem(key)); return v ?? structuredClone(def); }
+  catch(e) { return structuredClone(def); }
+}
+function save() { localStorage.setItem(LS_REC, JSON.stringify(records)); localStorage.setItem(LS_SET, JSON.stringify(settings)); }
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+function today() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function num(v) { const n = parseFloat(v); return isNaN(n) ? 0 : n; }
+
+/* ================= 记一笔 ================= */
+const $ = id => document.getElementById(id);
+let editId = null;
+
+function initEntry() {
+  $('fDate').value = today();
+  refreshLineSelect();
+  renderQuickProducts();
+  addOutputRow();
+}
+function refreshLineSelect() {
+  $('fLine').innerHTML = settings.lines.map(l => `<option>${l}</option>`).join('');
+}
+function renderQuickProducts() {
+  $('quickProducts').innerHTML = settings.products.map(p => `<button data-p="${p}">${p}</button>`).join('');
+  $('quickProducts').querySelectorAll('button').forEach(b => b.onclick = () => addOutputRow(b.dataset.p));
+}
+function addOutputRow(name = '', kg = '') {
+  const div = document.createElement('div');
+  div.className = 'output-row';
+  div.innerHTML = `<input name="pname" placeholder="产品名" value="${name}"><input name="pkg" type="number" min="0" step="0.01" inputmode="decimal" placeholder="kg" value="${kg}"><button class="del">×</button>`;
+  div.querySelector('.del').onclick = () => { if ($('outputRows').children.length > 1) div.remove(); };
+  $('outputRows').appendChild(div);
+}
+$('addOutput').onclick = () => addOutputRow();
+
+$('saveBtn').onclick = () => {
+  const outputs = [...$('outputRows').querySelectorAll('.output-row')]
+    .map(r => ({ product: r.querySelector('[name=pname]').value.trim(), kg: num(r.querySelector('[name=pkg]').value) }))
+    .filter(o => o.product || o.kg > 0);
+  if (!outputs.length && !num($('fInput').value) && !num($('fRuntime').value)) {
+    toast('至少填一项：处理量、运行时长或产出'); return;
+  }
+  const now = new Date().toISOString();
+  const rec = {
+    id: editId || uid(),
+    date: $('fDate').value,
+    shift: $('fShift').value,
+    line: $('fLine').value,
+    runtime_h: num($('fRuntime').value),
+    input_t: num($('fInput').value),
+    outputs,
+    ta_pct: num($('fTa').value) || null,
+    nb_pct: num($('fNb').value) || null,
+    downtime_h: num($('fDown').value),
+    downtime_reason: $('fDownReason').value.trim(),
+    note: $('fNote').value.trim(),
+    recorder: settings.recorder,
+    created_at: editId ? (records.find(r => r.id === editId)?.created_at || now) : now,
+    updated_at: now,
+    synced: false,
+    deleted: false
+  };
+  const idx = records.findIndex(r => r.id === rec.id);
+  if (idx >= 0) records[idx] = rec; else records.push(rec);
+  editId = null;
+  save();
+  resetForm();
+  renderHistory(); renderStats(); updateSyncStatus();
+  toast('已保存到本机' + (navigator.onLine ? '，同步中…' : '，有网后自动同步'));
+  trySync();
+};
+
+function resetForm() {
+  $('fRuntime').value = $('fInput').value = $('fTa').value = $('fNb').value = $('fDown').value = $('fDownReason').value = $('fNote').value = '';
+  $('outputRows').innerHTML = ''; addOutputRow();
+  $('saveBtn').textContent = '保存记录';
+}
+
+function loadToForm(rec) {
+  editId = rec.id;
+  $('fDate').value = rec.date; $('fShift').value = rec.shift; $('fLine').value = rec.line;
+  $('fRuntime').value = rec.runtime_h || ''; $('fInput').value = rec.input_t || '';
+  $('outputRows').innerHTML = '';
+  (rec.outputs.length ? rec.outputs : [{}]).forEach(o => addOutputRow(o.product || '', o.kg || ''));
+  $('fTa').value = rec.ta_pct ?? ''; $('fNb').value = rec.nb_pct ?? '';
+  $('fDown').value = rec.downtime_h || ''; $('fDownReason').value = rec.downtime_reason || '';
+  $('fNote').value = rec.note || '';
+  $('saveBtn').textContent = '更新记录';
+  switchTab('entry');
+}
+
+/* ================= 历史 ================= */
+function renderHistory() {
+  const list = records.filter(r => !r.deleted).sort((a, b) => (b.date + b.created_at).localeCompare(a.date + a.created_at));
+  if (!list.length) { $('historyList').innerHTML = '<div class="empty">暂无记录</div>'; return; }
+  $('historyList').innerHTML = list.map(r => {
+    const outTxt = r.outputs.map(o => `${o.product}${o.kg}kg`).join('、') || '—';
+    return `<div class="rec-item" data-id="${r.id}">
+      <div><b>${r.date} ${r.shift}</b> · ${r.line}
+        <div class="meta">${outTxt}${r.synced ? '' : '<span class="unsync" title="待同步"></span>'}</div></div>
+      <div class="nums">${r.input_t ? r.input_t + 't' : ''}<br>${r.runtime_h ? r.runtime_h + 'h' : ''}</div>
+    </div>`;
+  }).join('');
+  $('historyList').querySelectorAll('.rec-item').forEach(el => el.onclick = () => showDetail(el.dataset.id));
+}
+
+function showDetail(id) {
+  const r = records.find(x => x.id === id); if (!r) return;
+  const outs = r.outputs.map(o => `${o.product}: ${o.kg} kg`).join('<br>') || '无';
+  showModal(`<h3>${r.date} ${r.shift} · ${r.line}</h3>
+    <table>
+      <tr><td>运行时长</td><td>${r.runtime_h || '—'} h</td></tr>
+      <tr><td>处理量</td><td>${r.input_t || '—'} t</td></tr>
+      <tr><td>产出</td><td>${outs}</td></tr>
+      <tr><td>品位</td><td>${r.ta_pct ? 'Ta ' + r.ta_pct + '%' : ''} ${r.nb_pct ? 'Nb ' + r.nb_pct + '%' : ''}</td></tr>
+      <tr><td>停机</td><td>${r.downtime_h || 0} h ${r.downtime_reason || ''}</td></tr>
+      <tr><td>备注</td><td>${r.note || '—'}</td></tr>
+      <tr><td>记录人</td><td>${r.recorder || '—'}</td></tr>
+    </table>
+    <div class="btns">
+      <button class="secondary" id="mEdit">编辑</button>
+      <button class="danger" id="mDel">删除</button>
+      <button class="secondary" id="mClose">关闭</button>
+    </div>`);
+  $('mEdit').onclick = () => { closeModal(); loadToForm(r); };
+  $('mDel').onclick = () => {
+    closeModal();
+    showModal(`<h3>确认删除？</h3><p style="color:var(--muted)">删除后不可恢复（云端同步时会标记删除）</p>
+      <div class="btns"><button class="secondary" id="cCancel">取消</button><button class="danger" id="cOk">确认删除</button></div>`);
+    $('cCancel').onclick = closeModal;
+    $('cOk').onclick = () => { r.deleted = true; r.synced = false; r.updated_at = new Date().toISOString(); save(); renderHistory(); renderStats(); updateSyncStatus(); closeModal(); trySync(); };
+  };
+}
+
+/* ================= 统计 ================= */
+function renderStats() {
+  const live = records.filter(r => !r.deleted);
+  const since7 = new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10);
+  const wk = live.filter(r => r.date >= since7);
+  const sumKg = arr => arr.reduce((s, r) => s + r.outputs.reduce((a, o) => a + o.kg, 0), 0);
+  const sumIn = arr => arr.reduce((s, r) => s + r.input_t, 0);
+  const sumRun = arr => arr.reduce((s, r) => s + r.runtime_h, 0);
+  $('statCards').innerHTML = `
+    <div class="stat-box"><div class="v">${sumIn(wk).toFixed(1)}t</div><div class="k">近7天处理量</div></div>
+    <div class="stat-box"><div class="v">${sumKg(wk).toFixed(1)}kg</div><div class="k">近7天产出</div></div>
+    <div class="stat-box"><div class="v">${sumIn(live).toFixed(1)}t</div><div class="k">累计处理量</div></div>
+    <div class="stat-box"><div class="v">${sumKg(live).toFixed(1)}kg</div><div class="k">累计产出</div></div>`;
+
+  // 按日汇总
+  const days = {};
+  live.forEach(r => {
+    const d = days[r.date] = days[r.date] || { input: 0, kg: 0, run: 0, down: 0 };
+    d.input += r.input_t; d.kg += r.outputs.reduce((a, o) => a + o.kg, 0); d.run += r.runtime_h; d.down += r.downtime_h;
+  });
+  const rows = Object.keys(days).sort().reverse().slice(0, 30);
+  $('dailyTable').innerHTML = `<tr><th>日期</th><th>处理量t</th><th>产出kg</th><th>产率kg/t</th><th>运行h</th><th>运转率</th></tr>` +
+    rows.map(d => {
+      const x = days[d];
+      const yield_ = x.input > 0 ? (x.kg / x.input).toFixed(2) : '—';
+      const avail = x.run > 0 ? Math.round(x.run / settings.planHours * 100) + '%' : '—';
+      return `<tr><td>${d.slice(5)}</td><td>${x.input.toFixed(1)}</td><td>${x.kg.toFixed(1)}</td><td>${yield_}</td><td>${x.run.toFixed(1)}</td><td>${avail}</td></tr>`;
+    }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted)">暂无数据</td></tr>';
+
+  // 按产品汇总
+  const prods = {};
+  live.forEach(r => r.outputs.forEach(o => { prods[o.product] = (prods[o.product] || 0) + o.kg; }));
+  $('prodTable').innerHTML = `<tr><th>产品</th><th>累计kg</th></tr>` +
+    Object.entries(prods).sort((a, b) => b[1] - a[1]).map(([p, k]) => `<tr><td>${p}</td><td>${k.toFixed(1)}</td></tr>`).join('') ||
+    '<tr><td colspan="2" style="text-align:center;color:var(--muted)">暂无数据</td></tr>';
+}
+
+/* ================= 同步 ================= */
+let syncing = false;
+
+async function workerPost(payload) {
+  const res = await fetch(settings.workerUrl || location.origin, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...payload, code: settings.accessCode })
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+
+async function trySync() {
+  if (syncing || !navigator.onLine || !settings.workerUrl) { updateSyncStatus(); return; }
+  syncing = true; updateSyncStatus('同步中…');
+  try {
+    const remote = await workerPost({ action: 'read', path: settings.remotePath });
+    let remoteRecs = [];
+    if (remote && remote.content) { try { remoteRecs = JSON.parse(remote.content).records || []; } catch(e) {} }
+    // 合并：按 id 取 updated_at 较新的
+    const map = new Map();
+    remoteRecs.forEach(r => map.set(r.id, r));
+    records.forEach(r => {
+      const rem = map.get(r.id);
+      if (!rem || r.updated_at > rem.updated_at) map.set(r.id, r);
+    });
+    const merged = [...map.values()];
+    const needPush = merged.length !== remoteRecs.length ||
+      merged.some(r => { const rem = remoteRecs.find(x => x.id === r.id); return !rem || rem.updated_at !== r.updated_at; });
+    if (needPush) {
+      await workerPost({ action: 'save', path: settings.remotePath, content: JSON.stringify({ records: merged, updated: new Date().toISOString() }), message: 'Mine production sync' });
+    }
+    records = merged.map(r => ({ ...r, synced: true }));
+    save(); renderHistory(); renderStats();
+    updateSyncStatus('已同步 ✓ ' + new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }));
+  } catch (e) {
+    updateSyncStatus();
+  }
+  syncing = false;
+}
+
+function updateSyncStatus(msg) {
+  const el = $('syncStatus');
+  if (msg) { el.textContent = msg; el.className = ''; return; }
+  const pending = records.filter(r => !r.synced).length;
+  if (!navigator.onLine) { el.textContent = `离线模式 · ${pending}条待同步`; el.className = 'pending'; }
+  else if (pending) { el.textContent = `${pending} 条待同步`; el.className = 'pending'; }
+  else { el.textContent = '已同步'; el.className = ''; }
+}
+
+window.addEventListener('online', trySync);
+setInterval(() => { if (navigator.onLine && records.some(r => !r.synced)) trySync(); }, 60000);
+$('syncNow').onclick = trySync;
+
+/* ================= 设置 ================= */
+function renderSettings() {
+  $('sRecorder').value = settings.recorder;
+  $('sPlanHours').value = settings.planHours;
+  $('sWorker').value = settings.workerUrl;
+  $('sCode').value = settings.accessCode;
+  renderLineList();
+}
+$('saveSettings').onclick = () => {
+  settings.recorder = $('sRecorder').value.trim();
+  settings.planHours = num($('sPlanHours').value) || 10;
+  settings.workerUrl = $('sWorker').value.trim();
+  settings.accessCode = $('sCode').value.trim();
+  save(); toast('设置已保存');
+};
+function renderLineList() {
+  $('lineList').innerHTML = settings.lines.map((l, i) =>
+    `<div class="rec-item"><div>${l}</div><button class="danger" data-i="${i}" style="min-height:36px;padding:4px 14px">删除</button></div>`).join('');
+  $('lineList').querySelectorAll('button').forEach(b => b.onclick = () => {
+    showModal(`<h3>删除产线「${settings.lines[b.dataset.i]}」？</h3><p style="color:var(--muted)">历史记录不受影响</p>
+      <div class="btns"><button class="secondary" id="lc">取消</button><button class="danger" id="lo">确认删除</button></div>`);
+    $('lc').onclick = closeModal;
+    $('lo').onclick = () => { settings.lines.splice(+b.dataset.i, 1); save(); renderLineList(); refreshLineSelect(); closeModal(); };
+  });
+}
+$('addLine').onclick = () => {
+  const v = $('newLine').value.trim(); if (!v) return;
+  settings.lines.push(v); $('newLine').value = ''; save(); renderLineList(); refreshLineSelect();
+};
+
+$('exportCsv').onclick = () => {
+  const live = records.filter(r => !r.deleted);
+  const head = '日期,班次,产线,运行h,处理量t,产出明细,Ta%,Nb%,停机h,停机原因,备注,记录人\n';
+  const body = live.map(r => [
+    r.date, r.shift, r.line, r.runtime_h, r.input_t,
+    r.outputs.map(o => `${o.product}:${o.kg}kg`).join(';'),
+    r.ta_pct ?? '', r.nb_pct ?? '', r.downtime_h, `"${(r.downtime_reason || '').replace(/"/g, '""')}"`,
+    `"${(r.note || '').replace(/"/g, '""')}"`, r.recorder
+  ].join(',')).join('\n');
+  const blob = new Blob(['﻿' + head + body], { type: 'text/csv' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = '生产记录_' + today() + '.csv'; a.click();
+};
+
+$('wipeLocal').onclick = () => {
+  showModal(`<h3>清空本机数据？</h3><p style="color:var(--muted)">本机记录将全部删除，已同步到云端的不受影响。此操作不可撤销。</p>
+    <div class="btns"><button class="secondary" id="wc">取消</button><button class="danger" id="wo">确认清空</button></div>`);
+  $('wc').onclick = closeModal;
+  $('wo').onclick = () => { records = []; save(); renderHistory(); renderStats(); updateSyncStatus(); closeModal(); };
+};
+
+/* ================= 通用 ================= */
+function showModal(html) { $('modalRoot').innerHTML = `<div class="modal-mask"><div class="modal">${html}</div></div>`;
+  $('modalRoot').querySelector('.modal-mask').onclick = e => { if (e.target.className === 'modal-mask') closeModal(); };
+  document.addEventListener('keydown', escClose);
+}
+function closeModal() { $('modalRoot').innerHTML = ''; document.removeEventListener('keydown', escClose); }
+function escClose(e) { if (e.key === 'Escape') closeModal(); }
+function toast(msg) {
+  const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t); setTimeout(() => t.remove(), 2500);
+}
+function switchTab(name) {
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  ['entry', 'history', 'stats', 'settings'].forEach(t => $('tab-' + t).classList.toggle('hidden', t !== name));
+}
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
+
+/* ================= 启动 ================= */
+initEntry(); renderHistory(); renderStats(); renderSettings(); updateSyncStatus();
+trySync();
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  navigator.serviceWorker.register('mine_sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
