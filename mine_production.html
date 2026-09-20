@@ -192,6 +192,7 @@
       <button class="secondary btn-block" id="exportCsv" style="margin-top:8px">导出CSV备份</button>
       <button class="danger btn-block" id="wipeLocal" style="margin-top:8px">清空本机数据</button>
       <div class="hint">清空只删本机缓存，云端已同步的数据不受影响</div>
+      <div class="hint" id="verInfo" style="margin-top:10px;text-align:center"></div>
     </div>
   </section>
 </main>
@@ -200,6 +201,7 @@
 
 <script>
 /* ================= 数据层 ================= */
+const APP_VERSION = '2026-09-20-v1';
 const LS_REC = 'mine_records_v1';
 const LS_SET = 'mine_settings_v1';
 
@@ -526,8 +528,28 @@ function switchTab(name) {
 }
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
 
+/* ================= 自动更新检查 ================= */
+async function checkUpdate() {
+  if (!navigator.onLine) return;
+  try {
+    const reg = await navigator.serviceWorker?.getRegistration();
+    if (reg) await reg.update();   // 先强制检查SW更新
+    const res = await fetch('./mine_production.html?ts=' + Date.now(), { cache: 'no-store' });
+    const txt = await res.text();
+    const m = txt.match(/APP_VERSION\s*=\s*'([^']+)'/);
+    if (m && m[1] !== APP_VERSION && !sessionStorage.getItem('mine_reloaded')) {
+      sessionStorage.setItem('mine_reloaded', '1');
+      toast('发现新版本，正在更新…');
+      setTimeout(() => location.reload(true), 1000);
+    }
+  } catch (e) {}
+}
+window.addEventListener('visibilitychange', () => { if (!document.hidden) checkUpdate(); });
+window.addEventListener('focus', checkUpdate);
+
 /* ================= 启动 ================= */
 initEntry(); renderHistory(); renderStats(); renderSettings(); updateSyncStatus();
+$('verInfo').textContent = '版本 ' + APP_VERSION;
 trySync();
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('mine_sw.js').catch(() => {});
