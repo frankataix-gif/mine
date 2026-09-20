@@ -130,7 +130,7 @@
       <div class="quick-btns" id="quickProducts"></div>
       <div id="outputRows"></div>
       <button class="secondary btn-block" id="addOutput">+ 加一行产品</button>
-      <div class="hint">点上方产品名加行；每行可拍品位检测照（自动读数）和矿石照</div>
+      <div class="hint">每行：产品名 + 重量kg + 品位%（XRF读数，可空）</div>
     </div>
 
     <div class="card">
@@ -247,6 +247,7 @@ function initEntry() {
   $('fDate').value = today();
   refreshLineSelect();
   renderQuickProducts();
+  addOutputRow();
 }
 function refreshLineSelect() {
   $('fLine').innerHTML = settings.lines.map(l => `<option>${l}</option>`).join('');
@@ -271,7 +272,7 @@ function addOutputRow(name = '', kg = '', grade = '') {
   </div>
   <div class="parea"></div>`;
   div.pointData = { xrfPhotos: [], xrf: [], ore: [] };
-  div.querySelector('.del').onclick = () => div.remove();
+  div.querySelector('.del').onclick = () => { if ($('outputRows').children.length > 1) div.remove(); };
   div.querySelector('.pxrf').onclick = () => { photoTarget = div; $('fXrfPhoto').click(); };
   div.querySelector('.pore').onclick = () => { photoTarget = div; $('fOrePhoto').click(); };
   $('outputRows').appendChild(div);
@@ -332,9 +333,12 @@ function renderPointArea(t) {
   let h = '';
   if (pt.xrfPhotos.length || pt.ore.length)
     h += `<div>${thumbs(pt.xrfPhotos, 'x')}${thumbs(pt.ore, 'o')}</div>`;
-  if (pt.xrf.length)
-    h += '<div style="margin-top:2px">' + pt.xrf.map((r, ri) =>
-      `<span style="display:inline-block;margin:2px 10px 2px 0;font-size:13px"><b>${r.el}</b> ${r.val}% <a href="javascript:void 0" data-edit="${ri}" style="color:var(--primary)">编辑</a></span>`
+  // 已填进品位栏的元素不再重复显示（入选点=Ta/Nb，产品行=Ta）
+  const filled = t === 'feed' ? ['Ta', 'Nb'] : ['Ta'];
+  const shown = pt.xrf.filter(r => !filled.includes(r.el));
+  if (shown.length)
+    h += '<div style="margin-top:2px">' + shown.map(r =>
+      `<span style="display:inline-block;margin:2px 10px 2px 0;font-size:13px"><b>${r.el}</b> ${r.val}% <a href="javascript:void 0" data-edit="${pt.xrf.indexOf(r)}" style="color:var(--primary)">编辑</a></span>`
     ).join('') + '</div>';
   box.innerHTML = h;
   box.querySelectorAll('[data-delp]').forEach(b => b.onclick = () => {
@@ -428,7 +432,7 @@ function resetForm() {
   $('fRuntime').value = $('fInput').value = $('fTa').value = $('fNb').value = $('fDown').value = $('fDownReason').value = $('fNote').value = '';
   feedData.xrfPhotos = []; feedData.xrf = []; feedData.ore = []; renderPointArea('feed');
   $('fXrfPhoto').value = ''; $('fOrePhoto').value = '';
-  $('outputRows').innerHTML = '';
+  $('outputRows').innerHTML = ''; addOutputRow();
   $('saveBtn').textContent = '保存记录';
 }
 
@@ -437,7 +441,7 @@ function loadToForm(rec) {
   $('fDate').value = rec.date; $('fShift').value = rec.shift; $('fLine').value = rec.line;
   $('fRuntime').value = rec.runtime_h || ''; $('fInput').value = rec.input_t || '';
   $('outputRows').innerHTML = '';
-  (rec.outputs || []).forEach(o => {
+  (rec.outputs.length ? rec.outputs : [{}]).forEach(o => {
     addOutputRow(o.product || '', o.kg || '', o.grade ?? '');
     const row = $('outputRows').lastElementChild;
     row.pointData.xrfPhotos = (o.xrf_photos || []).slice();
