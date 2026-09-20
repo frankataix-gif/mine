@@ -242,14 +242,13 @@ function initEntry() {
   $('fDate').value = today();
   refreshLineSelect();
   renderQuickProducts();
-  addOutputRow();
 }
 function refreshLineSelect() {
   $('fLine').innerHTML = settings.lines.map(l => `<option>${l}</option>`).join('');
 }
 const LINE_PRODUCTS = {
-  '洗矿机': ['细泥-1.5mm', '中砂1.5-4mm', '粗砂4-10mm', '大石头+10mm'],
-  '摇床': ['精矿', '中矿', '尾矿'],
+  '洗矿机': ['细泥-1.5mm', '中砂1.5-4mm', '粗砂+4mm'],
+  '摇床': ['精矿', '中矿', '精+中综合', '尾矿'],
   '手选组': ['手选精矿', '手选废石'],
 };
 function renderQuickProducts() {
@@ -428,7 +427,7 @@ function resetForm() {
   $('fRuntime').value = $('fInput').value = $('fDown').value = $('fDownReason').value = $('fNote').value = '';
   feedData.xrfPhotos = []; feedData.xrf = []; feedData.ore = []; renderPointArea('feed');
   $('fXrfPhoto').value = ''; $('fOrePhoto').value = '';
-  $('outputRows').innerHTML = ''; addOutputRow();
+  $('outputRows').innerHTML = '';
   $('saveBtn').textContent = '保存记录';
 }
 
