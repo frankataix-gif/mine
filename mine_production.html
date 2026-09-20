@@ -101,15 +101,20 @@
         <label>产线 / 工序</label>
         <select id="fLine"></select>
       </div>
+      <h3 style="margin-top:6px">入选（给矿）</h3>
       <div class="row">
-        <div>
-          <label>运行时长（小时）</label>
-          <input type="number" id="fRuntime" min="0" step="0.5" inputmode="decimal" placeholder="如 6.5">
-        </div>
         <div>
           <label>处理量（吨）</label>
           <input type="number" id="fInput" min="0" step="0.1" inputmode="decimal" placeholder="给矿量">
         </div>
+        <div>
+          <label>运行时长（小时）</label>
+          <input type="number" id="fRuntime" min="0" step="0.5" inputmode="decimal" placeholder="如 6.5">
+        </div>
+      </div>
+      <div class="row">
+        <div><label>入选品位 Ta %</label><input type="number" id="fTa" min="0" step="0.01" inputmode="decimal" placeholder="XRF读数"></div>
+        <div><label>入选品位 Nb %</label><input type="number" id="fNb" min="0" step="0.01" inputmode="decimal" placeholder="XRF读数"></div>
       </div>
       <div class="hint">处理量估算办法：铲斗数 × 每斗吨数，或 给料时间 × 小时流量</div>
     </div>
@@ -120,14 +125,6 @@
       <div id="outputRows"></div>
       <button class="secondary btn-block" id="addOutput">+ 加一行产品</button>
       <div class="hint">每行：产品名 + 重量kg + 品位%（XRF读数，可空）</div>
-    </div>
-
-    <div class="card">
-      <h3>入选品位（可选）</h3>
-      <div class="row">
-        <div><label>Ta %</label><input type="number" id="fTa" min="0" step="0.01" inputmode="decimal" placeholder="XRF读数"></div>
-        <div><label>Nb %</label><input type="number" id="fNb" min="0" step="0.01" inputmode="decimal" placeholder="XRF读数"></div>
-      </div>
     </div>
 
     <div class="card">
@@ -341,7 +338,7 @@ function showDetail(id) {
       <tr><td>运行时长</td><td>${r.runtime_h || '—'} h</td></tr>
       <tr><td>处理量</td><td>${r.input_t || '—'} t</td></tr>
       <tr><td>产出</td><td>${outs}</td></tr>
-      <tr><td>品位</td><td>${r.ta_pct ? 'Ta ' + r.ta_pct + '%' : ''} ${r.nb_pct ? 'Nb ' + r.nb_pct + '%' : ''}</td></tr>
+      <tr><td>入选品位</td><td>${r.ta_pct ? 'Ta ' + r.ta_pct + '%' : ''} ${r.nb_pct ? 'Nb ' + r.nb_pct + '%' : ''}</td></tr>
       <tr><td>停机</td><td>${r.downtime_h || 0} h ${r.downtime_reason || ''}</td></tr>
       <tr><td>备注</td><td>${r.note || '—'}</td></tr>
       <tr><td>记录人</td><td>${r.recorder || '—'}</td></tr>
@@ -493,7 +490,7 @@ $('addLine').onclick = () => {
 
 $('exportCsv').onclick = () => {
   const live = records.filter(r => !r.deleted);
-  const head = '日期,班次,产线,运行h,处理量t,产出明细,Ta%,Nb%,停机h,停机原因,备注,记录人\n';
+  const head = '日期,班次,产线,运行h,处理量t,产出明细,入选Ta%,入选Nb%,停机h,停机原因,备注,记录人\n';
   const body = live.map(r => [
     r.date, r.shift, r.line, r.runtime_h, r.input_t,
     r.outputs.map(o => `${o.product}:${o.kg}kg${o.grade != null ? '@' + o.grade + '%' : ''}`).join(';'),
