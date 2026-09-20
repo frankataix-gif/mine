@@ -128,15 +128,15 @@
     </div>
 
     <div class="card">
-      <h3>XRF照片（可选）</h3>
+      <h3>XRF照片（可选，可多张）</h3>
       <input type="file" id="fPhoto" accept="image/*" capture="environment" style="display:none">
-      <input type="file" id="fPhotoFile" accept="image/*" style="display:none">
+      <input type="file" id="fPhotoFile" accept="image/*" multiple style="display:none">
       <div class="row">
         <div><button class="secondary btn-block" id="photoBtn" style="margin-top:0">📷 拍摄</button></div>
         <div><button class="secondary btn-block" id="photoFileBtn" style="margin-top:0">🖼 上传图片</button></div>
       </div>
-      <img id="photoPrev" style="display:none;width:100%;margin-top:8px;border-radius:8px">
-      <div class="hint">拍下光谱仪读数屏，或从相册上传截图，照片随记录上传存档</div>
+      <div id="photoList"></div>
+      <div class="hint">拍光谱仪读数屏，可多拍几张；点"识别"自动读数，再点数值填入对应品位栏</div>
     </div>
 
     <div class="card">
@@ -273,27 +273,75 @@ function addOutputRow(name = '', kg = '', grade = '') {
 $('fLine').addEventListener('change', renderQuickProducts);
 $('addOutput').onclick = () => addOutputRow();
 
-/* ================= XRF照片 ================= */
-let pendingPhoto = null;
+/* ================= XRF照片（多张） ================= */
+let pendingPhotos = [];
 $('photoBtn').onclick = () => $('fPhoto').click();
 $('photoFileBtn').onclick = () => $('fPhotoFile').click();
+
 function handlePhoto(e) {
-  const f = e.target.files[0]; if (!f) return;
-  const img = new Image();
-  img.onload = () => {
-    const c = document.createElement('canvas');
-    const s = Math.min(1, 800 / Math.max(img.width, img.height));
-    c.width = img.width * s; c.height = img.height * s;
-    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-    pendingPhoto = c.toDataURL('image/jpeg', 0.6);
-    $('photoPrev').src = pendingPhoto; $('photoPrev').style.display = 'block';
-    URL.revokeObjectURL(img.src);
-    toast('照片已附加');
-  };
-  img.src = URL.createObjectURL(f);
+  [...e.target.files].forEach(f => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      const s = Math.min(1, 800 / Math.max(img.width, img.height));
+      c.width = img.width * s; c.height = img.height * s;
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      pendingPhotos.push(c.toDataURL('image/jpeg', 0.6));
+      URL.revokeObjectURL(img.src);
+      renderPhotoList();
+      toast('照片已附加');
+    };
+    img.src = URL.createObjectURL(f);
+  });
 }
 $('fPhoto').onchange = handlePhoto;
 $('fPhotoFile').onchange = handlePhoto;
+
+function renderPhotoList() {
+  $('photoList').innerHTML = pendingPhotos.map((p, i) => `
+    <div style="margin-top:10px">
+      <img src="${p}" style="width:100%;border-radius:8px">
+      <div class="row" style="margin-top:6px">
+        <div><button class="secondary btn-block" data-ocr="${i}">🔍 识别读数</button></div>
+        <div style="flex:0 0 90px"><button class="danger btn-block" data-del="${i}">删除</button></div>
+      </div>
+      <div class="ocr-result" id="ocr${i}" style="font-size:13px;margin-top:4px"></div>
+    </div>`).join('');
+  $('photoList').querySelectorAll('[data-del]').forEach(b => b.onclick = () => { pendingPhotos.splice(+b.dataset.del, 1); renderPhotoList(); });
+  $('photoList').querySelectorAll('[data-ocr]').forEach(b => b.onclick = () => ocrPhoto(+b.dataset.ocr));
+}
+
+async function ocrPhoto(i) {
+  const panel = $('ocr' + i);
+  panel.innerHTML = '识别中…（首次约10–20秒）';
+  try {
+    const j = await workerPost({ action: 'ocr', images: [pendingPhotos[i]] });
+    if (j.error) { panel.innerHTML = '识别失败：' + j.error; return; }
+    const els = j.elements || {};
+    const keys = Object.keys(els);
+    if (!keys.length) { panel.innerHTML = '没读到数值，换个角度重拍再试'; return; }
+    const prods = [...document.querySelectorAll('#outputRows [name=pname]')].map(x => x.value.trim()).filter(Boolean);
+    panel.innerHTML = keys.map(k => {
+      const btns = (k === 'Ta' || k === 'Nb')
+        ? `<button class="secondary" data-fill="feed-${k}">→入选${k}</button>` : '';
+      return `<div style="display:flex;align-items:center;gap:6px;margin:4px 0;flex-wrap:wrap">
+        <b style="min-width:70px">${k} ${els[k]}%</b>${btns}
+        ${prods.map((p, pi) => `<button class="secondary" data-fill="prod-${pi}-${k}">→${p}</button>`).join('')}
+      </div>`;
+    }).join('');
+    panel.querySelectorAll('[data-fill]').forEach(b => b.onclick = () => {
+      const parts = b.dataset.fill.split('-');
+      const kind = parts[0], elKey = parts[parts.length - 1], val = els[elKey];
+      if (kind === 'feed') {
+        $(elKey === 'Ta' ? 'fTa' : 'fNb').value = val;
+        toast(`已填入入选品位 ${elKey}=${val}%`);
+      } else {
+        const row = document.querySelectorAll('#outputRows .output-row')[+parts[1]];
+        if (row) { row.querySelector('[name=pgrade]').value = val; toast(`已填入 ${elKey} ${val}%`); }
+      }
+    });
+  } catch (e) { panel.innerHTML = '识别失败：网络问题'; }
+}
 
 $('saveBtn').onclick = () => {
   const outputs = [...$('outputRows').querySelectorAll('.output-row')]
@@ -316,7 +364,8 @@ $('saveBtn').onclick = () => {
     downtime_h: num($('fDown').value),
     downtime_reason: $('fDownReason').value.trim(),
     note: $('fNote').value.trim(),
-    photo: pendingPhoto,
+    photos: pendingPhotos.slice(),
+    photo: pendingPhotos[0] || null,
     recorder: settings.recorder,
     created_at: editId ? (records.find(r => r.id === editId)?.created_at || now) : now,
     updated_at: now,
@@ -335,7 +384,7 @@ $('saveBtn').onclick = () => {
 
 function resetForm() {
   $('fRuntime').value = $('fInput').value = $('fTa').value = $('fNb').value = $('fDown').value = $('fDownReason').value = $('fNote').value = '';
-  pendingPhoto = null; $('photoPrev').style.display = 'none'; $('fPhoto').value = ''; $('fPhotoFile').value = '';
+  pendingPhotos = []; renderPhotoList(); $('fPhoto').value = ''; $('fPhotoFile').value = '';
   $('outputRows').innerHTML = ''; addOutputRow();
   $('saveBtn').textContent = '保存记录';
 }
@@ -349,8 +398,8 @@ function loadToForm(rec) {
   $('fTa').value = rec.ta_pct ?? ''; $('fNb').value = rec.nb_pct ?? '';
   $('fDown').value = rec.downtime_h || ''; $('fDownReason').value = rec.downtime_reason || '';
   $('fNote').value = rec.note || '';
-  pendingPhoto = rec.photo || null;
-  if (pendingPhoto) { $('photoPrev').src = pendingPhoto; $('photoPrev').style.display = 'block'; } else { $('photoPrev').style.display = 'none'; }
+  pendingPhotos = rec.photos || (rec.photo ? [rec.photo] : []);
+  renderPhotoList();
   $('saveBtn').textContent = '更新记录';
   switchTab('entry');
 }
@@ -383,7 +432,7 @@ function showDetail(id) {
       <tr><td>备注</td><td>${r.note || '—'}</td></tr>
       <tr><td>记录人</td><td>${r.recorder || '—'}</td></tr>
     </table>
-    ${r.photo ? `<img src="${r.photo}" style="width:100%;border-radius:8px;margin-top:8px" onclick="window.open(this.src)">` : ''}
+    ${(r.photos || (r.photo ? [r.photo] : [])).map(p => `<img src="${p}" style="width:100%;border-radius:8px;margin-top:8px">`).join('')}
     <div class="btns">
       <button class="secondary" id="mEdit">编辑</button>
       <button class="danger" id="mDel">删除</button>
