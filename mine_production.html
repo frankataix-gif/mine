@@ -128,6 +128,14 @@
     </div>
 
     <div class="card">
+      <h3>XRF照片（可选）</h3>
+      <input type="file" id="fPhoto" accept="image/*" capture="environment" style="display:none">
+      <button class="secondary btn-block" id="photoBtn">📷 拍摄 XRF 屏幕</button>
+      <img id="photoPrev" style="display:none;width:100%;margin-top:8px;border-radius:8px">
+      <div class="hint">拍下光谱仪读数屏，照片随记录上传存档</div>
+    </div>
+
+    <div class="card">
       <div class="row">
         <div><label>停机时长（小时）</label><input type="number" id="fDown" min="0" step="0.5" inputmode="decimal" placeholder="0"></div>
         <div><label>停机原因</label><input type="text" id="fDownReason" placeholder="如：缺柴油/断筛网"></div>
@@ -261,6 +269,25 @@ function addOutputRow(name = '', kg = '', grade = '') {
 $('fLine').addEventListener('change', renderQuickProducts);
 $('addOutput').onclick = () => addOutputRow();
 
+/* ================= XRF照片 ================= */
+let pendingPhoto = null;
+$('photoBtn').onclick = () => $('fPhoto').click();
+$('fPhoto').onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  const img = new Image();
+  img.onload = () => {
+    const c = document.createElement('canvas');
+    const s = Math.min(1, 800 / Math.max(img.width, img.height));
+    c.width = img.width * s; c.height = img.height * s;
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    pendingPhoto = c.toDataURL('image/jpeg', 0.6);
+    $('photoPrev').src = pendingPhoto; $('photoPrev').style.display = 'block';
+    URL.revokeObjectURL(img.src);
+    toast('照片已附加');
+  };
+  img.src = URL.createObjectURL(f);
+};
+
 $('saveBtn').onclick = () => {
   const outputs = [...$('outputRows').querySelectorAll('.output-row')]
     .map(r => ({ product: r.querySelector('[name=pname]').value.trim(), kg: num(r.querySelector('[name=pkg]').value), grade: num(r.querySelector('[name=pgrade]').value) || null }))
@@ -282,6 +309,7 @@ $('saveBtn').onclick = () => {
     downtime_h: num($('fDown').value),
     downtime_reason: $('fDownReason').value.trim(),
     note: $('fNote').value.trim(),
+    photo: pendingPhoto,
     recorder: settings.recorder,
     created_at: editId ? (records.find(r => r.id === editId)?.created_at || now) : now,
     updated_at: now,
@@ -300,6 +328,7 @@ $('saveBtn').onclick = () => {
 
 function resetForm() {
   $('fRuntime').value = $('fInput').value = $('fTa').value = $('fNb').value = $('fDown').value = $('fDownReason').value = $('fNote').value = '';
+  pendingPhoto = null; $('photoPrev').style.display = 'none'; $('fPhoto').value = '';
   $('outputRows').innerHTML = ''; addOutputRow();
   $('saveBtn').textContent = '保存记录';
 }
@@ -313,6 +342,8 @@ function loadToForm(rec) {
   $('fTa').value = rec.ta_pct ?? ''; $('fNb').value = rec.nb_pct ?? '';
   $('fDown').value = rec.downtime_h || ''; $('fDownReason').value = rec.downtime_reason || '';
   $('fNote').value = rec.note || '';
+  pendingPhoto = rec.photo || null;
+  if (pendingPhoto) { $('photoPrev').src = pendingPhoto; $('photoPrev').style.display = 'block'; } else { $('photoPrev').style.display = 'none'; }
   $('saveBtn').textContent = '更新记录';
   switchTab('entry');
 }
@@ -345,6 +376,7 @@ function showDetail(id) {
       <tr><td>备注</td><td>${r.note || '—'}</td></tr>
       <tr><td>记录人</td><td>${r.recorder || '—'}</td></tr>
     </table>
+    ${r.photo ? `<img src="${r.photo}" style="width:100%;border-radius:8px;margin-top:8px" onclick="window.open(this.src)">` : ''}
     <div class="btns">
       <button class="secondary" id="mEdit">编辑</button>
       <button class="danger" id="mDel">删除</button>
