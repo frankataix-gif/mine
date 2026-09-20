@@ -43,7 +43,6 @@
   .output-row > .row { display: flex; gap: 8px; margin-bottom: 0; align-items: center; }
   .output-row input[name=pname] { flex: 1.2; }
   .output-row input[name=pkg] { flex: 0.8; }
-  .output-row input[name=pgrade] { flex: 0.8; }
   .output-row .del { min-height: 36px; min-width: 36px; padding: 0; background: #fee2e2; color: var(--danger); border-radius: 8px; }
   .rec-item { background: var(--card); border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
   .rec-item .meta { font-size: 12px; color: var(--muted); margin-top: 3px; }
@@ -113,12 +112,8 @@
           <input type="number" id="fRuntime" min="0" step="0.5" inputmode="decimal" placeholder="如 6.5">
         </div>
       </div>
-      <div class="row">
-        <div><label>入选品位 Ta %</label><input type="number" id="fTa" min="0" step="0.01" inputmode="decimal" placeholder="XRF读数"></div>
-        <div><label>入选品位 Nb %</label><input type="number" id="fNb" min="0" step="0.01" inputmode="decimal" placeholder="XRF读数"></div>
-      </div>
       <div class="row" style="margin-top:4px">
-        <div><button class="secondary btn-block" id="feedXrfBtn" style="margin-top:0">📷 品位检测</button></div>
+        <div><button class="secondary btn-block" id="feedXrfBtn" style="margin-top:0">📷 入选品位检测</button></div>
         <div><button class="secondary btn-block" id="feedOreBtn" style="margin-top:0">🪨 矿石照片</button></div>
       </div>
       <div id="feedArea"></div>
@@ -262,10 +257,10 @@ function renderQuickProducts() {
   $('quickProducts').innerHTML = prods.map(p => `<button data-p="${p}">${p}</button>`).join('');
   $('quickProducts').querySelectorAll('button').forEach(b => b.onclick = () => addOutputRow(b.dataset.p));
 }
-function addOutputRow(name = '', kg = '', grade = '') {
+function addOutputRow(name = '', kg = '') {
   const div = document.createElement('div');
   div.className = 'output-row';
-  div.innerHTML = `<div class="row"><input name="pname" placeholder="产品名" value="${name}"><input name="pkg" type="number" min="0" step="0.01" inputmode="decimal" placeholder="kg" value="${kg}"><input name="pgrade" type="number" min="0" step="0.01" inputmode="decimal" placeholder="品位%" value="${grade}"><button type="button" class="del">×</button></div>
+  div.innerHTML = `<div class="row"><input name="pname" placeholder="产品名" value="${name}"><input name="pkg" type="number" min="0" step="0.01" inputmode="decimal" placeholder="kg" value="${kg}"><button type="button" class="del">×</button></div>
   <div class="row" style="margin-top:4px">
     <div><button type="button" class="secondary btn-block pxrf" style="margin-top:0;padding:5px 6px">📷 品位</button></div>
     <div><button type="button" class="secondary btn-block pore" style="margin-top:0;padding:5px 6px">🪨 矿石</button></div>
@@ -333,13 +328,16 @@ function renderPointArea(t) {
   let h = '';
   if (pt.xrfPhotos.length || pt.ore.length)
     h += `<div>${thumbs(pt.xrfPhotos, 'x')}${thumbs(pt.ore, 'o')}</div>`;
-  // 已填进品位栏的元素不再重复显示（入选点=Ta/Nb，产品行=Ta）
-  const filled = t === 'feed' ? ['Ta', 'Nb'] : ['Ta'];
-  const shown = pt.xrf.filter(r => !filled.includes(r.el));
-  if (shown.length)
-    h += '<div style="margin-top:2px">' + shown.map(r =>
-      `<span style="display:inline-block;margin:2px 10px 2px 0;font-size:13px"><b>${r.el}</b> ${r.val}% <a href="javascript:void 0" data-edit="${pt.xrf.indexOf(r)}" style="color:var(--primary)">编辑</a></span>`
-    ).join('') + '</div>';
+  // 读数即品位：Ta/Nb 加粗前置，其余参考元素正常显示
+  if (pt.xrf.length) {
+    const sorted = [...pt.xrf].sort((a, b) => (a.el === 'Ta' ? 0 : a.el === 'Nb' ? 1 : 9) - (b.el === 'Ta' ? 0 : b.el === 'Nb' ? 1 : 9));
+    h += '<div style="margin-top:4px">' + sorted.map(r => {
+      const ri = pt.xrf.indexOf(r);
+      const main = r.el === 'Ta' || r.el === 'Nb';
+      return `<span style="display:inline-block;margin:2px 10px 2px 0;font-size:13px"><b>${r.el}</b> <span style="${main ? 'color:var(--primary);font-weight:700;font-size:16px' : ''}">${r.val}%</span> <a href="javascript:void 0" data-edit="${ri}" style="color:var(--primary)">编辑</a></span>`;
+    }).join('') + '</div>';
+  }
+  h += `<a href="javascript:void 0" data-add style="font-size:12px;color:var(--muted)">+手填读数</a>`;
   box.innerHTML = h;
   box.querySelectorAll('[data-delp]').forEach(b => b.onclick = () => {
     const [k, i] = b.dataset.delp.split('-'); const idx = +i;
@@ -357,41 +355,39 @@ function renderPointArea(t) {
     const nv = parseFloat(v);
     if (isNaN(nv) || nv < 0 || nv > 100) { toast('数值无效'); return; }
     r.val = nv;
-    applyGrade(t, r, true);
+    renderPointArea(t);
+  });
+  box.querySelectorAll('[data-add]').forEach(b => b.onclick = () => {
+    const v = prompt('手填读数（格式：元素 数值%，如 Ta 2.36）', 'Ta ');
+    if (!v) return;
+    const m = v.trim().match(/^([A-Za-z]{1,3})\s*([\d.]+)/);
+    if (!m || isNaN(parseFloat(m[2]))) { toast('格式不对'); return; }
+    pt.xrf.push({ el: m[1][0].toUpperCase() + m[1].slice(1), val: parseFloat(m[2]), src: -1 });
     renderPointArea(t);
   });
 }
 
-function applyGrade(t, r, force) {
-  // feed点填Ta/Nb两栏；产品行填品位栏（Ta优先）。force=人工编辑时强制写入
-  if (t === 'feed') {
-    if (r.el === 'Ta' && (force || !$('fTa').value)) $('fTa').value = r.val;
-    if (r.el === 'Nb' && (force || !$('fNb').value)) $('fNb').value = r.val;
-  } else {
-    const inp = t.querySelector('[name=pgrade]');
-    if (r.el === 'Ta' && (force || !inp.value)) { inp.value = r.val; toast(`品位已填 Ta=${r.val}%`); }
-  }
-}
-
 async function ocrPoint(t, photoIdx) {
   const pt = getPoint(t);
+  toast('识别中…');
   try {
     const j = await workerPost({ action: 'ocr', images: [pt.xrfPhotos[photoIdx]] });
     if (j.error || !j.elements) { toast('识别失败：' + (j.error || '重拍试试')); return; }
     Object.entries(j.elements).forEach(([el, val]) => {
       if (!pt.xrf.some(x => x.el === el && x.val === val)) pt.xrf.push({ el, val, src: photoIdx });
-      applyGrade(t, { el, val }, false);
     });
     renderPointArea(t);
+    toast('已读数');
   } catch (e) { toast('识别失败：网络问题'); }
 }
 
 $('saveBtn').onclick = () => {
   const outputs = [...$('outputRows').querySelectorAll('.output-row')]
-    .map(r => ({ product: r.querySelector('[name=pname]').value.trim(), kg: num(r.querySelector('[name=pkg]').value), grade: num(r.querySelector('[name=pgrade]').value) || null,
+    .map(r => ({ product: r.querySelector('[name=pname]').value.trim(), kg: num(r.querySelector('[name=pkg]').value),
+      grade: (r.pointData.xrf.find(x => x.el === 'Ta') || {}).val ?? null,
       xrf: r.pointData.xrf.map(({ el, val }) => ({ el, val })),
       xrf_photos: r.pointData.xrfPhotos.slice(), ore_photos: r.pointData.ore.slice() }))
-    .filter(o => o.product || o.kg > 0 || o.xrf_photos.length || o.ore_photos.length);
+    .filter(o => o.product || o.kg > 0 || o.xrf.length || o.xrf_photos.length || o.ore_photos.length);
   if (!outputs.length && !num($('fInput').value) && !num($('fRuntime').value)) {
     toast('至少填一项：处理量、运行时长或产出'); return;
   }
@@ -404,8 +400,8 @@ $('saveBtn').onclick = () => {
     runtime_h: num($('fRuntime').value),
     input_t: num($('fInput').value),
     outputs,
-    ta_pct: num($('fTa').value) || null,
-    nb_pct: num($('fNb').value) || null,
+    ta_pct: (feedData.xrf.find(x => x.el === 'Ta') || {}).val ?? null,
+    nb_pct: (feedData.xrf.find(x => x.el === 'Nb') || {}).val ?? null,
     downtime_h: num($('fDown').value),
     downtime_reason: $('fDownReason').value.trim(),
     note: $('fNote').value.trim(),
@@ -429,7 +425,7 @@ $('saveBtn').onclick = () => {
 };
 
 function resetForm() {
-  $('fRuntime').value = $('fInput').value = $('fTa').value = $('fNb').value = $('fDown').value = $('fDownReason').value = $('fNote').value = '';
+  $('fRuntime').value = $('fInput').value = $('fDown').value = $('fDownReason').value = $('fNote').value = '';
   feedData.xrfPhotos = []; feedData.xrf = []; feedData.ore = []; renderPointArea('feed');
   $('fXrfPhoto').value = ''; $('fOrePhoto').value = '';
   $('outputRows').innerHTML = ''; addOutputRow();
@@ -441,15 +437,14 @@ function loadToForm(rec) {
   $('fDate').value = rec.date; $('fShift').value = rec.shift; $('fLine').value = rec.line;
   $('fRuntime').value = rec.runtime_h || ''; $('fInput').value = rec.input_t || '';
   $('outputRows').innerHTML = '';
-  (rec.outputs.length ? rec.outputs : [{}]).forEach(o => {
-    addOutputRow(o.product || '', o.kg || '', o.grade ?? '');
+  (rec.outputs || []).forEach(o => {
+    addOutputRow(o.product || '', o.kg || '');
     const row = $('outputRows').lastElementChild;
     row.pointData.xrfPhotos = (o.xrf_photos || []).slice();
     row.pointData.xrf = (o.xrf || []).map(x => ({ ...x, src: -1 }));
     row.pointData.ore = (o.ore_photos || []).slice();
     renderPointArea(row);
   });
-  $('fTa').value = rec.ta_pct ?? ''; $('fNb').value = rec.nb_pct ?? '';
   $('fDown').value = rec.downtime_h || ''; $('fDownReason').value = rec.downtime_reason || '';
   $('fNote').value = rec.note || '';
   feedData.xrfPhotos = (rec.feed_xrf_photos || rec.photos || (rec.photo ? [rec.photo] : [])).slice();
