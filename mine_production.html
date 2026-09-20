@@ -283,7 +283,7 @@ function handlePhoto(e) {
     const img = new Image();
     img.onload = () => {
       const c = document.createElement('canvas');
-      const s = Math.min(1, 800 / Math.max(img.width, img.height));
+      const s = Math.min(1, 1200 / Math.max(img.width, img.height));
       c.width = img.width * s; c.height = img.height * s;
       c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
       pendingPhotos.push(c.toDataURL('image/jpeg', 0.6));
@@ -311,7 +311,7 @@ function renderPhotoList() {
   $('photoList').querySelectorAll('[data-ocr]').forEach(b => b.onclick = () => ocrPhoto(+b.dataset.ocr));
 }
 
-const XRF_ORDER = ['Ta','Nb','Bal','Hf','Zr','Bi','As','Fe','Mn','Ti'];
+const XRF_ORDER = ['Time','Ta','Nb','Bal','Hf','Zr','Bi','As','Fe','Mn','Ti'];
 const XRF_ALIAS = { ts:'Ta', teas:'Nb', gr:'Zr', fpr:'Bal', bl:'Bi', nn:'Mn', t1:'Ti', tl:'Ti', tt:'Ti', ta:'Ta', nb:'Nb' };
 function parseXRF(text) {
   const found = {}; const orphanNums = [];
@@ -373,6 +373,7 @@ async function ocrPhoto(i) {
     }
     const { found, guess } = parseXRF(best.text);
     const els = { ...guess, ...found };
+    delete els.Time;
     const keys = Object.keys(els);
     if (!keys.length) { panel.innerHTML = '没读到数值，换个角度重拍再试'; return; }
     const prods = [...document.querySelectorAll('#outputRows [name=pname]')].map(x => x.value.trim()).filter(Boolean);
