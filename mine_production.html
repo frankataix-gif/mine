@@ -130,9 +130,13 @@
     <div class="card">
       <h3>XRF照片（可选）</h3>
       <input type="file" id="fPhoto" accept="image/*" capture="environment" style="display:none">
-      <button class="secondary btn-block" id="photoBtn">📷 拍摄 XRF 屏幕</button>
+      <input type="file" id="fPhotoFile" accept="image/*" style="display:none">
+      <div class="row">
+        <div><button class="secondary btn-block" id="photoBtn" style="margin-top:0">📷 拍摄</button></div>
+        <div><button class="secondary btn-block" id="photoFileBtn" style="margin-top:0">🖼 上传图片</button></div>
+      </div>
       <img id="photoPrev" style="display:none;width:100%;margin-top:8px;border-radius:8px">
-      <div class="hint">拍下光谱仪读数屏，照片随记录上传存档</div>
+      <div class="hint">拍下光谱仪读数屏，或从相册上传截图，照片随记录上传存档</div>
     </div>
 
     <div class="card">
@@ -272,7 +276,8 @@ $('addOutput').onclick = () => addOutputRow();
 /* ================= XRF照片 ================= */
 let pendingPhoto = null;
 $('photoBtn').onclick = () => $('fPhoto').click();
-$('fPhoto').onchange = e => {
+$('photoFileBtn').onclick = () => $('fPhotoFile').click();
+function handlePhoto(e) {
   const f = e.target.files[0]; if (!f) return;
   const img = new Image();
   img.onload = () => {
@@ -286,7 +291,9 @@ $('fPhoto').onchange = e => {
     toast('照片已附加');
   };
   img.src = URL.createObjectURL(f);
-};
+}
+$('fPhoto').onchange = handlePhoto;
+$('fPhotoFile').onchange = handlePhoto;
 
 $('saveBtn').onclick = () => {
   const outputs = [...$('outputRows').querySelectorAll('.output-row')]
@@ -328,7 +335,7 @@ $('saveBtn').onclick = () => {
 
 function resetForm() {
   $('fRuntime').value = $('fInput').value = $('fTa').value = $('fNb').value = $('fDown').value = $('fDownReason').value = $('fNote').value = '';
-  pendingPhoto = null; $('photoPrev').style.display = 'none'; $('fPhoto').value = '';
+  pendingPhoto = null; $('photoPrev').style.display = 'none'; $('fPhoto').value = ''; $('fPhotoFile').value = '';
   $('outputRows').innerHTML = ''; addOutputRow();
   $('saveBtn').textContent = '保存记录';
 }
