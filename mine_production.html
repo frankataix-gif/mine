@@ -137,7 +137,7 @@
       </div>
       <div id="photoList"></div>
       <div id="xrfMerged"></div>
-      <div class="hint">拍光谱仪读数屏，可多拍几张；点"识别"自动读数，再点数值填入对应品位栏</div>
+      <div class="hint">拍光谱仪读数屏（可多张），自动识别读数；识别错的数值点"编辑"修正</div>
     </div>
 
     <div class="card">
@@ -287,10 +287,11 @@ function handlePhoto(e) {
       const s = Math.min(1, 1600 / Math.max(img.width, img.height));
       c.width = img.width * s; c.height = img.height * s;
       c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      const idx = pendingPhotos.length;
       pendingPhotos.push(c.toDataURL('image/jpeg', 0.6));
       URL.revokeObjectURL(img.src);
       renderPhotoList();
-      toast('照片已附加');
+      ocrPhoto(idx);   // 上传即自动识别
     };
     img.src = URL.createObjectURL(f);
   });
@@ -303,7 +304,7 @@ function renderPhotoList() {
     <div style="margin-top:10px">
       <img src="${p}" style="width:100%;border-radius:8px">
       <div class="row" style="margin-top:6px">
-        <div><button class="secondary btn-block" data-ocr="${i}">🔍 识别读数</button></div>
+        <div><button class="secondary btn-block" data-ocr="${i}">🔍 重新识别</button></div>
         <div style="flex:0 0 90px"><button class="danger btn-block" data-del="${i}">删除</button></div>
       </div>
       <div class="ocr-result" id="ocr${i}" style="font-size:13px;margin-top:4px"></div>
@@ -332,26 +333,33 @@ function mergeXRF(list, src) {
 function renderXRFPanel() {
   const box = $('xrfMerged');
   if (!xrfReadings.length) { box.innerHTML = ''; return; }
-  const prods = [...document.querySelectorAll('#outputRows [name=pname]')].map(x => x.value.trim()).filter(Boolean);
-  box.innerHTML = '<div class="hint" style="margin-top:8px"><b>识别结果</b>（红?为推测值·填入前核对）</div>' +
-    xrfReadings.map((r, ri) => {
-      const feed = (r.el === 'Ta' || r.el === 'Nb') ? `<button class="secondary" data-fill="f-${ri}">→入选${r.el}</button>` : '';
-      return `<div style="display:flex;align-items:center;gap:6px;margin:4px 0;flex-wrap:wrap">
-        <b style="min-width:74px">${r.el} ${r.val}%${r.guessed ? '<span style="color:#ef4444">?</span>' : ''}</b>${feed}
-        ${prods.map((p, pi) => `<button class="secondary" data-fill="p-${ri}-${pi}">→${p}</button>`).join('')}
-      </div>`;
-    }).join('');
-  box.querySelectorAll('[data-fill]').forEach(b => b.onclick = () => {
-    const [kind, ri, pi] = b.dataset.fill.split('-');
-    const r = xrfReadings[+ri];
-    if (kind === 'f') {
-      $(r.el === 'Ta' ? 'fTa' : 'fNb').value = r.val;
-      toast(`已填入入选品位 ${r.el}=${r.val}%`);
-    } else {
-      const row = document.querySelectorAll('#outputRows .output-row')[+pi];
-      if (row) { row.querySelector('[name=pgrade]').value = r.val; toast(`已填入 ${r.el} ${r.val}%`); }
-    }
+  box.innerHTML = '<div class="hint" style="margin-top:8px"><b>XRF读数</b>（已随记录保存）</div>' +
+    xrfReadings.map((r, ri) => `
+      <div style="display:flex;align-items:center;gap:8px;margin:4px 0">
+        <b style="min-width:44px">${r.el}</b><span>${r.val}%</span>
+        <button class="secondary" data-edit="${ri}" style="padding:2px 12px;font-size:12px">编辑</button>
+        <button class="danger" data-rmdel="${ri}" style="padding:2px 8px;font-size:12px">✕</button>
+      </div>`).join('');
+  box.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => {
+    const r = xrfReadings[+b.dataset.edit];
+    const v = prompt(`修改 ${r.el} 数值（%）`, r.val);
+    if (v == null) return;
+    const nv = parseFloat(v);
+    if (isNaN(nv) || nv < 0 || nv > 100) { toast('数值无效'); return; }
+    r.val = nv;
+    fillFeed(r);
+    renderXRFPanel();
   });
+  box.querySelectorAll('[data-rmdel]').forEach(b => b.onclick = () => {
+    xrfReadings.splice(+b.dataset.rmdel, 1);
+    renderXRFPanel();
+  });
+}
+
+function fillFeed(r) {
+  // Ta/Nb 自动进入选品位栏（栏位为空才填，不覆盖手输）
+  if (r.el === 'Ta' && !$('fTa').value) { $('fTa').value = r.val; toast(`入选Ta 已填 ${r.val}%`); }
+  if (r.el === 'Nb' && !$('fNb').value) { $('fNb').value = r.val; toast(`入选Nb 已填 ${r.val}%`); }
 }
 
 async function ocrPhoto(i) {
@@ -362,7 +370,8 @@ async function ocrPhoto(i) {
     if (j.error || !j.elements) { panel.innerHTML = '识别失败：' + (j.error || '换个角度重拍'); return; }
     const list = Object.entries(j.elements).map(([el, val]) => ({ el, val, guessed: false }));
     mergeXRF(list, i);
-    panel.innerHTML = `本张识别 ${list.length} 项，已并入下方结果`;
+    list.forEach(fillFeed);   // Ta/Nb 自动填入选品位
+    panel.innerHTML = `本张识别 ${list.length} 项`;
     renderXRFPanel();
   } catch (e) { panel.innerHTML = '识别失败：' + (e.message || '网络问题'); }
 }
