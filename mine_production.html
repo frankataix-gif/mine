@@ -136,6 +136,7 @@
         <div><button class="secondary btn-block" id="photoFileBtn" style="margin-top:0">🖼 上传图片</button></div>
       </div>
       <div id="photoList"></div>
+      <div id="xrfMerged"></div>
       <div class="hint">拍光谱仪读数屏，可多拍几张；点"识别"自动读数，再点数值填入对应品位栏</div>
     </div>
 
@@ -307,30 +308,83 @@ function renderPhotoList() {
       </div>
       <div class="ocr-result" id="ocr${i}" style="font-size:13px;margin-top:4px"></div>
     </div>`).join('');
-  $('photoList').querySelectorAll('[data-del]').forEach(b => b.onclick = () => { pendingPhotos.splice(+b.dataset.del, 1); renderPhotoList(); });
+  $('photoList').querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
+    const i = +b.dataset.del;
+    pendingPhotos.splice(i, 1);
+    xrfReadings = xrfReadings.filter(r => r.src !== i);
+    xrfReadings.forEach(r => { if (r.src > i) r.src--; });
+    renderPhotoList(); renderXRFPanel();
+  });
   $('photoList').querySelectorAll('[data-ocr]').forEach(b => b.onclick = () => ocrPhoto(+b.dataset.ocr));
 }
 
-const XRF_ORDER = ['Time','Ta','Nb','Bal','Hf','Zr','Bi','As','Fe','Mn','Ti'];
-const XRF_ALIAS = { ts:'Ta', teas:'Nb', gr:'Zr', fpr:'Bal', bl:'Bi', nn:'Mn', t1:'Ti', tl:'Ti', tt:'Ti', ta:'Ta', nb:'Nb' };
+/* 屏幕固定行序（含Time行作位置锚点）；Sn等屏幕外元素按符号识别 */
+const XRF_TEMPLATE = ['Time','Ta','Nb','Bal','Hf','Zr','Bi','As','Fe','Mn','Ti','Sn'];
+const XRF_ALIAS = { ts:'Ta', teas:'Nb', gr:'Zr', fpr:'Bal', bl:'Bi', nn:'Mn', t1:'Ti', tl:'Ti', tt:'Ti', '5n':'Sn', sn:'Sn' };
+const KNOWN_EL = new Set('Ta Nb Hf Zr Bi As Fe Mn Ti Sn W Cu Pb Zn Ni Co Mo Cr V Sb Cd Al Si Ca Mg K Na S P Ba Sr Rb Th U Y La Ce Sc In Ga Ge Tl Hg Se Te Re Au Ag Pd Pt'.split(' '));
+let xrfReadings = []; // [{el, val, guessed, src}] 跨照片合并
+
 function parseXRF(text) {
-  const found = {}; const orphanNums = [];
-  text.split('\n').forEach(line => {
-    const nums = line.match(/\d+\.\d+/g);
-    if (!nums || !nums.length) return;
-    const m = line.match(/([A-Za-z]{2,4})\s*[:\-]?\s*[\d.]/);
-    let el = null;
-    if (m) {
-      const t = m[1].toLowerCase();
-      el = XRF_ORDER.find(e => e.toLowerCase() === t) || XRF_ALIAS[t] || null;
+  // 按屏幕行序逐行解析，结果保持照片原次序
+  const out = []; const seen = new Set(); let ptr = 0;
+  for (const line of text.split('\n')) {
+    const nums = line.match(/\d+(\.\d+)?/g);
+    if (!nums || !nums.length) continue;
+    const okNums = nums.filter(n => parseFloat(n) <= 100);
+    const valStr = okNums.find(n => n.includes('.')) || okNums[0];
+    if (valStr == null) continue;
+    const val = parseFloat(valStr);
+    const tm = line.match(/([A-Za-z]{2,4})/);
+    let el = null, guessed = false;
+    if (tm) {
+      const tLow = tm[1].toLowerCase();
+      el = XRF_TEMPLATE.find(e => e.toLowerCase() === tLow) || XRF_ALIAS[tLow]
+        || (KNOWN_EL.has(tm[1]) ? tm[1] : null);
     }
-    if (el && found[el] == null) found[el] = parseFloat(nums[0]);
-    else orphanNums.push(parseFloat(nums[0]));
+    if (el) {
+      const ti = XRF_TEMPLATE.indexOf(el);
+      if (ti >= ptr) ptr = ti + 1;   // 位置指针跟进，保证补位不越位
+    } else {
+      while (ptr < XRF_TEMPLATE.length && seen.has(XRF_TEMPLATE[ptr])) ptr++;
+      if (ptr < XRF_TEMPLATE.length) { el = XRF_TEMPLATE[ptr++]; guessed = true; }
+    }
+    if (el && el !== 'Time' && !seen.has(el)) { seen.add(el); out.push({ el, val, guessed }); }
+  }
+  return out;
+}
+
+function mergeXRF(list, src) {
+  // 同品名+同品位只记一次；同名不同值保留多条（不同样品）
+  list.forEach(r => {
+    if (!xrfReadings.some(x => x.el === r.el && x.val === r.val)) {
+      xrfReadings.push({ el: r.el, val: r.val, guessed: r.guessed, src });
+    }
   });
-  // 按屏幕固定行序，把没认出元素名的数值补位（标 ? 提示用户核对）
-  const guess = {};
-  XRF_ORDER.forEach(e => { if (found[e] == null && orphanNums.length) { const v = orphanNums.shift(); if (v != null) guess[e] = v; } });
-  return { found, guess };
+}
+
+function renderXRFPanel() {
+  const box = $('xrfMerged');
+  if (!xrfReadings.length) { box.innerHTML = ''; return; }
+  const prods = [...document.querySelectorAll('#outputRows [name=pname]')].map(x => x.value.trim()).filter(Boolean);
+  box.innerHTML = '<div class="hint" style="margin-top:8px"><b>识别结果</b>（红?为推测值·填入前核对）</div>' +
+    xrfReadings.map((r, ri) => {
+      const feed = (r.el === 'Ta' || r.el === 'Nb') ? `<button class="secondary" data-fill="f-${ri}">→入选${r.el}</button>` : '';
+      return `<div style="display:flex;align-items:center;gap:6px;margin:4px 0;flex-wrap:wrap">
+        <b style="min-width:74px">${r.el} ${r.val}%${r.guessed ? '<span style="color:#ef4444">?</span>' : ''}</b>${feed}
+        ${prods.map((p, pi) => `<button class="secondary" data-fill="p-${ri}-${pi}">→${p}</button>`).join('')}
+      </div>`;
+    }).join('');
+  box.querySelectorAll('[data-fill]').forEach(b => b.onclick = () => {
+    const [kind, ri, pi] = b.dataset.fill.split('-');
+    const r = xrfReadings[+ri];
+    if (kind === 'f') {
+      $(r.el === 'Ta' ? 'fTa' : 'fNb').value = r.val;
+      toast(`已填入入选品位 ${r.el}=${r.val}%`);
+    } else {
+      const row = document.querySelectorAll('#outputRows .output-row')[+pi];
+      if (row) { row.querySelector('[name=pgrade]').value = r.val; toast(`已填入 ${r.el} ${r.val}%`); }
+    }
+  });
 }
 
 function preprocessRotated(img, deg) {
@@ -371,31 +425,11 @@ async function ocrPhoto(i) {
       const { data } = await Tesseract.recognize(preprocessRotated(img, deg), 'eng');
       if (!best || data.confidence > best.confidence) best = data;
     }
-    const { found, guess } = parseXRF(best.text);
-    const els = { ...guess, ...found };
-    delete els.Time;
-    const keys = Object.keys(els);
-    if (!keys.length) { panel.innerHTML = '没读到数值，换个角度重拍再试'; return; }
-    const prods = [...document.querySelectorAll('#outputRows [name=pname]')].map(x => x.value.trim()).filter(Boolean);
-    panel.innerHTML = keys.map(k => {
-      const btns = (k === 'Ta' || k === 'Nb')
-        ? `<button class="secondary" data-fill="feed-${k}">→入选${k}</button>` : '';
-      return `<div style="display:flex;align-items:center;gap:6px;margin:4px 0;flex-wrap:wrap">
-        <b style="min-width:70px">${k} ${els[k]}%${found[k] == null ? '<span style="color:#ef4444">?</span>' : ''}</b>${btns}
-        ${prods.map((p, pi) => `<button class="secondary" data-fill="prod-${pi}-${k}">→${p}</button>`).join('')}
-      </div>`;
-    }).join('');
-    panel.querySelectorAll('[data-fill]').forEach(b => b.onclick = () => {
-      const parts = b.dataset.fill.split('-');
-      const kind = parts[0], elKey = parts[parts.length - 1], val = els[elKey];
-      if (kind === 'feed') {
-        $(elKey === 'Ta' ? 'fTa' : 'fNb').value = val;
-        toast(`已填入入选品位 ${elKey}=${val}%`);
-      } else {
-        const row = document.querySelectorAll('#outputRows .output-row')[+parts[1]];
-        if (row) { row.querySelector('[name=pgrade]').value = val; toast(`已填入 ${elKey} ${val}%`); }
-      }
-    });
+    const list = parseXRF(best.text);
+    if (!list.length) { panel.innerHTML = '没读到数值，换个角度重拍再试'; return; }
+    mergeXRF(list, i);
+    panel.innerHTML = `本张识别 ${list.length} 项，已并入下方结果`;
+    renderXRFPanel();
   } catch (e) { panel.innerHTML = '识别失败：' + (e.message || '换个角度重拍再试'); }
 }
 
@@ -422,6 +456,7 @@ $('saveBtn').onclick = () => {
     note: $('fNote').value.trim(),
     photos: pendingPhotos.slice(),
     photo: pendingPhotos[0] || null,
+    xrf: xrfReadings.map(({ el, val, guessed }) => ({ el, val, guessed })),
     recorder: settings.recorder,
     created_at: editId ? (records.find(r => r.id === editId)?.created_at || now) : now,
     updated_at: now,
@@ -440,7 +475,7 @@ $('saveBtn').onclick = () => {
 
 function resetForm() {
   $('fRuntime').value = $('fInput').value = $('fTa').value = $('fNb').value = $('fDown').value = $('fDownReason').value = $('fNote').value = '';
-  pendingPhotos = []; renderPhotoList(); $('fPhoto').value = ''; $('fPhotoFile').value = '';
+  pendingPhotos = []; xrfReadings = []; renderPhotoList(); renderXRFPanel(); $('fPhoto').value = ''; $('fPhotoFile').value = '';
   $('outputRows').innerHTML = ''; addOutputRow();
   $('saveBtn').textContent = '保存记录';
 }
@@ -455,7 +490,8 @@ function loadToForm(rec) {
   $('fDown').value = rec.downtime_h || ''; $('fDownReason').value = rec.downtime_reason || '';
   $('fNote').value = rec.note || '';
   pendingPhotos = rec.photos || (rec.photo ? [rec.photo] : []);
-  renderPhotoList();
+  xrfReadings = (rec.xrf || []).map(x => ({ ...x, src: -1 }));
+  renderPhotoList(); renderXRFPanel();
   $('saveBtn').textContent = '更新记录';
   switchTab('entry');
 }
@@ -487,6 +523,7 @@ function showDetail(id) {
       <tr><td>停机</td><td>${r.downtime_h || 0} h ${r.downtime_reason || ''}</td></tr>
       <tr><td>备注</td><td>${r.note || '—'}</td></tr>
       <tr><td>记录人</td><td>${r.recorder || '—'}</td></tr>
+      ${r.xrf && r.xrf.length ? `<tr><td>XRF读数</td><td>${r.xrf.map(x => x.el + ' ' + x.val + '%' + (x.guessed ? '?' : '')).join(' · ')}</td></tr>` : ''}
     </table>
     ${(r.photos || (r.photo ? [r.photo] : [])).map(p => `<img src="${p}" style="width:100%;border-radius:8px;margin-top:8px">`).join('')}
     <div class="btns">
@@ -636,11 +673,13 @@ $('addLine').onclick = () => {
 
 $('exportCsv').onclick = () => {
   const live = records.filter(r => !r.deleted);
-  const head = '日期,班次,产线,运行h,处理量t,产出明细,入选Ta%,入选Nb%,停机h,停机原因,备注,记录人\n';
+  const head = '日期,班次,产线,运行h,处理量t,产出明细,入选Ta%,入选Nb%,XRF读数,停机h,停机原因,备注,记录人\n';
   const body = live.map(r => [
     r.date, r.shift, r.line, r.runtime_h, r.input_t,
     r.outputs.map(o => `${o.product}:${o.kg}kg${o.grade != null ? '@' + o.grade + '%' : ''}`).join(';'),
-    r.ta_pct ?? '', r.nb_pct ?? '', r.downtime_h, `"${(r.downtime_reason || '').replace(/"/g, '""')}"`,
+    r.ta_pct ?? '', r.nb_pct ?? '',
+    `"${(r.xrf || []).map(x => x.el + ':' + x.val + '%').join(';')}"`,
+    r.downtime_h, `"${(r.downtime_reason || '').replace(/"/g, '""')}"`,
     `"${(r.note || '').replace(/"/g, '""')}"`, r.recorder
   ].join(',')).join('\n');
   const blob = new Blob(['﻿' + head + body], { type: 'text/csv' });
