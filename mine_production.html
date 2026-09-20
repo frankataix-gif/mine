@@ -130,7 +130,7 @@
       <div class="quick-btns" id="quickProducts"></div>
       <div id="outputRows"></div>
       <button class="secondary btn-block" id="addOutput">+ 加一行产品</button>
-      <div class="hint">每行：产品名 + 重量kg + 品位%（XRF读数，可空）</div>
+      <div class="hint">点上方产品名加行；每行可拍品位检测照（自动读数）和矿石照</div>
     </div>
 
     <div class="card">
@@ -247,7 +247,6 @@ function initEntry() {
   $('fDate').value = today();
   refreshLineSelect();
   renderQuickProducts();
-  addOutputRow();
 }
 function refreshLineSelect() {
   $('fLine').innerHTML = settings.lines.map(l => `<option>${l}</option>`).join('');
@@ -272,7 +271,7 @@ function addOutputRow(name = '', kg = '', grade = '') {
   </div>
   <div class="parea"></div>`;
   div.pointData = { xrfPhotos: [], xrf: [], ore: [] };
-  div.querySelector('.del').onclick = () => { if ($('outputRows').children.length > 1) div.remove(); };
+  div.querySelector('.del').onclick = () => div.remove();
   div.querySelector('.pxrf').onclick = () => { photoTarget = div; $('fXrfPhoto').click(); };
   div.querySelector('.pore').onclick = () => { photoTarget = div; $('fOrePhoto').click(); };
   $('outputRows').appendChild(div);
@@ -429,7 +428,7 @@ function resetForm() {
   $('fRuntime').value = $('fInput').value = $('fTa').value = $('fNb').value = $('fDown').value = $('fDownReason').value = $('fNote').value = '';
   feedData.xrfPhotos = []; feedData.xrf = []; feedData.ore = []; renderPointArea('feed');
   $('fXrfPhoto').value = ''; $('fOrePhoto').value = '';
-  $('outputRows').innerHTML = ''; addOutputRow();
+  $('outputRows').innerHTML = '';
   $('saveBtn').textContent = '保存记录';
 }
 
@@ -438,7 +437,7 @@ function loadToForm(rec) {
   $('fDate').value = rec.date; $('fShift').value = rec.shift; $('fLine').value = rec.line;
   $('fRuntime').value = rec.runtime_h || ''; $('fInput').value = rec.input_t || '';
   $('outputRows').innerHTML = '';
-  (rec.outputs.length ? rec.outputs : [{}]).forEach(o => {
+  (rec.outputs || []).forEach(o => {
     addOutputRow(o.product || '', o.kg || '', o.grade ?? '');
     const row = $('outputRows').lastElementChild;
     row.pointData.xrfPhotos = (o.xrf_photos || []).slice();
