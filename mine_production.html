@@ -284,7 +284,7 @@ function handlePhoto(e) {
     const img = new Image();
     img.onload = () => {
       const c = document.createElement('canvas');
-      const s = Math.min(1, 1200 / Math.max(img.width, img.height));
+      const s = Math.min(1, 1600 / Math.max(img.width, img.height));
       c.width = img.width * s; c.height = img.height * s;
       c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
       pendingPhotos.push(c.toDataURL('image/jpeg', 0.6));
@@ -395,13 +395,6 @@ function preprocessRotated(img, deg) {
   const ctx = c.getContext('2d');
   ctx.translate(c.width / 2, c.height / 2); ctx.rotate(rad);
   ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
-  // 灰度+二值化增强
-  const id = ctx.getImageData(0, 0, c.width, c.height); const d = id.data;
-  for (let p = 0; p < d.length; p += 4) {
-    const g = d[p] * .3 + d[p + 1] * .59 + d[p + 2] * .11;
-    const v = g > 130 ? 255 : 0; d[p] = d[p + 1] = d[p + 2] = v;
-  }
-  ctx.putImageData(id, 0, 0);
   return c.toDataURL('image/png');
 }
 
@@ -420,12 +413,15 @@ async function ocrPhoto(i) {
     panel.innerHTML = '识别中…（约5–10秒）';
     const img = new Image();
     await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = pendingPhotos[i]; });
-    let best = null;
+    // 4个旋转方向各识别一次，按"认出元素数+置信度"取最优
+    let bestList = [], bestScore = -1;
     for (const deg of [0, 90, 270, 180]) {
       const { data } = await Tesseract.recognize(preprocessRotated(img, deg), 'eng');
-      if (!best || data.confidence > best.confidence) best = data;
+      const list = parseXRF(data.text);
+      const score = list.filter(r => !r.guessed).length * 10 + data.confidence;
+      if (score > bestScore) { bestScore = score; bestList = list; }
     }
-    const list = parseXRF(best.text);
+    const list = bestList;
     if (!list.length) { panel.innerHTML = '没读到数值，换个角度重拍再试'; return; }
     mergeXRF(list, i);
     panel.innerHTML = `本张识别 ${list.length} 项，已并入下方结果`;
