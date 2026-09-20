@@ -1,7 +1,8 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" translate="no">
 <head>
 <meta charset="UTF-8">
+<meta name="google" content="notranslate">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>钽铌矿生产统计</title>
 <link rel="manifest" href="manifest.webmanifest">
@@ -210,7 +211,7 @@
 
 <script>
 /* ================= 数据层 ================= */
-const APP_VERSION = '2026-09-21-v3';
+const APP_VERSION = '2026-09-21-v4';
 const LS_REC = 'mine_records_v1';
 const LS_SET = 'mine_settings_v1';
 
@@ -531,6 +532,7 @@ function showDetail(id) {
       <button class="secondary" id="mClose">关闭</button>
     </div>`);
   $('modalRoot').querySelectorAll('[data-zoom]').forEach(im => im.onclick = () => zoomImg(im.src));
+  $('mClose').onclick = closeModal;
   $('mEdit').onclick = () => { closeModal(); loadToForm(r); };
   $('mDel').onclick = () => {
     closeModal();
