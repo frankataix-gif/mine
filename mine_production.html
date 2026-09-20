@@ -318,40 +318,7 @@ function renderPhotoList() {
   $('photoList').querySelectorAll('[data-ocr]').forEach(b => b.onclick = () => ocrPhoto(+b.dataset.ocr));
 }
 
-/* 屏幕固定行序（含Time行作位置锚点）；Sn等屏幕外元素按符号识别 */
-const XRF_TEMPLATE = ['Time','Ta','Nb','Bal','Hf','Zr','Bi','As','Fe','Mn','Ti','Sn'];
-const XRF_ALIAS = { ts:'Ta', teas:'Nb', gr:'Zr', fpr:'Bal', bl:'Bi', nn:'Mn', t1:'Ti', tl:'Ti', tt:'Ti', '5n':'Sn', sn:'Sn' };
-const KNOWN_EL = new Set('Ta Nb Hf Zr Bi As Fe Mn Ti Sn W Cu Pb Zn Ni Co Mo Cr V Sb Cd Al Si Ca Mg K Na S P Ba Sr Rb Th U Y La Ce Sc In Ga Ge Tl Hg Se Te Re Au Ag Pd Pt'.split(' '));
 let xrfReadings = []; // [{el, val, guessed, src}] 跨照片合并
-
-function parseXRF(text) {
-  // 按屏幕行序逐行解析，结果保持照片原次序
-  const out = []; const seen = new Set(); let ptr = 0;
-  for (const line of text.split('\n')) {
-    const nums = line.match(/\d+(\.\d+)?/g);
-    if (!nums || !nums.length) continue;
-    const okNums = nums.filter(n => parseFloat(n) <= 100);
-    const valStr = okNums.find(n => n.includes('.')) || okNums[0];
-    if (valStr == null) continue;
-    const val = parseFloat(valStr);
-    const tm = line.match(/([A-Za-z]{2,4})/);
-    let el = null, guessed = false;
-    if (tm) {
-      const tLow = tm[1].toLowerCase();
-      el = XRF_TEMPLATE.find(e => e.toLowerCase() === tLow) || XRF_ALIAS[tLow]
-        || (KNOWN_EL.has(tm[1]) ? tm[1] : null);
-    }
-    if (el) {
-      const ti = XRF_TEMPLATE.indexOf(el);
-      if (ti >= ptr) ptr = ti + 1;   // 位置指针跟进，保证补位不越位
-    } else {
-      while (ptr < XRF_TEMPLATE.length && seen.has(XRF_TEMPLATE[ptr])) ptr++;
-      if (ptr < XRF_TEMPLATE.length) { el = XRF_TEMPLATE[ptr++]; guessed = true; }
-    }
-    if (el && el !== 'Time' && !seen.has(el)) { seen.add(el); out.push({ el, val, guessed }); }
-  }
-  return out;
-}
 
 function mergeXRF(list, src) {
   // 同品名+同品位只记一次；同名不同值保留多条（不同样品）
@@ -387,46 +354,17 @@ function renderXRFPanel() {
   });
 }
 
-function preprocessRotated(img, deg) {
-  const c = document.createElement('canvas');
-  const rad = deg * Math.PI / 180;
-  if (deg % 180) { c.width = img.naturalHeight; c.height = img.naturalWidth; }
-  else { c.width = img.naturalWidth; c.height = img.naturalHeight; }
-  const ctx = c.getContext('2d');
-  ctx.translate(c.width / 2, c.height / 2); ctx.rotate(rad);
-  ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
-  return c.toDataURL('image/png');
-}
-
 async function ocrPhoto(i) {
   const panel = $('ocr' + i);
+  panel.innerHTML = '识别中…（约5秒）';
   try {
-    if (!window.Tesseract) {
-      panel.innerHTML = '首次加载识别引擎（约3MB）…';
-      await new Promise((res, rej) => {
-        const s = document.createElement('script');
-        s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.0/dist/tesseract.min.js';
-        s.onload = res; s.onerror = () => rej(new Error('load'));
-        document.head.appendChild(s);
-      });
-    }
-    panel.innerHTML = '识别中…（约5–10秒）';
-    const img = new Image();
-    await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = pendingPhotos[i]; });
-    // 4个旋转方向各识别一次，按"认出元素数+置信度"取最优
-    let bestList = [], bestScore = -1;
-    for (const deg of [0, 90, 270, 180]) {
-      const { data } = await Tesseract.recognize(preprocessRotated(img, deg), 'eng');
-      const list = parseXRF(data.text);
-      const score = list.filter(r => !r.guessed).length * 10 + data.confidence;
-      if (score > bestScore) { bestScore = score; bestList = list; }
-    }
-    const list = bestList;
-    if (!list.length) { panel.innerHTML = '没读到数值，换个角度重拍再试'; return; }
+    const j = await workerPost({ action: 'ocr', images: [pendingPhotos[i]] });
+    if (j.error || !j.elements) { panel.innerHTML = '识别失败：' + (j.error || '换个角度重拍'); return; }
+    const list = Object.entries(j.elements).map(([el, val]) => ({ el, val, guessed: false }));
     mergeXRF(list, i);
     panel.innerHTML = `本张识别 ${list.length} 项，已并入下方结果`;
     renderXRFPanel();
-  } catch (e) { panel.innerHTML = '识别失败：' + (e.message || '换个角度重拍再试'); }
+  } catch (e) { panel.innerHTML = '识别失败：' + (e.message || '网络问题'); }
 }
 
 $('saveBtn').onclick = () => {
