@@ -39,7 +39,8 @@
   .btn-block { width: 100%; margin-top: 6px; }
   .quick-btns { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
   .quick-btns button { min-height: 34px; padding: 4px 12px; font-size: 13px; background: #eff6ff; color: var(--primary); border: 1px solid #bfdbfe; }
-  .output-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
+  .output-row { margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px dashed var(--border); }
+  .output-row > .row { display: flex; gap: 8px; margin-bottom: 0; align-items: center; }
   .output-row input[name=pname] { flex: 1.2; }
   .output-row input[name=pkg] { flex: 0.8; }
   .output-row input[name=pgrade] { flex: 0.8; }
@@ -116,6 +117,11 @@
         <div><label>入选品位 Ta %</label><input type="number" id="fTa" min="0" step="0.01" inputmode="decimal" placeholder="XRF读数"></div>
         <div><label>入选品位 Nb %</label><input type="number" id="fNb" min="0" step="0.01" inputmode="decimal" placeholder="XRF读数"></div>
       </div>
+      <div class="row" style="margin-top:4px">
+        <div><button class="secondary btn-block" id="feedXrfBtn" style="margin-top:0">📷 品位检测</button></div>
+        <div><button class="secondary btn-block" id="feedOreBtn" style="margin-top:0">🪨 矿石照片</button></div>
+      </div>
+      <div id="feedArea"></div>
       <div class="hint">处理量估算办法：铲斗数 × 每斗吨数，或 给料时间 × 小时流量</div>
     </div>
 
@@ -128,12 +134,8 @@
     </div>
 
     <div class="card">
-      <h3>XRF照片（可选，可多张）</h3>
-      <input type="file" id="fPhotoFile" accept="image/*" multiple style="display:none">
-      <button class="secondary btn-block" id="photoFileBtn" style="margin-top:0">� 上传图片</button>
-      <div id="photoList"></div>
-      <div id="xrfMerged"></div>
-      <div class="hint">拍光谱仪读数屏（可多张），自动识别读数；识别错的数值点"编辑"修正</div>
+      <input type="file" id="fXrfPhoto" accept="image/*" multiple style="display:none">
+      <input type="file" id="fOrePhoto" accept="image/*" multiple style="display:none">
     </div>
 
     <div class="card">
@@ -263,117 +265,130 @@ function renderQuickProducts() {
 function addOutputRow(name = '', kg = '', grade = '') {
   const div = document.createElement('div');
   div.className = 'output-row';
-  div.innerHTML = `<input name="pname" placeholder="产品名" value="${name}"><input name="pkg" type="number" min="0" step="0.01" inputmode="decimal" placeholder="kg" value="${kg}"><input name="pgrade" type="number" min="0" step="0.01" inputmode="decimal" placeholder="品位%" value="${grade}"><button class="del">×</button>`;
+  div.innerHTML = `<div class="row"><input name="pname" placeholder="产品名" value="${name}"><input name="pkg" type="number" min="0" step="0.01" inputmode="decimal" placeholder="kg" value="${kg}"><input name="pgrade" type="number" min="0" step="0.01" inputmode="decimal" placeholder="品位%" value="${grade}"><button type="button" class="del">×</button></div>
+  <div class="row" style="margin-top:4px">
+    <div><button type="button" class="secondary btn-block pxrf" style="margin-top:0;padding:5px 6px">📷 品位</button></div>
+    <div><button type="button" class="secondary btn-block pore" style="margin-top:0;padding:5px 6px">🪨 矿石</button></div>
+  </div>
+  <div class="parea"></div>`;
+  div.pointData = { xrfPhotos: [], xrf: [], ore: [] };
   div.querySelector('.del').onclick = () => { if ($('outputRows').children.length > 1) div.remove(); };
+  div.querySelector('.pxrf').onclick = () => { photoTarget = div; $('fXrfPhoto').click(); };
+  div.querySelector('.pore').onclick = () => { photoTarget = div; $('fOrePhoto').click(); };
   $('outputRows').appendChild(div);
 }
 $('fLine').addEventListener('change', renderQuickProducts);
 $('addOutput').onclick = () => addOutputRow();
 
-/* ================= XRF照片（多张） ================= */
-let pendingPhotos = [];
-$('photoFileBtn').onclick = () => $('fPhotoFile').click();
+/* ================= 品位点照片（XRF检测+矿石照，挂在各品位栏） ================= */
+const feedData = { xrfPhotos: [], xrf: [], ore: [] };
+let photoTarget = null;   // 'feed' 或 output-row div
 
-function handlePhoto(e) {
-  [...e.target.files].forEach(f => {
-    const img = new Image();
-    img.onload = () => {
-      const c = document.createElement('canvas');
-      const s = Math.min(1, 1600 / Math.max(img.width, img.height));
-      c.width = img.width * s; c.height = img.height * s;
-      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-      const idx = pendingPhotos.length;
-      pendingPhotos.push(c.toDataURL('image/jpeg', 0.6));
-      URL.revokeObjectURL(img.src);
-      renderPhotoList();
-      ocrPhoto(idx);   // 上传即自动识别
-    };
-    img.src = URL.createObjectURL(f);
-  });
-}
-$('fPhotoFile').onchange = handlePhoto;
+function getPoint(t) { return t === 'feed' ? feedData : t.pointData; }
+function getPointArea(t) { return t === 'feed' ? $('feedArea') : t.querySelector('.parea'); }
 
-function renderPhotoList() {
-  $('photoList').innerHTML = pendingPhotos.map((p, i) => `
-    <div style="margin-top:10px">
-      <img src="${p}" style="width:100%;border-radius:8px">
-      <div class="row" style="margin-top:6px">
-        <div><button class="secondary btn-block" data-ocr="${i}">🔍 重新识别</button></div>
-        <div style="flex:0 0 90px"><button class="danger btn-block" data-del="${i}">删除</button></div>
-      </div>
-      <div class="ocr-result" id="ocr${i}" style="font-size:13px;margin-top:4px"></div>
-    </div>`).join('');
-  $('photoList').querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
-    const i = +b.dataset.del;
-    pendingPhotos.splice(i, 1);
-    xrfReadings = xrfReadings.filter(r => r.src !== i);
-    xrfReadings.forEach(r => { if (r.src > i) r.src--; });
-    renderPhotoList(); renderXRFPanel();
-  });
-  $('photoList').querySelectorAll('[data-ocr]').forEach(b => b.onclick = () => ocrPhoto(+b.dataset.ocr));
+$('feedXrfBtn').onclick = () => { photoTarget = 'feed'; $('fXrfPhoto').click(); };
+$('feedOreBtn').onclick = () => { photoTarget = 'feed'; $('fOrePhoto').click(); };
+
+function compressPhoto(f, cb) {
+  const img = new Image();
+  img.onload = () => {
+    const c = document.createElement('canvas');
+    const s = Math.min(1, 1400 / Math.max(img.width, img.height));
+    c.width = img.width * s; c.height = img.height * s;
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    cb(c.toDataURL('image/jpeg', 0.6));
+    URL.revokeObjectURL(img.src);
+  };
+  img.src = URL.createObjectURL(f);
 }
 
-let xrfReadings = []; // [{el, val, guessed, src}] 跨照片合并
-
-function mergeXRF(list, src) {
-  // 同品名+同品位只记一次；同名不同值保留多条（不同样品）
-  list.forEach(r => {
-    if (!xrfReadings.some(x => x.el === r.el && x.val === r.val)) {
-      xrfReadings.push({ el: r.el, val: r.val, guessed: r.guessed, src });
-    }
-  });
+function photoHandler(kind) {
+  return e => {
+    const t = photoTarget; if (!t) return;
+    [...e.target.files].forEach(f => compressPhoto(f, durl => {
+      const pt = getPoint(t);
+      if (kind === 'xrf') {
+        pt.xrfPhotos.push(durl);
+        renderPointArea(t);
+        ocrPoint(t, pt.xrfPhotos.length - 1);   // 拍完即识别
+      } else {
+        pt.ore.push(durl);
+        renderPointArea(t);
+      }
+    }));
+    e.target.value = '';
+  };
 }
+$('fXrfPhoto').onchange = photoHandler('xrf');
+$('fOrePhoto').onchange = photoHandler('ore');
 
-function renderXRFPanel() {
-  const box = $('xrfMerged');
-  if (!xrfReadings.length) { box.innerHTML = ''; return; }
-  box.innerHTML = '<div class="hint" style="margin-top:8px"><b>XRF读数</b>（已随记录保存）</div>' +
-    xrfReadings.map((r, ri) => `
-      <div style="display:flex;align-items:center;gap:8px;margin:4px 0">
-        <b style="min-width:44px">${r.el}</b><span>${r.val}%</span>
-        <button class="secondary" data-edit="${ri}" style="padding:2px 12px;font-size:12px">编辑</button>
-        <button class="danger" data-rmdel="${ri}" style="padding:2px 8px;font-size:12px">✕</button>
-      </div>`).join('');
+function renderPointArea(t) {
+  const pt = getPoint(t); const box = getPointArea(t);
+  const thumbs = (arr, kind) => arr.map((p, i) =>
+    `<span style="display:inline-block;position:relative;margin:4px 6px 0 0">
+      <img src="${p}" style="width:72px;height:54px;object-fit:cover;border-radius:6px">
+      <button data-delp="${kind}-${i}" style="position:absolute;top:-5px;right:-5px;width:18px;height:18px;min-height:18px;border-radius:50%;background:#ef4444;color:#fff;border:none;font-size:11px;padding:0">×</button>
+    </span>`).join('');
+  let h = '';
+  if (pt.xrfPhotos.length || pt.ore.length)
+    h += `<div>${thumbs(pt.xrfPhotos, 'x')}${thumbs(pt.ore, 'o')}</div>`;
+  if (pt.xrf.length)
+    h += '<div style="margin-top:2px">' + pt.xrf.map((r, ri) =>
+      `<span style="display:inline-block;margin:2px 10px 2px 0;font-size:13px"><b>${r.el}</b> ${r.val}% <a href="javascript:void 0" data-edit="${ri}" style="color:var(--primary)">编辑</a></span>`
+    ).join('') + '</div>';
+  box.innerHTML = h;
+  box.querySelectorAll('[data-delp]').forEach(b => b.onclick = () => {
+    const [k, i] = b.dataset.delp.split('-'); const idx = +i;
+    if (k === 'x') {
+      pt.xrfPhotos.splice(idx, 1);
+      pt.xrf = pt.xrf.filter(r => r.src !== idx);
+      pt.xrf.forEach(r => { if (r.src > idx) r.src--; });
+    } else pt.ore.splice(idx, 1);
+    renderPointArea(t);
+  });
   box.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => {
-    const r = xrfReadings[+b.dataset.edit];
+    const r = pt.xrf[+b.dataset.edit];
     const v = prompt(`修改 ${r.el} 数值（%）`, r.val);
     if (v == null) return;
     const nv = parseFloat(v);
     if (isNaN(nv) || nv < 0 || nv > 100) { toast('数值无效'); return; }
     r.val = nv;
-    fillFeed(r);
-    renderXRFPanel();
-  });
-  box.querySelectorAll('[data-rmdel]').forEach(b => b.onclick = () => {
-    xrfReadings.splice(+b.dataset.rmdel, 1);
-    renderXRFPanel();
+    applyGrade(t, r, true);
+    renderPointArea(t);
   });
 }
 
-function fillFeed(r) {
-  // Ta/Nb 自动进入选品位栏（栏位为空才填，不覆盖手输）
-  if (r.el === 'Ta' && !$('fTa').value) { $('fTa').value = r.val; toast(`入选Ta 已填 ${r.val}%`); }
-  if (r.el === 'Nb' && !$('fNb').value) { $('fNb').value = r.val; toast(`入选Nb 已填 ${r.val}%`); }
+function applyGrade(t, r, force) {
+  // feed点填Ta/Nb两栏；产品行填品位栏（Ta优先）。force=人工编辑时强制写入
+  if (t === 'feed') {
+    if (r.el === 'Ta' && (force || !$('fTa').value)) $('fTa').value = r.val;
+    if (r.el === 'Nb' && (force || !$('fNb').value)) $('fNb').value = r.val;
+  } else {
+    const inp = t.querySelector('[name=pgrade]');
+    if (r.el === 'Ta' && (force || !inp.value)) { inp.value = r.val; toast(`品位已填 Ta=${r.val}%`); }
+  }
 }
 
-async function ocrPhoto(i) {
-  const panel = $('ocr' + i);
-  panel.innerHTML = '识别中…（约5秒）';
+async function ocrPoint(t, photoIdx) {
+  const pt = getPoint(t);
   try {
-    const j = await workerPost({ action: 'ocr', images: [pendingPhotos[i]] });
-    if (j.error || !j.elements) { panel.innerHTML = '识别失败：' + (j.error || '换个角度重拍'); return; }
-    const list = Object.entries(j.elements).map(([el, val]) => ({ el, val, guessed: false }));
-    mergeXRF(list, i);
-    list.forEach(fillFeed);   // Ta/Nb 自动填入选品位
-    panel.innerHTML = `本张识别 ${list.length} 项`;
-    renderXRFPanel();
-  } catch (e) { panel.innerHTML = '识别失败：' + (e.message || '网络问题'); }
+    const j = await workerPost({ action: 'ocr', images: [pt.xrfPhotos[photoIdx]] });
+    if (j.error || !j.elements) { toast('识别失败：' + (j.error || '重拍试试')); return; }
+    Object.entries(j.elements).forEach(([el, val]) => {
+      if (!pt.xrf.some(x => x.el === el && x.val === val)) pt.xrf.push({ el, val, src: photoIdx });
+      applyGrade(t, { el, val }, false);
+    });
+    renderPointArea(t);
+  } catch (e) { toast('识别失败：网络问题'); }
 }
 
 $('saveBtn').onclick = () => {
   const outputs = [...$('outputRows').querySelectorAll('.output-row')]
-    .map(r => ({ product: r.querySelector('[name=pname]').value.trim(), kg: num(r.querySelector('[name=pkg]').value), grade: num(r.querySelector('[name=pgrade]').value) || null }))
-    .filter(o => o.product || o.kg > 0);
+    .map(r => ({ product: r.querySelector('[name=pname]').value.trim(), kg: num(r.querySelector('[name=pkg]').value), grade: num(r.querySelector('[name=pgrade]').value) || null,
+      xrf: r.pointData.xrf.map(({ el, val }) => ({ el, val })),
+      xrf_photos: r.pointData.xrfPhotos.slice(), ore_photos: r.pointData.ore.slice() }))
+    .filter(o => o.product || o.kg > 0 || o.xrf_photos.length || o.ore_photos.length);
   if (!outputs.length && !num($('fInput').value) && !num($('fRuntime').value)) {
     toast('至少填一项：处理量、运行时长或产出'); return;
   }
@@ -391,9 +406,9 @@ $('saveBtn').onclick = () => {
     downtime_h: num($('fDown').value),
     downtime_reason: $('fDownReason').value.trim(),
     note: $('fNote').value.trim(),
-    photos: pendingPhotos.slice(),
-    photo: pendingPhotos[0] || null,
-    xrf: xrfReadings.map(({ el, val, guessed }) => ({ el, val, guessed })),
+    feed_xrf: feedData.xrf.map(({ el, val }) => ({ el, val })),
+    feed_xrf_photos: feedData.xrfPhotos.slice(),
+    feed_ore_photos: feedData.ore.slice(),
     recorder: settings.recorder,
     created_at: editId ? (records.find(r => r.id === editId)?.created_at || now) : now,
     updated_at: now,
@@ -412,7 +427,8 @@ $('saveBtn').onclick = () => {
 
 function resetForm() {
   $('fRuntime').value = $('fInput').value = $('fTa').value = $('fNb').value = $('fDown').value = $('fDownReason').value = $('fNote').value = '';
-  pendingPhotos = []; xrfReadings = []; renderPhotoList(); renderXRFPanel(); $('fPhotoFile').value = '';
+  feedData.xrfPhotos = []; feedData.xrf = []; feedData.ore = []; renderPointArea('feed');
+  $('fXrfPhoto').value = ''; $('fOrePhoto').value = '';
   $('outputRows').innerHTML = ''; addOutputRow();
   $('saveBtn').textContent = '保存记录';
 }
@@ -422,13 +438,21 @@ function loadToForm(rec) {
   $('fDate').value = rec.date; $('fShift').value = rec.shift; $('fLine').value = rec.line;
   $('fRuntime').value = rec.runtime_h || ''; $('fInput').value = rec.input_t || '';
   $('outputRows').innerHTML = '';
-  (rec.outputs.length ? rec.outputs : [{}]).forEach(o => addOutputRow(o.product || '', o.kg || '', o.grade ?? ''));
+  (rec.outputs.length ? rec.outputs : [{}]).forEach(o => {
+    addOutputRow(o.product || '', o.kg || '', o.grade ?? '');
+    const row = $('outputRows').lastElementChild;
+    row.pointData.xrfPhotos = (o.xrf_photos || []).slice();
+    row.pointData.xrf = (o.xrf || []).map(x => ({ ...x, src: -1 }));
+    row.pointData.ore = (o.ore_photos || []).slice();
+    renderPointArea(row);
+  });
   $('fTa').value = rec.ta_pct ?? ''; $('fNb').value = rec.nb_pct ?? '';
   $('fDown').value = rec.downtime_h || ''; $('fDownReason').value = rec.downtime_reason || '';
   $('fNote').value = rec.note || '';
-  pendingPhotos = rec.photos || (rec.photo ? [rec.photo] : []);
-  xrfReadings = (rec.xrf || []).map(x => ({ ...x, src: -1 }));
-  renderPhotoList(); renderXRFPanel();
+  feedData.xrfPhotos = (rec.feed_xrf_photos || rec.photos || (rec.photo ? [rec.photo] : [])).slice();
+  feedData.xrf = (rec.feed_xrf || rec.xrf || []).map(x => ({ ...x, src: -1 }));
+  feedData.ore = (rec.feed_ore_photos || []).slice();
+  renderPointArea('feed');
   $('saveBtn').textContent = '更新记录';
   switchTab('entry');
 }
@@ -450,6 +474,15 @@ function renderHistory() {
 
 function showDetail(id) {
   const r = records.find(x => x.id === id); if (!r) return;
+  const imgTags = arr => (arr || []).map(p => `<img src="${p}" style="width:72px;height:54px;object-fit:cover;border-radius:6px;margin:3px 4px 0 0">`).join('');
+  const xrfTxt = arr => (arr || []).map(x => x.el + ' ' + x.val + '%').join(' · ');
+  // 入选点 + 每个产品点的读数和照片
+  const feedBlock = ((r.feed_xrf || r.xrf || []).length || (r.feed_xrf_photos || r.photos || []).length || (r.feed_ore_photos || []).length)
+    ? `<div style="margin-top:8px;font-size:13px"><b>入选</b> ${xrfTxt(r.feed_xrf || r.xrf)}<br>${imgTags(r.feed_xrf_photos || r.photos)}${imgTags(r.feed_ore_photos)}</div>` : '';
+  const outsBlocks = r.outputs.map(o => {
+    const has = (o.xrf || []).length || (o.xrf_photos || []).length || (o.ore_photos || []).length;
+    return has ? `<div style="margin-top:8px;font-size:13px"><b>${o.product}</b> ${xrfTxt(o.xrf)}<br>${imgTags(o.xrf_photos)}${imgTags(o.ore_photos)}</div>` : '';
+  }).join('');
   const outs = r.outputs.map(o => `${o.product}: ${o.kg} kg${o.grade != null ? ' · ' + o.grade + '%' : ''}`).join('<br>') || '无';
   showModal(`<h3>${r.date} ${r.shift} · ${r.line}</h3>
     <table>
@@ -460,9 +493,8 @@ function showDetail(id) {
       <tr><td>停机</td><td>${r.downtime_h || 0} h ${r.downtime_reason || ''}</td></tr>
       <tr><td>备注</td><td>${r.note || '—'}</td></tr>
       <tr><td>记录人</td><td>${r.recorder || '—'}</td></tr>
-      ${r.xrf && r.xrf.length ? `<tr><td>XRF读数</td><td>${r.xrf.map(x => x.el + ' ' + x.val + '%' + (x.guessed ? '?' : '')).join(' · ')}</td></tr>` : ''}
     </table>
-    ${(r.photos || (r.photo ? [r.photo] : [])).map(p => `<img src="${p}" style="width:100%;border-radius:8px;margin-top:8px">`).join('')}
+    ${feedBlock}${outsBlocks}
     <div class="btns">
       <button class="secondary" id="mEdit">编辑</button>
       <button class="danger" id="mDel">删除</button>
@@ -615,7 +647,7 @@ $('exportCsv').onclick = () => {
     r.date, r.shift, r.line, r.runtime_h, r.input_t,
     r.outputs.map(o => `${o.product}:${o.kg}kg${o.grade != null ? '@' + o.grade + '%' : ''}`).join(';'),
     r.ta_pct ?? '', r.nb_pct ?? '',
-    `"${(r.xrf || []).map(x => x.el + ':' + x.val + '%').join(';')}"`,
+    `"${[(r.feed_xrf || r.xrf || []).map(x => '入选:' + x.el + '=' + x.val + '%').join(';'), ...r.outputs.map(o => (o.xrf || []).length ? o.product + ':' + o.xrf.map(x => x.el + '=' + x.val + '%').join(';') : '')].filter(Boolean).join(' | ')}"`,
     r.downtime_h, `"${(r.downtime_reason || '').replace(/"/g, '""')}"`,
     `"${(r.note || '').replace(/"/g, '""')}"`, r.recorder
   ].join(',')).join('\n');
