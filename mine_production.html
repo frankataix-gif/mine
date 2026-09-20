@@ -210,7 +210,7 @@
 
 <script>
 /* ================= 数据层 ================= */
-const APP_VERSION = '2026-09-21-v2';
+const APP_VERSION = '2026-09-21-v3';
 const LS_REC = 'mine_records_v1';
 const LS_SET = 'mine_settings_v1';
 
@@ -338,6 +338,7 @@ function renderPointArea(t) {
   let h = '';
   if (pt.xrfPhotos.length || pt.ore.length)
     h += `<div>${thumbs(pt.xrfPhotos, 'x')}${thumbs(pt.ore, 'o')}</div>`;
+  if (pt.ocrMsg) h += `<div style="font-size:12px;margin-top:4px;color:${pt.ocrMsg.err ? 'var(--danger)' : 'var(--muted)'}">${pt.ocrMsg.t}${pt.ocrMsg.err ? ' <a href="javascript:void 0" data-retry style="color:var(--primary)">重试</a>' : ''}</div>`;
   // 读数即品位：Ta/Nb 加粗前置，其余参考元素正常显示
   if (pt.xrf.length) {
     const sorted = [...pt.xrf].sort((a, b) => (a.el === 'Ta' ? 0 : a.el === 'Nb' ? 1 : 9) - (b.el === 'Ta' ? 0 : b.el === 'Nb' ? 1 : 9));
@@ -359,6 +360,7 @@ function renderPointArea(t) {
     renderPointArea(t);
   });
   box.querySelectorAll('[data-zoom]').forEach(im => im.onclick = () => zoomImg(im.src));
+  box.querySelectorAll('[data-retry]').forEach(b => b.onclick = () => ocrPoint(t, pt.xrfPhotos.length - 1));
   box.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => {
     const r = pt.xrf[+b.dataset.edit];
     modalPrompt(`修改 ${r.el} 数值（%）`, String(r.val), v => {
@@ -388,17 +390,24 @@ async function photoToDataURL(p) {
 
 async function ocrPoint(t, photoIdx) {
   const pt = getPoint(t);
-  toast('识别中…');
+  pt.ocrMsg = { t: '识别中…（约5-10秒）', err: false };
+  renderPointArea(t);
   try {
     const img = await photoToDataURL(pt.xrfPhotos[photoIdx]);
     const j = await workerPost({ action: 'ocr', images: [img] });
-    if (j.error || !j.elements) { toast('识别失败：' + (j.error || '重拍试试')); return; }
+    if (j.error || !j.elements || !Object.keys(j.elements).length) {
+      pt.ocrMsg = { t: '识别失败：' + (j.error || '数值没认出来，重拍或点重试'), err: true };
+      renderPointArea(t); return;
+    }
     Object.entries(j.elements).forEach(([el, val]) => {
       if (!pt.xrf.some(x => x.el === el && x.val === val)) pt.xrf.push({ el, val, src: photoIdx });
     });
+    pt.ocrMsg = null;
     renderPointArea(t);
-    toast('已读数');
-  } catch (e) { toast('识别失败：网络问题'); }
+  } catch (e) {
+    pt.ocrMsg = { t: '识别失败：网络问题（到有信号处点重试）', err: true };
+    renderPointArea(t);
+  }
 }
 
 let lastSaveTap = 0;
