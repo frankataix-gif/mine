@@ -129,12 +129,8 @@
 
     <div class="card">
       <h3>XRF照片（可选，可多张）</h3>
-      <input type="file" id="fPhoto" accept="image/*" capture="environment" style="display:none">
       <input type="file" id="fPhotoFile" accept="image/*" multiple style="display:none">
-      <div class="row">
-        <div><button class="secondary btn-block" id="photoBtn" style="margin-top:0">📷 拍摄</button></div>
-        <div><button class="secondary btn-block" id="photoFileBtn" style="margin-top:0">🖼 上传图片</button></div>
-      </div>
+      <button class="secondary btn-block" id="photoFileBtn" style="margin-top:0">� 上传图片</button>
       <div id="photoList"></div>
       <div id="xrfMerged"></div>
       <div class="hint">拍光谱仪读数屏（可多张），自动识别读数；识别错的数值点"编辑"修正</div>
@@ -276,7 +272,6 @@ $('addOutput').onclick = () => addOutputRow();
 
 /* ================= XRF照片（多张） ================= */
 let pendingPhotos = [];
-$('photoBtn').onclick = () => $('fPhoto').click();
 $('photoFileBtn').onclick = () => $('fPhotoFile').click();
 
 function handlePhoto(e) {
@@ -296,7 +291,6 @@ function handlePhoto(e) {
     img.src = URL.createObjectURL(f);
   });
 }
-$('fPhoto').onchange = handlePhoto;
 $('fPhotoFile').onchange = handlePhoto;
 
 function renderPhotoList() {
@@ -418,7 +412,7 @@ $('saveBtn').onclick = () => {
 
 function resetForm() {
   $('fRuntime').value = $('fInput').value = $('fTa').value = $('fNb').value = $('fDown').value = $('fDownReason').value = $('fNote').value = '';
-  pendingPhotos = []; xrfReadings = []; renderPhotoList(); renderXRFPanel(); $('fPhoto').value = ''; $('fPhotoFile').value = '';
+  pendingPhotos = []; xrfReadings = []; renderPhotoList(); renderXRFPanel(); $('fPhotoFile').value = '';
   $('outputRows').innerHTML = ''; addOutputRow();
   $('saveBtn').textContent = '保存记录';
 }
