@@ -1,0 +1,14 @@
+{
+  "name": "钽铌矿生产统计",
+  "short_name": "矿场统计",
+  "description": "钽铌矿洗选厂生产记录",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f1f5f9",
+  "theme_color": "#2563eb",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
