@@ -311,13 +311,68 @@ function renderPhotoList() {
   $('photoList').querySelectorAll('[data-ocr]').forEach(b => b.onclick = () => ocrPhoto(+b.dataset.ocr));
 }
 
+const XRF_ORDER = ['Ta','Nb','Bal','Hf','Zr','Bi','As','Fe','Mn','Ti'];
+const XRF_ALIAS = { ts:'Ta', teas:'Nb', gr:'Zr', fpr:'Bal', bl:'Bi', nn:'Mn', t1:'Ti', tl:'Ti', tt:'Ti', ta:'Ta', nb:'Nb' };
+function parseXRF(text) {
+  const found = {}; const orphanNums = [];
+  text.split('\n').forEach(line => {
+    const nums = line.match(/\d+\.\d+/g);
+    if (!nums || !nums.length) return;
+    const m = line.match(/([A-Za-z]{2,4})\s*[:\-]?\s*[\d.]/);
+    let el = null;
+    if (m) {
+      const t = m[1].toLowerCase();
+      el = XRF_ORDER.find(e => e.toLowerCase() === t) || XRF_ALIAS[t] || null;
+    }
+    if (el && found[el] == null) found[el] = parseFloat(nums[0]);
+    else orphanNums.push(parseFloat(nums[0]));
+  });
+  // 按屏幕固定行序，把没认出元素名的数值补位（标 ? 提示用户核对）
+  const guess = {};
+  XRF_ORDER.forEach(e => { if (found[e] == null && orphanNums.length) { const v = orphanNums.shift(); if (v != null) guess[e] = v; } });
+  return { found, guess };
+}
+
+function preprocessRotated(img, deg) {
+  const c = document.createElement('canvas');
+  const rad = deg * Math.PI / 180;
+  if (deg % 180) { c.width = img.naturalHeight; c.height = img.naturalWidth; }
+  else { c.width = img.naturalWidth; c.height = img.naturalHeight; }
+  const ctx = c.getContext('2d');
+  ctx.translate(c.width / 2, c.height / 2); ctx.rotate(rad);
+  ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+  // 灰度+二值化增强
+  const id = ctx.getImageData(0, 0, c.width, c.height); const d = id.data;
+  for (let p = 0; p < d.length; p += 4) {
+    const g = d[p] * .3 + d[p + 1] * .59 + d[p + 2] * .11;
+    const v = g > 130 ? 255 : 0; d[p] = d[p + 1] = d[p + 2] = v;
+  }
+  ctx.putImageData(id, 0, 0);
+  return c.toDataURL('image/png');
+}
+
 async function ocrPhoto(i) {
   const panel = $('ocr' + i);
-  panel.innerHTML = '识别中…（首次约10–20秒）';
   try {
-    const j = await workerPost({ action: 'ocr', images: [pendingPhotos[i]] });
-    if (j.error) { panel.innerHTML = '识别失败：' + j.error; return; }
-    const els = j.elements || {};
+    if (!window.Tesseract) {
+      panel.innerHTML = '首次加载识别引擎（约3MB）…';
+      await new Promise((res, rej) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.0/dist/tesseract.min.js';
+        s.onload = res; s.onerror = () => rej(new Error('load'));
+        document.head.appendChild(s);
+      });
+    }
+    panel.innerHTML = '识别中…（约5–10秒）';
+    const img = new Image();
+    await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = pendingPhotos[i]; });
+    let best = null;
+    for (const deg of [0, 90, 270, 180]) {
+      const { data } = await Tesseract.recognize(preprocessRotated(img, deg), 'eng');
+      if (!best || data.confidence > best.confidence) best = data;
+    }
+    const { found, guess } = parseXRF(best.text);
+    const els = { ...guess, ...found };
     const keys = Object.keys(els);
     if (!keys.length) { panel.innerHTML = '没读到数值，换个角度重拍再试'; return; }
     const prods = [...document.querySelectorAll('#outputRows [name=pname]')].map(x => x.value.trim()).filter(Boolean);
@@ -325,7 +380,7 @@ async function ocrPhoto(i) {
       const btns = (k === 'Ta' || k === 'Nb')
         ? `<button class="secondary" data-fill="feed-${k}">→入选${k}</button>` : '';
       return `<div style="display:flex;align-items:center;gap:6px;margin:4px 0;flex-wrap:wrap">
-        <b style="min-width:70px">${k} ${els[k]}%</b>${btns}
+        <b style="min-width:70px">${k} ${els[k]}%${found[k] == null ? '<span style="color:#ef4444">?</span>' : ''}</b>${btns}
         ${prods.map((p, pi) => `<button class="secondary" data-fill="prod-${pi}-${k}">→${p}</button>`).join('')}
       </div>`;
     }).join('');
@@ -340,7 +395,7 @@ async function ocrPhoto(i) {
         if (row) { row.querySelector('[name=pgrade]').value = val; toast(`已填入 ${elKey} ${val}%`); }
       }
     });
-  } catch (e) { panel.innerHTML = '识别失败：网络问题'; }
+  } catch (e) { panel.innerHTML = '识别失败：' + (e.message || '换个角度重拍再试'); }
 }
 
 $('saveBtn').onclick = () => {
