@@ -130,13 +130,11 @@
       <div class="quick-btns" id="quickProducts"></div>
       <div id="outputRows"></div>
       <button class="secondary btn-block" id="addOutput">+ 加一行产品</button>
-      <div class="hint">每行：产品名 + 重量kg + 品位%（XRF读数，可空）</div>
+      <div class="hint">点上方产品名加行；📷品位=拍XRF屏自动读数，🪨矿石=物料照片存档</div>
     </div>
 
-    <div class="card">
-      <input type="file" id="fXrfPhoto" accept="image/*" multiple style="display:none">
-      <input type="file" id="fOrePhoto" accept="image/*" multiple style="display:none">
-    </div>
+    <input type="file" id="fXrfPhoto" accept="image/*" multiple style="display:none">
+    <input type="file" id="fOrePhoto" accept="image/*" multiple style="display:none">
 
     <div class="card">
       <div class="row">
@@ -212,7 +210,7 @@
 
 <script>
 /* ================= 数据层 ================= */
-const APP_VERSION = '2026-09-20-v1';
+const APP_VERSION = '2026-09-21-v2';
 const LS_REC = 'mine_records_v1';
 const LS_SET = 'mine_settings_v1';
 
@@ -259,7 +257,12 @@ const LINE_PRODUCTS = {
 function renderQuickProducts() {
   const prods = LINE_PRODUCTS[$('fLine').value] || settings.products;
   $('quickProducts').innerHTML = prods.map(p => `<button data-p="${p}">${p}</button>`).join('');
-  $('quickProducts').querySelectorAll('button').forEach(b => b.onclick = () => addOutputRow(b.dataset.p));
+  $('quickProducts').querySelectorAll('button').forEach(b => b.onclick = () => {
+    // 已有同名行 → 聚焦重量栏而不是重复加行
+    const existing = [...$('outputRows').children].find(r => r.querySelector('[name=pname]').value === b.dataset.p);
+    if (existing) { existing.scrollIntoView({ block: 'center' }); existing.querySelector('[name=pkg]').focus(); return; }
+    addOutputRow(b.dataset.p);
+  });
 }
 function addOutputRow(name = '', kg = '') {
   const div = document.createElement('div');
@@ -271,7 +274,7 @@ function addOutputRow(name = '', kg = '') {
   </div>
   <div class="parea"></div>`;
   div.pointData = { xrfPhotos: [], xrf: [], ore: [] };
-  div.querySelector('.del').onclick = () => { if ($('outputRows').children.length > 1) div.remove(); };
+  div.querySelector('.del').onclick = () => div.remove();
   div.querySelector('.pxrf').onclick = () => { photoTarget = div; $('fXrfPhoto').click(); };
   div.querySelector('.pore').onclick = () => { photoTarget = div; $('fOrePhoto').click(); };
   $('outputRows').appendChild(div);
@@ -293,14 +296,17 @@ function compressPhoto(f, cb) {
   const img = new Image();
   img.onload = () => {
     const c = document.createElement('canvas');
-    const s = Math.min(1, 1400 / Math.max(img.width, img.height));
+    const s = Math.min(1, 1200 / Math.max(img.width, img.height));
     c.width = img.width * s; c.height = img.height * s;
     c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-    cb(c.toDataURL('image/jpeg', 0.6));
+    cb(c.toDataURL('image/jpeg', 0.55));
     URL.revokeObjectURL(img.src);
   };
   img.src = URL.createObjectURL(f);
 }
+
+// 照片引用：data:开头=本机待上传；ph:xxx=已上传为仓库文件
+function imgUrl(p) { return p && p.startsWith('ph:') ? 'photos/' + p.slice(3) : p; }
 
 function photoHandler(kind) {
   return e => {
@@ -326,7 +332,7 @@ function renderPointArea(t) {
   const pt = getPoint(t); const box = getPointArea(t);
   const thumbs = (arr, kind) => arr.map((p, i) =>
     `<span style="display:inline-block;position:relative;margin:4px 6px 0 0">
-      <img src="${p}" style="width:72px;height:54px;object-fit:cover;border-radius:6px">
+      <img src="${imgUrl(p)}" data-zoom style="width:72px;height:54px;object-fit:cover;border-radius:6px;cursor:pointer">
       <button data-delp="${kind}-${i}" style="position:absolute;top:-5px;right:-5px;width:18px;height:18px;min-height:18px;border-radius:50%;background:#ef4444;color:#fff;border:none;font-size:11px;padding:0">×</button>
     </span>`).join('');
   let h = '';
@@ -352,30 +358,40 @@ function renderPointArea(t) {
     } else pt.ore.splice(idx, 1);
     renderPointArea(t);
   });
+  box.querySelectorAll('[data-zoom]').forEach(im => im.onclick = () => zoomImg(im.src));
   box.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => {
     const r = pt.xrf[+b.dataset.edit];
-    const v = prompt(`修改 ${r.el} 数值（%）`, r.val);
-    if (v == null) return;
-    const nv = parseFloat(v);
-    if (isNaN(nv) || nv < 0 || nv > 100) { toast('数值无效'); return; }
-    r.val = nv;
-    renderPointArea(t);
+    modalPrompt(`修改 ${r.el} 数值（%）`, String(r.val), v => {
+      const nv = parseFloat(v);
+      if (isNaN(nv) || nv < 0 || nv > 100) { toast('数值无效'); return; }
+      r.val = nv;
+      renderPointArea(t);
+    });
   });
   box.querySelectorAll('[data-add]').forEach(b => b.onclick = () => {
-    const v = prompt('手填读数（格式：元素 数值%，如 Ta 2.36）', 'Ta ');
-    if (!v) return;
-    const m = v.trim().match(/^([A-Za-z]{1,3})\s*([\d.]+)/);
-    if (!m || isNaN(parseFloat(m[2]))) { toast('格式不对'); return; }
-    pt.xrf.push({ el: m[1][0].toUpperCase() + m[1].slice(1), val: parseFloat(m[2]), src: -1 });
-    renderPointArea(t);
+    modalPrompt('手填读数（格式：元素 数值，如 Ta 2.36）', 'Ta ', v => {
+      const m = v.trim().match(/^([A-Za-z]{1,3})\s*([\d.]+)/);
+      if (!m || isNaN(parseFloat(m[2]))) { toast('格式不对'); return; }
+      pt.xrf.push({ el: m[1][0].toUpperCase() + m[1].slice(1), val: parseFloat(m[2]), src: -1 });
+      renderPointArea(t);
+    });
   });
+}
+
+async function photoToDataURL(p) {
+  // ph: 引用 → 拉回文件转base64（OCR接口需要）
+  if (!p.startsWith('ph:')) return p;
+  const res = await fetch('photos/' + p.slice(3));
+  const blob = await res.blob();
+  return new Promise(res2 => { const r = new FileReader(); r.onload = () => res2(r.result); r.readAsDataURL(blob); });
 }
 
 async function ocrPoint(t, photoIdx) {
   const pt = getPoint(t);
   toast('识别中…');
   try {
-    const j = await workerPost({ action: 'ocr', images: [pt.xrfPhotos[photoIdx]] });
+    const img = await photoToDataURL(pt.xrfPhotos[photoIdx]);
+    const j = await workerPost({ action: 'ocr', images: [img] });
     if (j.error || !j.elements) { toast('识别失败：' + (j.error || '重拍试试')); return; }
     Object.entries(j.elements).forEach(([el, val]) => {
       if (!pt.xrf.some(x => x.el === el && x.val === val)) pt.xrf.push({ el, val, src: photoIdx });
@@ -385,7 +401,10 @@ async function ocrPoint(t, photoIdx) {
   } catch (e) { toast('识别失败：网络问题'); }
 }
 
+let lastSaveTap = 0;
 $('saveBtn').onclick = () => {
+  if (Date.now() - lastSaveTap < 800) return;   // 防连点重复保存
+  lastSaveTap = Date.now();
   const outputs = [...$('outputRows').querySelectorAll('.output-row')]
     .map(r => ({ product: r.querySelector('[name=pname]').value.trim(), kg: num(r.querySelector('[name=pkg]').value),
       grade: (r.pointData.xrf.find(x => x.el === 'Ta') || {}).val ?? null,
@@ -476,7 +495,7 @@ function renderHistory() {
 
 function showDetail(id) {
   const r = records.find(x => x.id === id); if (!r) return;
-  const imgTags = arr => (arr || []).map(p => `<img src="${p}" style="width:72px;height:54px;object-fit:cover;border-radius:6px;margin:3px 4px 0 0">`).join('');
+  const imgTags = arr => (arr || []).map(p => `<img src="${imgUrl(p)}" data-zoom style="width:72px;height:54px;object-fit:cover;border-radius:6px;margin:3px 4px 0 0;cursor:pointer">`).join('');
   const xrfTxt = arr => (arr || []).map(x => x.el + ' ' + x.val + '%').join(' · ');
   // 入选点 + 每个产品点的读数和照片
   const feedBlock = ((r.feed_xrf || r.xrf || []).length || (r.feed_xrf_photos || r.photos || []).length || (r.feed_ore_photos || []).length)
@@ -502,6 +521,7 @@ function showDetail(id) {
       <button class="danger" id="mDel">删除</button>
       <button class="secondary" id="mClose">关闭</button>
     </div>`);
+  $('modalRoot').querySelectorAll('[data-zoom]').forEach(im => im.onclick = () => zoomImg(im.src));
   $('mEdit').onclick = () => { closeModal(); loadToForm(r); };
   $('mDel').onclick = () => {
     closeModal();
@@ -577,6 +597,8 @@ async function trySync() {
       if (!rem || r.updated_at > rem.updated_at) map.set(r.id, r);
     });
     const merged = [...map.values()];
+    // 照片先行：dataURL 传为仓库文件，记录里换成 ph: 引用（否则 JSON 超 GitHub 1MB 上限）
+    await uploadPendingPhotos(merged);
     const needPush = merged.length !== remoteRecs.length ||
       merged.some(r => { const rem = remoteRecs.find(x => x.id === r.id); return !rem || rem.updated_at !== r.updated_at; });
     if (needPush) {
@@ -601,6 +623,27 @@ function updateSyncStatus(msg) {
   if (!navigator.onLine) { el.textContent = `离线模式 · ${pending}条待同步`; el.className = 'pending'; }
   else if (pending) { el.textContent = `${pending} 条待同步`; el.className = 'pending'; }
   else { el.textContent = '已同步'; el.className = ''; }
+}
+
+async function uploadPendingPhotos(list) {
+  for (const r of list) {
+    const conv = async (arr, tag) => {
+      if (!arr) return;
+      for (let i = 0; i < arr.length; i++) {
+        if (!arr[i].startsWith('data:')) continue;
+        const b64 = arr[i].split(',')[1];
+        const name = `p_${r.id}_${tag}${i}_${b64.length}.jpg`;
+        const res = await workerPost({ action: 'up_photo', name, b64 });
+        if (!res.ok) throw new Error('photo upload failed');
+        arr[i] = 'ph:' + name;
+      }
+    };
+    await conv(r.feed_xrf_photos, 'fx'); await conv(r.feed_ore_photos, 'fo');
+    await conv(r.photos, 'lp');   // 旧版字段兼容
+    if (r.photo && r.photo.startsWith('data:')) { const a = [r.photo]; await conv(a, 'ls'); r.photo = a[0]; }
+    let oi = 0;
+    for (const o of (r.outputs || [])) { await conv(o.xrf_photos, 'x' + oi); await conv(o.ore_photos, 'o' + oi); oi++; }
+  }
 }
 
 window.addEventListener('online', trySync);
@@ -670,6 +713,23 @@ function showModal(html) { $('modalRoot').innerHTML = `<div class="modal-mask"><
   $('modalRoot').querySelector('.modal-mask').onclick = e => { if (e.target.className === 'modal-mask') closeModal(); };
   document.addEventListener('keydown', escClose);
 }
+// 图片全屏查看（不占用modal层级，详情弹窗里也能用）
+function zoomImg(src) {
+  const d = document.createElement('div');
+  d.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:300;display:flex;align-items:center;justify-content:center;cursor:pointer';
+  d.innerHTML = `<img src="${src}" style="max-width:96%;max-height:92%;border-radius:8px">`;
+  d.onclick = () => d.remove();
+  document.body.appendChild(d);
+}
+// iOS 主屏幕App不支持 prompt()，用模态框代替
+function modalPrompt(title, def, cb) {
+  showModal(`<h3>${title}</h3><input id="mpIn" type="text" inputmode="decimal" value="${def}" style="margin-top:6px">
+    <div class="btns"><button class="primary" id="mpOk">确定</button><button class="secondary" id="mpC">取消</button></div>`);
+  const inp = $('mpIn'); inp.focus(); inp.select();
+  inp.onkeydown = e => { if (e.key === 'Enter') $('mpOk').click(); };
+  $('mpOk').onclick = () => { const v = inp.value; closeModal(); cb(v); };
+  $('mpC').onclick = closeModal;
+}
 function closeModal() { $('modalRoot').innerHTML = ''; document.removeEventListener('keydown', escClose); }
 function escClose(e) { if (e.key === 'Escape') closeModal(); }
 function toast(msg) {
@@ -692,6 +752,9 @@ async function checkUpdate() {
     const txt = await res.text();
     const m = txt.match(/APP_VERSION\s*=\s*'([^']+)'/);
     if (m && m[1] !== APP_VERSION && !sessionStorage.getItem('mine_reloaded')) {
+      // 正在编辑记录时不打断，提示保存后重开更新
+      const busy = editId || $('fInput').value || $('outputRows').children.length || feedData.xrfPhotos.length || feedData.ore.length;
+      if (busy) { toast('发现新版本，保存后重开App更新'); return; }
       sessionStorage.setItem('mine_reloaded', '1');
       toast('发现新版本，正在更新…');
       setTimeout(() => location.reload(true), 1000);
