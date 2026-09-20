@@ -408,7 +408,7 @@ async function workerPost(payload) {
 }
 
 async function trySync() {
-  if (syncing || !navigator.onLine || !settings.workerUrl) { updateSyncStatus(); return; }
+  if (syncing || !navigator.onLine) { updateSyncStatus(); return false; }
   syncing = true; updateSyncStatus('同步中…');
   try {
     const remote = await workerPost({ action: 'read', path: settings.remotePath });
@@ -430,10 +430,13 @@ async function trySync() {
     records = merged.map(r => ({ ...r, synced: true }));
     save(); renderHistory(); renderStats();
     updateSyncStatus('已同步 ✓ ' + new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }));
+    syncing = false;
+    return true;
   } catch (e) {
-    updateSyncStatus();
+    updateSyncStatus('同步失败 · 检查网络');
+    syncing = false;
+    return false;
   }
-  syncing = false;
 }
 
 function updateSyncStatus(msg) {
@@ -447,7 +450,12 @@ function updateSyncStatus(msg) {
 
 window.addEventListener('online', trySync);
 setInterval(() => { if (navigator.onLine && records.some(r => !r.synced)) trySync(); }, 60000);
-$('syncNow').onclick = trySync;
+$('syncNow').onclick = async () => {
+  if (!navigator.onLine) { toast('当前无网络，数据已保存在本机'); return; }
+  toast('同步中…');
+  const ok = await trySync();
+  toast(ok ? '同步完成 ✓' : '同步失败，检查网络后重试');
+};
 
 /* ================= 设置 ================= */
 function renderSettings() {
