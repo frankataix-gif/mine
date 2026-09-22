@@ -220,7 +220,7 @@
 
 <script>
 /* ================= 数据层 ================= */
-const APP_VERSION = '2026-09-21-v19';
+const APP_VERSION = '2026-09-21-v20';
 const LS_REC = 'mine_records_v1';
 const LS_SET = 'mine_settings_v1';
 
@@ -437,7 +437,8 @@ function parseXrfText(text) {
   // 修正OCR常见错：0_967/0-015 → 0.967/0.015（XRF屏里横线=小数点）
   text = (text || '').replace(/(\d)[_](\d)/g, '$1.$2').replace(/(\d)-(\d)/g, '$1.$2');
   const tail = text.split(/\+\/-|\bsec\b/i).slice(-1)[0] || text;
-  const elements = {}; let ptr = 0, pending = null, skip = false;
+  const elements = {}; const passed = new Set();   // 见过标签的行=已过，空行不再补数
+  let ptr = 0, pending = null, skip = false;
   for (const raw of tail.split('\n')) {
     const line = raw.trim(); if (!line) continue;
     if (/time|caution|intensity|beam|nav|tools|ind bulk|x-ray|sec/i.test(line)) continue;   // 非数据行
@@ -448,19 +449,21 @@ function parseXrfText(text) {
       if (XRF_ALIAS[key]) { label = XRF_ALIAS[key]; pos = line.indexOf(w); wlen = w.length; break; }
     }
     if (label) {
-      pending = label;
+      pending = label; passed.add(label);   // 行已出现：无数字就留空，不许位置补位抢占
       const ti = XRF_ROWS.indexOf(label); if (ti >= ptr) ptr = ti + 1;
       // 标签同行的数字：第一个=含量，其余跳过
       const nums = (line.slice(pos + wlen).match(/\d+(\.\d+)?/g) || []).map(Number).filter(n => n <= 150);
       if (nums.length) { elements[label] = nums[0]; pending = null; skip = nums.length < 2; }
       continue;
     }
-    // 无标签行：pending的标签取值；否则按屏幕行序补位；skip=上一值的误差行跳过
-    for (const n of (line.match(/\d+(\.\d+)?/g) || []).map(Number).filter(n => n <= 150)) {
+    // 无标签行：pending的标签取值；否则按屏幕行序补位（跳过已过的行）；skip=上一值的误差行跳过
+    const lnums = (line.match(/\d+(\.\d+)?/g) || []).map(Number).filter(n => n <= 150);
+    if (!lnums.length) { pending = null; continue; }   // 标签和数值不相邻，pending失效
+    for (const n of lnums) {
       if (skip) { skip = false; continue; }
       let el = null;
       if (pending && elements[pending] == null) el = pending;
-      else { while (ptr < XRF_ROWS.length && elements[XRF_ROWS[ptr]] != null) ptr++; el = XRF_ROWS[ptr] || null; }
+      else { while (ptr < XRF_ROWS.length && (elements[XRF_ROWS[ptr]] != null || passed.has(XRF_ROWS[ptr]))) ptr++; el = XRF_ROWS[ptr] || null; }
       if (!el) break;
       elements[el] = n; pending = null; skip = true;   // 下一个数=误差，跳过
       ptr = Math.max(ptr, XRF_ROWS.indexOf(el) + 1);
