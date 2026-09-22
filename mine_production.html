@@ -430,9 +430,9 @@ async function photoToDataURL(p) {
 }
 
 // XRF屏幕三列固定：元素名 | 含量% | 误差 —— 按行解析
-const XRF_ROWS = ['Ta', 'Nb', 'Bal', 'Hf', 'Zr', 'Bi', 'As', 'Fe', 'Mn', 'Ti'];
+const XRF_ROWS = ['Ta', 'Nb', 'Bal', 'Mo', 'Zr', 'Bi', 'As', 'Fe', 'Mn', 'Ti'];
 const XRF_ALIAS = { ta: 'Ta', ts: 'Ta', nb: 'Nb', bal: 'Bal', ba1: 'Bal', bai: 'Bal', b4l: 'Bal',
-  hf: 'Hf', zr: 'Zr', bi: 'Bi', as: 'As', fe: 'Fe', mn: 'Mn', ti: 'Ti' };
+  mo: 'Mo', m0: 'Mo', hf: 'Hf', zr: 'Zr', bi: 'Bi', as: 'As', fe: 'Fe', mn: 'Mn', ti: 'Ti' };
 function parseXrfText(text) {
   // 修正OCR常见错：0_967/0-015 → 0.967/0.015（XRF屏里横线=小数点）
   text = (text || '').replace(/(\d)[_](\d)/g, '$1.$2').replace(/(\d)-(\d)/g, '$1.$2');
