@@ -46,6 +46,9 @@
   .quick-btns { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
   .quick-btns button { min-height: 34px; padding: 4px 12px; font-size: 13px; background: #eff6ff; color: var(--primary); border: 1px solid #bfdbfe; }
   .quick-btns button.qactive { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .line-btns { display: flex; gap: 8px; }
+  .line-btns button { flex: 1; min-height: 52px; font-size: 16px; font-weight: 600; background: #eff6ff; color: var(--primary); border: 2px solid #bfdbfe; border-radius: 10px; }
+  .line-btns button.qactive { background: var(--primary); color: #fff; border-color: var(--primary); }
   .output-row { margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px dashed var(--border); }
   .output-row > .row { display: flex; gap: 8px; margin-bottom: 0; align-items: center; }
   .output-row input[name=pname] { flex: 1.2; }
@@ -106,7 +109,7 @@
       </div>
       <div class="field">
         <label>产线 / 工序</label>
-        <select id="fLine"></select>
+        <div class="line-btns" id="fLineBtns"></div>
       </div>
       <h3 style="margin-top:6px">入选（给矿）</h3>
       <div class="row">
@@ -213,7 +216,7 @@
 
 <script>
 /* ================= 数据层 ================= */
-const APP_VERSION = '2026-09-21-v7';
+const APP_VERSION = '2026-09-21-v8';
 const LS_REC = 'mine_records_v1';
 const LS_SET = 'mine_settings_v1';
 
@@ -244,25 +247,35 @@ function num(v) { const n = parseFloat(v); return isNaN(n) ? 0 : n; }
 const $ = id => document.getElementById(id);
 let editId = null;
 
+let curLine = '';
 function initEntry() {
   $('fDate').value = today();
+  curLine = settings.lines[0] || '';
   refreshLineSelect();
-  renderQuickProducts();
 }
 function refreshLineSelect() {
-  $('fLine').innerHTML = settings.lines.map(l => `<option>${l}</option>`).join('');
+  if (!settings.lines.includes(curLine)) curLine = settings.lines[0] || '';
+  renderLineBtns();
   renderQuickProducts();
+}
+function renderLineBtns() {
+  $('fLineBtns').innerHTML = settings.lines.map(l =>
+    `<button type="button" data-l="${l}" class="${l === curLine ? 'qactive' : ''}">${l}</button>`).join('');
+  $('fLineBtns').querySelectorAll('button').forEach(b => b.onclick = () => {
+    curLine = b.dataset.l;
+    renderLineBtns(); renderQuickProducts();
+  });
 }
 // 按工序关键词严格匹配产品——哪里的工艺就出哪里的产品
 function productsFor(line) {
-  if (/洗矿|洗砂|滚筒/.test(line)) return ['细泥-1.5mm', '中砂1.5-4mm', '粗砂+4mm'];
+  if (/洗矿|洗砂|滚筒/.test(line)) return ['细泥', '中沙', '块矿'];
   if (/摇床/.test(line)) return ['精矿', '中矿', '精+中综合', '尾矿'];
   if (/跳汰/.test(line)) return ['精矿', '中矿', '尾矿'];
   if (/手选/.test(line)) return ['手选精矿', '手选废石'];
   return settings.products;
 }
 function renderQuickProducts() {
-  const prods = productsFor($('fLine').value);
+  const prods = productsFor(curLine);
   $('quickProducts').innerHTML = prods.map(p => `<button data-p="${p}">${p}</button>`).join('');
   $('quickProducts').querySelectorAll('button').forEach(b => b.onclick = () => {
     // 已有同名行 → 聚焦重量栏而不是重复加行
@@ -286,7 +299,7 @@ function addOutputRow(name = '', kg = '') {
   div.querySelector('.pore').onclick = () => { photoTarget = div; $('fOrePhoto').click(); };
   $('outputRows').appendChild(div);
 }
-$('fLine').addEventListener('change', renderQuickProducts);
+
 $('addOutput').onclick = () => addOutputRow();
 
 /* ================= 品位点照片（XRF检测+矿石照，挂在各品位栏） ================= */
@@ -435,7 +448,7 @@ $('saveBtn').onclick = () => {
     id: editId || uid(),
     date: $('fDate').value,
     shift: $('fShift').value,
-    line: $('fLine').value,
+    line: curLine,
     runtime_h: num($('fRuntime').value),
     input_t: num($('fInput').value),
     outputs,
@@ -473,8 +486,8 @@ function resetForm() {
 
 function loadToForm(rec) {
   editId = rec.id;
-  $('fDate').value = rec.date; $('fShift').value = rec.shift; $('fLine').value = rec.line;
-  renderQuickProducts();   // 回填后同步刷新产品按钮
+  $('fDate').value = rec.date; $('fShift').value = rec.shift;
+  curLine = rec.line; renderLineBtns(); renderQuickProducts();   // 回填产线并同步产品按钮
   $('fRuntime').value = rec.runtime_h || ''; $('fInput').value = rec.input_t || '';
   $('outputRows').innerHTML = '';
   (rec.outputs || []).forEach(o => {
