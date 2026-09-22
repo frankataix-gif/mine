@@ -219,7 +219,7 @@
 
 <script>
 /* ================= 数据层 ================= */
-const APP_VERSION = '2026-09-21-v13';
+const APP_VERSION = '2026-09-21-v14';
 const LS_REC = 'mine_records_v1';
 const LS_SET = 'mine_settings_v1';
 
@@ -582,8 +582,8 @@ function showDetail(id) {
     <table>
       <tr><td>运行时长</td><td>${r.runtime_h || '—'} h</td></tr>
       <tr><td>处理量</td><td>${r.input_t || '—'} ${r.input_unit === 'kg' ? 'kg' : 't'}</td></tr>
-      <tr><td>产出</td><td>${outs}</td></tr>
       <tr><td>入选品位</td><td>${r.ta_pct ? 'Ta ' + r.ta_pct + '%' : ''} ${r.nb_pct ? 'Nb ' + r.nb_pct + '%' : ''}</td></tr>
+      <tr><td>产出</td><td>${outs}</td></tr>
       <tr><td>停机</td><td>${r.downtime_h || 0} h ${r.downtime_reason || ''}</td></tr>
       <tr><td>备注</td><td>${r.note || '—'}</td></tr>
       <tr><td>记录人</td><td>${r.recorder || '—'}</td></tr>
