@@ -56,6 +56,8 @@
   .output-row input[name=pkg] { flex: 0.8; }
   .output-row .del { min-height: 36px; min-width: 36px; padding: 0; background: #fee2e2; color: var(--danger); border-radius: 8px; }
   .rec-item { background: var(--card); border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+  .date-head { display: flex; justify-content: space-between; align-items: baseline; padding: 12px 4px 6px; font-weight: 700; font-size: 15px; color: var(--text); border-bottom: 2px solid var(--primary); }
+  .date-head span { font-weight: 400; font-size: 12px; color: var(--muted); }
   .rec-item .meta { font-size: 12px; color: var(--muted); margin-top: 3px; }
   .rec-item .nums { text-align: right; font-size: 13px; }
   .unsync { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #f59e0b; margin-left: 6px; }
@@ -217,7 +219,7 @@
 
 <script>
 /* ================= 数据层 ================= */
-const APP_VERSION = '2026-09-21-v12';
+const APP_VERSION = '2026-09-21-v13';
 const LS_REC = 'mine_records_v1';
 const LS_SET = 'mine_settings_v1';
 
@@ -537,14 +539,30 @@ function renderHistory() {
   const list = records.filter(r => !r.deleted && (histFilter === '全部' || r.line === histFilter))
     .sort((a, b) => (b.date + b.created_at).localeCompare(a.date + a.created_at));
   if (!list.length) { $('historyList').innerHTML = `<div class="empty">${histFilter === '全部' ? '暂无记录' : histFilter + '暂无记录'}</div>`; return; }
-  $('historyList').innerHTML = list.map(r => {
-    const outTxt = r.outputs.map(o => `${o.product}${o.kg}kg${o.grade != null ? '@' + o.grade + '%' : ''}`).join('、') || '—';
-    return `<div class="rec-item" data-id="${r.id}">
-      <div><b>${r.date} ${r.shift}</b> · ${r.line}
-        <div class="meta">${outTxt}${r.synced ? '' : '<span class="unsync" title="待同步"></span>'}</div></div>
-      <div class="nums">${r.input_t ? r.input_t + (r.input_unit === 'kg' ? 'kg' : 't') : ''}<br>${r.runtime_h ? r.runtime_h + 'h' : ''}</div>
-    </div>`;
+  // 按日期分组：一天一个区块，里面各工序记录并列
+  const byDate = {};
+  list.forEach(r => { (byDate[r.date] = byDate[r.date] || []).push(r); });
+  $('historyList').innerHTML = Object.keys(byDate).sort().reverse().map(d => {
+    const rs = byDate[d].sort((a, b) => a.created_at.localeCompare(b.created_at));
+    const daySum = [...new Set(rs.map(r => r.line))].map(l => {
+      const rr = rs.filter(r => r.line === l);
+      const kg = rr.reduce((s, r) => s + r.outputs.reduce((a, o) => a + o.kg, 0), 0);
+      return `${l} 产出${kg.toFixed(1)}kg`;
+    }).join(' · ');
+    return `<div class="date-head">${d}<span>${daySum}</span></div>` + rs.map(recHtml).join('');
   }).join('');
+  bindHistoryClicks();
+}
+
+function recHtml(r) {
+  const outTxt = r.outputs.map(o => `${o.product}${o.kg}kg${o.grade != null ? '@' + o.grade + '%' : ''}`).join('、') || '—';
+  return `<div class="rec-item" data-id="${r.id}">
+    <div><b>${r.shift} · ${r.line}</b>
+      <div class="meta">${outTxt}${r.synced ? '' : '<span class="unsync" title="待同步"></span>'}</div></div>
+    <div class="nums">${r.input_t ? r.input_t + (r.input_unit === 'kg' ? 'kg' : 't') : ''}<br>${r.runtime_h ? r.runtime_h + 'h' : ''}</div>
+  </div>`;
+}
+function bindHistoryClicks() {
   $('historyList').querySelectorAll('.rec-item').forEach(el => el.onclick = () => showDetail(el.dataset.id));
 }
 
