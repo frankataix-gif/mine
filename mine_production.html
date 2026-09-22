@@ -219,7 +219,7 @@
 
 <script>
 /* ================= 数据层 ================= */
-const APP_VERSION = '2026-09-21-v14';
+const APP_VERSION = '2026-09-21-v15';
 const LS_REC = 'mine_records_v1';
 const LS_SET = 'mine_settings_v1';
 
@@ -381,7 +381,7 @@ function renderPointArea(t) {
     h += '<div style="margin-top:4px">' + sorted.map(r => {
       const ri = pt.xrf.indexOf(r);
       const main = r.el === 'Ta' || r.el === 'Nb';
-      return `<span style="display:inline-block;margin:2px 10px 2px 0;font-size:13px"><b>${r.el}</b> <span style="${main ? 'color:var(--primary);font-weight:700;font-size:16px' : ''}">${r.val}%</span> <a href="javascript:void 0" data-edit="${ri}" style="color:var(--primary)">编辑</a></span>`;
+      return `<span style="display:inline-block;margin:2px 10px 2px 0;font-size:13px"><b>${r.el}</b> <span style="${main ? 'color:var(--primary);font-weight:700;font-size:16px' : ''}">${r.val}%</span> <a href="javascript:void 0" data-edit="${ri}" style="color:var(--primary)">编辑</a> <a href="javascript:void 0" data-delr="${ri}" style="color:var(--danger)">删</a></span>`;
     }).join('') + '</div>';
   }
   h += `<a href="javascript:void 0" data-add style="font-size:12px;color:var(--muted)">+手填读数</a>`;
@@ -405,6 +405,10 @@ function renderPointArea(t) {
       r.val = nv;
       renderPointArea(t);
     });
+  });
+  box.querySelectorAll('[data-delr]').forEach(b => b.onclick = () => {
+    pt.xrf.splice(+b.dataset.delr, 1);
+    renderPointArea(t);
   });
   box.querySelectorAll('[data-add]').forEach(b => b.onclick = () => {
     modalPrompt('手填读数（格式：元素 数值，如 Ta 2.36）', 'Ta ', v => {
@@ -435,9 +439,14 @@ async function ocrPoint(t, photoIdx) {
       pt.ocrMsg = { t: '识别失败：' + (j.error || '数值没认出来，重拍或点重试'), err: true };
       renderPointArea(t); return;
     }
+    const ROW_ORDER = ['Ta', 'Nb', 'Bal', 'Hf', 'Zr', 'Bi', 'As', 'Fe', 'Mn', 'Ti'];   // 本机屏幕只有这10行，无Sn
     Object.entries(j.elements).forEach(([el, val]) => {
+      if (!ROW_ORDER.includes(el)) return;   // 滤掉屏幕外的元素（如Sn误识别）
       if (!pt.xrf.some(x => x.el === el && x.val === val)) pt.xrf.push({ el, val, src: photoIdx });
     });
+    // 按屏幕行序排列显示（手填的非标准元素排最后）
+    const ord = e => { const i = ROW_ORDER.indexOf(e.el); return i < 0 ? 99 : i; };
+    pt.xrf.sort((a, b) => ord(a) - ord(b));
     pt.ocrMsg = null;
     renderPointArea(t);
   } catch (e) {
