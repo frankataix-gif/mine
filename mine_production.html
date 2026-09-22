@@ -220,7 +220,7 @@
 
 <script>
 /* ================= 数据层 ================= */
-const APP_VERSION = '2026-09-22-v21';
+const APP_VERSION = '2026-09-22-v22';
 const LS_REC = 'mine_records_v1';
 const LS_SET = 'mine_settings_v1';
 
@@ -382,7 +382,7 @@ function renderPointArea(t) {
     h += '<div style="margin-top:4px">' + sorted.map(r => {
       const ri = pt.xrf.indexOf(r);
       const main = r.el === 'Ta' || r.el === 'Nb';
-      return `<span style="display:inline-block;margin:2px 10px 2px 0;font-size:13px"><b>${r.el}</b> <span style="${main ? 'color:var(--primary);font-weight:700;font-size:16px' : ''}">${r.val}%</span> <a href="javascript:void 0" data-edit="${ri}" style="color:var(--primary)">编辑</a> <a href="javascript:void 0" data-delr="${ri}" style="color:var(--danger)">删</a></span>`;
+      return `<span style="display:inline-block;margin:2px 10px 2px 0;font-size:13px"><b>${r.el}</b><span style="color:var(--muted)">${EL_CN[r.el] || ''}</span> <span style="${main ? 'color:var(--primary);font-weight:700;font-size:16px' : ''}">${r.val}%</span> <a href="javascript:void 0" data-edit="${ri}" style="color:var(--primary)">编辑</a> <a href="javascript:void 0" data-delr="${ri}" style="color:var(--danger)">删</a></span>`;
     }).join('') + '</div>';
   }
   h += `<a href="javascript:void 0" data-add style="font-size:12px;color:var(--muted)">+手填读数</a>`;
@@ -431,6 +431,13 @@ async function photoToDataURL(p) {
 
 // XRF屏幕三列固定：元素名 | 含量% | 误差 —— 按行解析
 const XRF_ROWS = ['Ta', 'Nb', 'Bal', 'Mo', 'Zr', 'Bi', 'As', 'Fe', 'Mn', 'Ti'];   // 本机常见行序（仅用于排序显示，不过滤）
+// 元素中文名（显示用）
+const EL_CN = { Ta:'钽', Nb:'铌', Bal:'余量', Mo:'钼', Zr:'锆', Bi:'铋', As:'砷', Fe:'铁', Mn:'锰', Ti:'钛',
+  W:'钨', Hf:'铪', Sn:'锡', Pb:'铅', U:'铀', Th:'钍', Cu:'铜', Zn:'锌', Al:'铝', Si:'硅', Ca:'钙', Mg:'镁',
+  K:'钾', Na:'钠', P:'磷', S:'硫', Cr:'铬', Ni:'镍', Co:'钴', V:'钒', Ba:'钡', Sr:'锶', Y:'钇', La:'镧',
+  Ce:'铈', Nd:'钕', Au:'金', Ag:'银', Pt:'铂', Pd:'钯', Cd:'镉', Hg:'汞', Re:'铼', Os:'锇', Ir:'铱', Tl:'铊',
+  Sb:'锑', Se:'硒', Te:'碲', Rb:'铷', Cs:'铯', Ga:'镓', Ge:'锗', In:'铟', Li:'锂', Be:'铍', B:'硼', Sc:'钪' };
+const elCn = el => el + (EL_CN[el] ? EL_CN[el] : '');
 const XRF_ALIAS = {};   // 全周期表 + Bal + OCR常见误读；不预设，屏上有什么读什么
 'H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr Rb Sr Y Zr Nb Mo Ru Rh Pd Ag Cd In Sn Sb Te I Cs Ba La Ce Pr Nd Pm Sm Eu Gd Tb Dy Ho Er Tm Yb Lu Hf Ta W Re Os Ir Pt Au Hg Tl Pb Bi Th Pa U'
   .split(' ').forEach(e => XRF_ALIAS[e.toLowerCase()] = e);
@@ -630,7 +637,7 @@ function bindHistoryClicks() {
 function showDetail(id) {
   const r = records.find(x => x.id === id); if (!r) return;
   const imgTags = arr => (arr || []).map(p => `<img src="${imgUrl(p)}" data-zoom style="width:72px;height:54px;object-fit:cover;border-radius:6px;margin:3px 4px 0 0;cursor:pointer">`).join('');
-  const xrfTxt = arr => (arr || []).map(x => x.el + ' ' + x.val + '%').join(' · ');
+  const xrfTxt = arr => (arr || []).map(x => elCn(x.el) + ' ' + x.val + '%').join(' · ');
   // 入选点 + 每个产品点的读数和照片
   const feedBlock = ((r.feed_xrf || r.xrf || []).length || (r.feed_xrf_photos || r.photos || []).length || (r.feed_ore_photos || []).length)
     ? `<div style="margin-top:8px;font-size:13px"><b>入选</b> ${xrfTxt(r.feed_xrf || r.xrf)}<br>${imgTags(r.feed_xrf_photos || r.photos)}${imgTags(r.feed_ore_photos)}</div>` : '';
@@ -643,7 +650,7 @@ function showDetail(id) {
     <table>
       <tr><td>运行时长</td><td>${r.runtime_h || '—'} h</td></tr>
       <tr><td>处理量</td><td>${r.input_t || '—'} ${r.input_unit === 'kg' ? 'kg' : 't'}</td></tr>
-      <tr><td>入选品位</td><td>${r.ta_pct ? 'Ta ' + r.ta_pct + '%' : ''} ${r.nb_pct ? 'Nb ' + r.nb_pct + '%' : ''}</td></tr>
+      <tr><td>入选品位</td><td>${r.ta_pct ? 'Ta钽 ' + r.ta_pct + '%' : ''} ${r.nb_pct ? 'Nb铌 ' + r.nb_pct + '%' : ''}</td></tr>
       <tr><td>产出</td><td>${outs}</td></tr>
       <tr><td>停机</td><td>${r.downtime_h || 0} h ${r.downtime_reason || ''}</td></tr>
       <tr><td>备注</td><td>${r.note || '—'}</td></tr>
