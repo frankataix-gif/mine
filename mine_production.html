@@ -49,6 +49,7 @@
   .line-btns { display: flex; gap: 8px; }
   .line-btns button { flex: 1; min-height: 52px; font-size: 16px; font-weight: 600; background: #eff6ff; color: var(--primary); border: 2px solid #bfdbfe; border-radius: 10px; }
   .line-btns button.qactive { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .line-btns button.sw { flex: 0 0 auto; min-height: 52px; font-size: 13px; font-weight: 400; padding: 0 14px; background: #f1f5f9; color: var(--muted); border: 1px solid var(--line); }
   .output-row { margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px dashed var(--border); }
   .output-row > .row { display: flex; gap: 8px; margin-bottom: 0; align-items: center; }
   .output-row input[name=pname] { flex: 1.2; }
@@ -216,7 +217,7 @@
 
 <script>
 /* ================= 数据层 ================= */
-const APP_VERSION = '2026-09-21-v11';
+const APP_VERSION = '2026-09-21-v12';
 const LS_REC = 'mine_records_v1';
 const LS_SET = 'mine_settings_v1';
 
@@ -248,9 +249,11 @@ const $ = id => document.getElementById(id);
 let editId = null;
 
 let curLine = '';
+let lineOpen = true;   // 工序选择器是否展开
 function initEntry() {
   $('fDate').value = today();
   curLine = settings.lines[0] || '';
+  lineOpen = true;
   refreshLineSelect();
 }
 function refreshLineSelect() {
@@ -262,12 +265,17 @@ function renderLineBtns() {
   $('fInputLabel').textContent = '入选量（' + inputUnit(curLine) + '）';
   $('fInput').step = inputUnit(curLine) === '吨' ? '0.1' : '1';
   $('fInput').placeholder = inputUnit(curLine) === '吨' ? '给矿量' : '给矿量（kg）';
-  $('fLineBtns').innerHTML = settings.lines.map(l =>
-    `<button type="button" data-l="${l}" class="${l === curLine ? 'qactive' : ''}">${l}</button>`).join('');
-  $('fLineBtns').querySelectorAll('button').forEach(b => b.onclick = () => {
-    curLine = b.dataset.l;
+  // 未展开时只显示当前工序——一条记录只属于一个工序
+  const list = (lineOpen || !curLine) ? settings.lines : [curLine];
+  $('fLineBtns').innerHTML = list.map(l =>
+    `<button type="button" data-l="${l}" class="${l === curLine ? 'qactive' : ''}">${l}</button>`).join('') +
+    (!lineOpen && curLine ? `<button type="button" class="sw" id="lineSwitch">换工序</button>` : '');
+  $('fLineBtns').querySelectorAll('button[data-l]').forEach(b => b.onclick = () => {
+    curLine = b.dataset.l; lineOpen = false;
     renderLineBtns(); renderQuickProducts();
   });
+  const sw = $('lineSwitch');
+  if (sw) sw.onclick = () => { lineOpen = true; renderLineBtns(); };
 }
 // 入选量单位按工序：洗矿/跳汰连续给矿记吨；摇床/手选批次喂料记kg
 function inputUnit(line) { return /洗矿|洗砂|滚筒|跳汰/.test(line) ? '吨' : 'kg'; }
@@ -494,7 +502,8 @@ function resetForm() {
 function loadToForm(rec) {
   editId = rec.id;
   $('fDate').value = rec.date; $('fShift').value = rec.shift;
-  curLine = rec.line; renderLineBtns(); renderQuickProducts();   // 回填产线并同步产品按钮
+  curLine = rec.line; lineOpen = false;   // 编辑时锁定在该工序
+  renderLineBtns(); renderQuickProducts();
   $('fRuntime').value = rec.runtime_h || ''; $('fInput').value = rec.input_t || '';
   $('outputRows').innerHTML = '';
   (rec.outputs || []).forEach(o => {
