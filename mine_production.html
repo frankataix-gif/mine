@@ -219,7 +219,7 @@
 
 <script>
 /* ================= 数据层 ================= */
-const APP_VERSION = '2026-09-21-v15';
+const APP_VERSION = '2026-09-21-v16';
 const LS_REC = 'mine_records_v1';
 const LS_SET = 'mine_settings_v1';
 
@@ -407,8 +407,8 @@ function renderPointArea(t) {
     });
   });
   box.querySelectorAll('[data-delr]').forEach(b => b.onclick = () => {
-    pt.xrf.splice(+b.dataset.delr, 1);
-    renderPointArea(t);
+    const r = pt.xrf[+b.dataset.delr];
+    confirmModal(`删除读数 ${r.el} ${r.val}%？`, () => { pt.xrf.splice(+b.dataset.delr, 1); renderPointArea(t); });
   });
   box.querySelectorAll('[data-add]').forEach(b => b.onclick = () => {
     modalPrompt('手填读数（格式：元素 数值，如 Ta 2.36）', 'Ta ', v => {
@@ -823,6 +823,12 @@ function modalPrompt(title, def, cb) {
   inp.onkeydown = e => { if (e.key === 'Enter') $('mpOk').click(); };
   $('mpOk').onclick = () => { const v = inp.value; closeModal(); cb(v); };
   $('mpC').onclick = closeModal;
+}
+// 删除确认弹窗（iOS不支持confirm()，用模态框）
+function confirmModal(msg, onYes) {
+  showModal(`<h3>${msg}</h3><div class="btns"><button class="danger" id="cfYes">删除</button><button class="secondary" id="cfNo">取消</button></div>`);
+  $('cfYes').onclick = () => { closeModal(); onYes(); };
+  $('cfNo').onclick = closeModal;
 }
 function closeModal() { $('modalRoot').innerHTML = ''; document.removeEventListener('keydown', escClose); }
 function escClose(e) { if (e.key === 'Escape') closeModal(); }
