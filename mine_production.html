@@ -95,6 +95,10 @@
   <!-- ============ 记一笔 ============ -->
   <section id="tab-entry">
     <div class="card">
+      <div class="field" style="margin-top:0">
+        <label>产线 / 工序（先选工序再记录）</label>
+        <div class="line-btns" id="fLineBtns"></div>
+      </div>
       <div class="row">
         <div>
           <label>日期</label>
@@ -106,10 +110,6 @@
             <option>全天</option><option>早班</option><option>中班</option><option>晚班</option>
           </select>
         </div>
-      </div>
-      <div class="field">
-        <label>产线 / 工序</label>
-        <div class="line-btns" id="fLineBtns"></div>
       </div>
       <h3 style="margin-top:6px">入选（给矿）</h3>
       <div class="row">
@@ -216,7 +216,7 @@
 
 <script>
 /* ================= 数据层 ================= */
-const APP_VERSION = '2026-09-21-v10';
+const APP_VERSION = '2026-09-21-v11';
 const LS_REC = 'mine_records_v1';
 const LS_SET = 'mine_settings_v1';
 
