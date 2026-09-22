@@ -211,7 +211,7 @@
 
 <script>
 /* ================= 数据层 ================= */
-const APP_VERSION = '2026-09-21-v4';
+const APP_VERSION = '2026-09-21-v5';
 const LS_REC = 'mine_records_v1';
 const LS_SET = 'mine_settings_v1';
 
@@ -249,14 +249,18 @@ function initEntry() {
 }
 function refreshLineSelect() {
   $('fLine').innerHTML = settings.lines.map(l => `<option>${l}</option>`).join('');
+  renderQuickProducts();
 }
-const LINE_PRODUCTS = {
-  '洗矿机': ['细泥-1.5mm', '中砂1.5-4mm', '粗砂+4mm'],
-  '摇床': ['精矿', '中矿', '精+中综合', '尾矿'],
-  '手选组': ['手选精矿', '手选废石'],
-};
+// 按工序关键词严格匹配产品——哪里的工艺就出哪里的产品
+function productsFor(line) {
+  if (/洗矿|洗砂|滚筒/.test(line)) return ['细泥-1.5mm', '中砂1.5-4mm', '粗砂+4mm'];
+  if (/摇床/.test(line)) return ['精矿', '中矿', '精+中综合', '尾矿'];
+  if (/跳汰/.test(line)) return ['精矿', '中矿', '尾矿'];
+  if (/手选/.test(line)) return ['手选精矿', '手选废石'];
+  return settings.products;
+}
 function renderQuickProducts() {
-  const prods = LINE_PRODUCTS[$('fLine').value] || settings.products;
+  const prods = productsFor($('fLine').value);
   $('quickProducts').innerHTML = prods.map(p => `<button data-p="${p}">${p}</button>`).join('');
   $('quickProducts').querySelectorAll('button').forEach(b => b.onclick = () => {
     // 已有同名行 → 聚焦重量栏而不是重复加行
@@ -468,6 +472,7 @@ function resetForm() {
 function loadToForm(rec) {
   editId = rec.id;
   $('fDate').value = rec.date; $('fShift').value = rec.shift; $('fLine').value = rec.line;
+  renderQuickProducts();   // 回填后同步刷新产品按钮
   $('fRuntime').value = rec.runtime_h || ''; $('fInput').value = rec.input_t || '';
   $('outputRows').innerHTML = '';
   (rec.outputs || []).forEach(o => {
