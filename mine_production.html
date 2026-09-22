@@ -114,7 +114,7 @@
       <h3 style="margin-top:6px">入选（给矿）</h3>
       <div class="row">
         <div>
-          <label>处理量（吨）</label>
+          <label id="fInputLabel">处理量（吨）</label>
           <input type="number" id="fInput" min="0" step="0.1" inputmode="decimal" placeholder="给矿量">
         </div>
         <div>
@@ -216,7 +216,7 @@
 
 <script>
 /* ================= 数据层 ================= */
-const APP_VERSION = '2026-09-21-v9';
+const APP_VERSION = '2026-09-21-v10';
 const LS_REC = 'mine_records_v1';
 const LS_SET = 'mine_settings_v1';
 
@@ -259,6 +259,9 @@ function refreshLineSelect() {
   renderQuickProducts();
 }
 function renderLineBtns() {
+  $('fInputLabel').textContent = '入选量（' + inputUnit(curLine) + '）';
+  $('fInput').step = inputUnit(curLine) === '吨' ? '0.1' : '1';
+  $('fInput').placeholder = inputUnit(curLine) === '吨' ? '给矿量' : '给矿量（kg）';
   $('fLineBtns').innerHTML = settings.lines.map(l =>
     `<button type="button" data-l="${l}" class="${l === curLine ? 'qactive' : ''}">${l}</button>`).join('');
   $('fLineBtns').querySelectorAll('button').forEach(b => b.onclick = () => {
@@ -266,6 +269,9 @@ function renderLineBtns() {
     renderLineBtns(); renderQuickProducts();
   });
 }
+// 入选量单位按工序：洗矿/跳汰连续给矿记吨；摇床/手选批次喂料记kg
+function inputUnit(line) { return /洗矿|洗砂|滚筒|跳汰/.test(line) ? '吨' : 'kg'; }
+
 // 按工序关键词严格匹配产品——哪里的工艺就出哪里的产品
 function productsFor(line) {
   if (/洗矿|洗砂|滚筒/.test(line)) return ['细泥', '中沙', '块矿'];
@@ -451,6 +457,7 @@ $('saveBtn').onclick = () => {
     line: curLine,
     runtime_h: num($('fRuntime').value),
     input_t: num($('fInput').value),
+    input_unit: inputUnit(curLine),
     outputs,
     ta_pct: (feedData.xrf.find(x => x.el === 'Ta') || {}).val ?? null,
     nb_pct: (feedData.xrf.find(x => x.el === 'Nb') || {}).val ?? null,
@@ -526,7 +533,7 @@ function renderHistory() {
     return `<div class="rec-item" data-id="${r.id}">
       <div><b>${r.date} ${r.shift}</b> · ${r.line}
         <div class="meta">${outTxt}${r.synced ? '' : '<span class="unsync" title="待同步"></span>'}</div></div>
-      <div class="nums">${r.input_t ? r.input_t + 't' : ''}<br>${r.runtime_h ? r.runtime_h + 'h' : ''}</div>
+      <div class="nums">${r.input_t ? r.input_t + (r.input_unit === 'kg' ? 'kg' : 't') : ''}<br>${r.runtime_h ? r.runtime_h + 'h' : ''}</div>
     </div>`;
   }).join('');
   $('historyList').querySelectorAll('.rec-item').forEach(el => el.onclick = () => showDetail(el.dataset.id));
@@ -547,7 +554,7 @@ function showDetail(id) {
   showModal(`<h3>${r.date} ${r.shift} · ${r.line}</h3>
     <table>
       <tr><td>运行时长</td><td>${r.runtime_h || '—'} h</td></tr>
-      <tr><td>处理量</td><td>${r.input_t || '—'} t</td></tr>
+      <tr><td>处理量</td><td>${r.input_t || '—'} ${r.input_unit === 'kg' ? 'kg' : 't'}</td></tr>
       <tr><td>产出</td><td>${outs}</td></tr>
       <tr><td>入选品位</td><td>${r.ta_pct ? 'Ta ' + r.ta_pct + '%' : ''} ${r.nb_pct ? 'Nb ' + r.nb_pct + '%' : ''}</td></tr>
       <tr><td>停机</td><td>${r.downtime_h || 0} h ${r.downtime_reason || ''}</td></tr>
@@ -589,8 +596,8 @@ function renderStats() {
     return `<div class="stat-box" style="grid-column:1/-1;text-align:left;padding:12px 14px">
       <div class="k" style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:6px">${l}</div>
       <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--muted)">
-        <span>近7天 处理<b>${sumIn(wk).toFixed(1)}t</b> 产出<b>${sumKg(wk).toFixed(1)}kg</b></span>
-        <span>累计 <b>${sumIn(rs).toFixed(1)}t</b> / <b>${sumKg(rs).toFixed(1)}kg</b></span>
+        <span>近7天 处理<b>${sumIn(wk).toFixed(1)}${inputUnit(l)}</b> 产出<b>${sumKg(wk).toFixed(1)}kg</b></span>
+        <span>累计 <b>${sumIn(rs).toFixed(1)}${inputUnit(l)}</b> / <b>${sumKg(rs).toFixed(1)}kg</b></span>
       </div></div>`;
   }).join('') || '<div class="stat-box"><div class="v">—</div><div class="k">暂无数据</div></div>';
 
@@ -598,16 +605,15 @@ function renderStats() {
   const days = {};
   live.forEach(r => {
     const k = r.date + '|' + r.line;
-    const d = days[k] = days[k] || { input: 0, kg: 0, run: 0, down: 0, line: r.line };
+    const d = days[k] = days[k] || { input: 0, kg: 0, run: 0, down: 0, line: r.line, unit: r.input_unit || '吨' };
     d.input += r.input_t; d.kg += r.outputs.reduce((a, o) => a + o.kg, 0); d.run += r.runtime_h; d.down += r.downtime_h;
   });
   const rows = Object.keys(days).sort().reverse().slice(0, 30);
-  $('dailyTable').innerHTML = `<tr><th>日期</th><th>产线</th><th>处理量t</th><th>产出kg</th><th>产率kg/t</th><th>运行h</th></tr>` +
+  $('dailyTable').innerHTML = `<tr><th>日期</th><th>产线</th><th>处理量</th><th>产出kg</th><th>运行h</th></tr>` +
     rows.map(k => {
       const d = k.split('|')[0]; const x = days[k];
-      const yield_ = x.input > 0 ? (x.kg / x.input).toFixed(2) : '—';
-      return `<tr><td>${d.slice(5)}</td><td>${x.line}</td><td>${x.input.toFixed(1)}</td><td>${x.kg.toFixed(1)}</td><td>${yield_}</td><td>${x.run.toFixed(1)}</td></tr>`;
-    }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted)">暂无数据</td></tr>';
+      return `<tr><td>${d.slice(5)}</td><td>${x.line}</td><td>${x.input.toFixed(1)}${x.unit === 'kg' ? 'kg' : 't'}</td><td>${x.kg.toFixed(1)}</td><td>${x.run.toFixed(1)}</td></tr>`;
+    }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--muted)">暂无数据</td></tr>';
 
   // 按产线→产品汇总
   const byLine = {};
@@ -739,9 +745,9 @@ $('addLine').onclick = () => {
 
 $('exportCsv').onclick = () => {
   const live = records.filter(r => !r.deleted);
-  const head = '日期,班次,产线,运行h,处理量t,产出明细,入选Ta%,入选Nb%,XRF读数,停机h,停机原因,备注,记录人\n';
+  const head = '日期,班次,产线,运行h,处理量,单位,产出明细,入选Ta%,入选Nb%,XRF读数,停机h,停机原因,备注,记录人\n';
   const body = live.map(r => [
-    r.date, r.shift, r.line, r.runtime_h, r.input_t,
+    r.date, r.shift, r.line, r.runtime_h, r.input_t, r.input_unit || '吨',
     r.outputs.map(o => `${o.product}:${o.kg}kg${o.grade != null ? '@' + o.grade + '%' : ''}`).join(';'),
     r.ta_pct ?? '', r.nb_pct ?? '',
     `"${[(r.feed_xrf || r.xrf || []).map(x => '入选:' + x.el + '=' + x.val + '%').join(';'), ...r.outputs.map(o => (o.xrf || []).length ? o.product + ':' + o.xrf.map(x => x.el + '=' + x.val + '%').join(';') : '')].filter(Boolean).join(' | ')}"`,
