@@ -54,6 +54,7 @@
   .output-row > .row { display: flex; gap: 8px; margin-bottom: 0; align-items: center; }
   .output-row input[name=pname] { flex: 1.2; }
   .output-row input[name=pkg] { flex: 0.8; }
+  .output-row select[name=punit] { flex: 0 0 64px; min-height: 40px; font-size: 14px; }
   .output-row .del { min-height: 36px; min-width: 36px; padding: 0; background: #fee2e2; color: var(--danger); border-radius: 8px; }
   .rec-item { background: var(--card); border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
   .date-head { display: flex; justify-content: space-between; align-items: baseline; padding: 12px 4px 6px; font-weight: 700; font-size: 15px; color: var(--text); border-bottom: 2px solid var(--primary); }
@@ -219,7 +220,7 @@
 
 <script>
 /* ================= 数据层 ================= */
-const APP_VERSION = '2026-09-21-v18';
+const APP_VERSION = '2026-09-21-v19';
 const LS_REC = 'mine_records_v1';
 const LS_SET = 'mine_settings_v1';
 
@@ -300,10 +301,10 @@ function renderQuickProducts() {
     addOutputRow(b.dataset.p);
   });
 }
-function addOutputRow(name = '', kg = '') {
+function addOutputRow(name = '', qty = '', unit = 'kg') {
   const div = document.createElement('div');
   div.className = 'output-row';
-  div.innerHTML = `<div class="row"><input name="pname" placeholder="产品名" value="${name}"><input name="pkg" type="number" min="0" step="0.01" inputmode="decimal" placeholder="kg" value="${kg}"><button type="button" class="del">×</button></div>
+  div.innerHTML = `<div class="row"><input name="pname" placeholder="产品名" value="${name}"><input name="pkg" type="number" min="0" step="0.01" inputmode="decimal" placeholder="数量" value="${qty}"><select name="punit"><option ${unit === 'kg' ? 'selected' : ''}>kg</option><option ${unit === '吨' ? 'selected' : ''}>吨</option></select><button type="button" class="del">×</button></div>
   <div class="row" style="margin-top:4px">
     <div><button type="button" class="secondary btn-block pxrf" style="margin-top:0;padding:5px 6px">📷 品位</button></div>
     <div><button type="button" class="secondary btn-block pore" style="margin-top:0;padding:5px 6px">🪨 矿石</button></div>
@@ -503,10 +504,14 @@ $('saveBtn').onclick = () => {
   if (Date.now() - lastSaveTap < 800) return;   // 防连点重复保存
   lastSaveTap = Date.now();
   const outputs = [...$('outputRows').querySelectorAll('.output-row')]
-    .map(r => ({ product: r.querySelector('[name=pname]').value.trim(), kg: num(r.querySelector('[name=pkg]').value),
+    .map(r => {
+      const qty = num(r.querySelector('[name=pkg]').value);
+      const unit = r.querySelector('[name=punit]').value;
+      return { product: r.querySelector('[name=pname]').value.trim(), qty, unit, kg: unit === '吨' ? qty * 1000 : qty,
       grade: (r.pointData.xrf.find(x => x.el === 'Ta') || {}).val ?? null,
       xrf: r.pointData.xrf.map(({ el, val }) => ({ el, val })),
-      xrf_photos: r.pointData.xrfPhotos.slice(), ore_photos: r.pointData.ore.slice() }))
+      xrf_photos: r.pointData.xrfPhotos.slice(), ore_photos: r.pointData.ore.slice() };
+    })
     .filter(o => o.product || o.kg > 0 || o.xrf.length || o.xrf_photos.length || o.ore_photos.length);
   if (!outputs.length && !num($('fInput').value) && !num($('fRuntime').value)) {
     toast('至少填一项：处理量、运行时长或产出'); return;
@@ -561,7 +566,7 @@ function loadToForm(rec) {
   $('fRuntime').value = rec.runtime_h || ''; $('fInput').value = rec.input_t || '';
   $('outputRows').innerHTML = '';
   (rec.outputs || []).forEach(o => {
-    addOutputRow(o.product || '', o.kg || '');
+    addOutputRow(o.product || '', o.qty ?? o.kg ?? '', o.unit || 'kg');
     const row = $('outputRows').lastElementChild;
     row.pointData.xrfPhotos = (o.xrf_photos || []).slice();
     row.pointData.xrf = (o.xrf || []).map(x => ({ ...x, src: -1 }));
@@ -607,7 +612,7 @@ function renderHistory() {
 }
 
 function recHtml(r) {
-  const outTxt = r.outputs.map(o => `${o.product}${o.kg}kg${o.grade != null ? '@' + o.grade + '%' : ''}`).join('、') || '—';
+  const outTxt = r.outputs.map(o => `${o.product}${o.qty ?? o.kg}${o.unit || 'kg'}${o.grade != null ? '@' + o.grade + '%' : ''}`).join('、') || '—';
   return `<div class="rec-item" data-id="${r.id}">
     <div><b>${r.shift} · ${r.line}</b>
       <div class="meta">${outTxt}${r.synced ? '' : '<span class="unsync" title="待同步"></span>'}</div></div>
@@ -629,7 +634,7 @@ function showDetail(id) {
     const has = (o.xrf || []).length || (o.xrf_photos || []).length || (o.ore_photos || []).length;
     return has ? `<div style="margin-top:8px;font-size:13px"><b>${o.product}</b> ${xrfTxt(o.xrf)}<br>${imgTags(o.xrf_photos)}${imgTags(o.ore_photos)}</div>` : '';
   }).join('');
-  const outs = r.outputs.map(o => `${o.product}: ${o.kg} kg${o.grade != null ? ' · ' + o.grade + '%' : ''}`).join('<br>') || '无';
+  const outs = r.outputs.map(o => `${o.product}: ${o.qty ?? o.kg} ${o.unit || 'kg'}${o.grade != null ? ' · ' + o.grade + '%' : ''}`).join('<br>') || '无';
   showModal(`<h3>${r.date} ${r.shift} · ${r.line}</h3>
     <table>
       <tr><td>运行时长</td><td>${r.runtime_h || '—'} h</td></tr>
