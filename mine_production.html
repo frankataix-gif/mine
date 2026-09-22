@@ -216,7 +216,7 @@
 
 <script>
 /* ================= 数据层 ================= */
-const APP_VERSION = '2026-09-21-v8';
+const APP_VERSION = '2026-09-21-v9';
 const LS_REC = 'mine_records_v1';
 const LS_SET = 'mine_settings_v1';
 
@@ -576,37 +576,49 @@ function showDetail(id) {
 function renderStats() {
   const live = records.filter(r => !r.deleted);
   const since7 = new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10);
-  const wk = live.filter(r => r.date >= since7);
   const sumKg = arr => arr.reduce((s, r) => s + r.outputs.reduce((a, o) => a + o.kg, 0), 0);
   const sumIn = arr => arr.reduce((s, r) => s + r.input_t, 0);
   const sumRun = arr => arr.reduce((s, r) => s + r.runtime_h, 0);
-  $('statCards').innerHTML = `
-    <div class="stat-box"><div class="v">${sumIn(wk).toFixed(1)}t</div><div class="k">近7天处理量</div></div>
-    <div class="stat-box"><div class="v">${sumKg(wk).toFixed(1)}kg</div><div class="k">近7天产出</div></div>
-    <div class="stat-box"><div class="v">${sumIn(live).toFixed(1)}t</div><div class="k">累计处理量</div></div>
-    <div class="stat-box"><div class="v">${sumKg(live).toFixed(1)}kg</div><div class="k">累计产出</div></div>`;
 
-  // 按日汇总
+  // ===== 每条产线独立统计（投入产出严格分开）=====
+  const lines = [...new Set([...settings.lines, ...live.map(r => r.line)].filter(Boolean))];
+  $('statCards').innerHTML = lines.map(l => {
+    const rs = live.filter(r => r.line === l);
+    const wk = rs.filter(r => r.date >= since7);
+    if (!rs.length) return '';
+    return `<div class="stat-box" style="grid-column:1/-1;text-align:left;padding:12px 14px">
+      <div class="k" style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:6px">${l}</div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--muted)">
+        <span>近7天 处理<b>${sumIn(wk).toFixed(1)}t</b> 产出<b>${sumKg(wk).toFixed(1)}kg</b></span>
+        <span>累计 <b>${sumIn(rs).toFixed(1)}t</b> / <b>${sumKg(rs).toFixed(1)}kg</b></span>
+      </div></div>`;
+  }).join('') || '<div class="stat-box"><div class="v">—</div><div class="k">暂无数据</div></div>';
+
+  // 按日汇总（带产线列，分开看）
   const days = {};
   live.forEach(r => {
-    const d = days[r.date] = days[r.date] || { input: 0, kg: 0, run: 0, down: 0 };
+    const k = r.date + '|' + r.line;
+    const d = days[k] = days[k] || { input: 0, kg: 0, run: 0, down: 0, line: r.line };
     d.input += r.input_t; d.kg += r.outputs.reduce((a, o) => a + o.kg, 0); d.run += r.runtime_h; d.down += r.downtime_h;
   });
   const rows = Object.keys(days).sort().reverse().slice(0, 30);
-  $('dailyTable').innerHTML = `<tr><th>日期</th><th>处理量t</th><th>产出kg</th><th>产率kg/t</th><th>运行h</th><th>运转率</th></tr>` +
-    rows.map(d => {
-      const x = days[d];
+  $('dailyTable').innerHTML = `<tr><th>日期</th><th>产线</th><th>处理量t</th><th>产出kg</th><th>产率kg/t</th><th>运行h</th></tr>` +
+    rows.map(k => {
+      const d = k.split('|')[0]; const x = days[k];
       const yield_ = x.input > 0 ? (x.kg / x.input).toFixed(2) : '—';
-      const avail = x.run > 0 ? Math.round(x.run / settings.planHours * 100) + '%' : '—';
-      return `<tr><td>${d.slice(5)}</td><td>${x.input.toFixed(1)}</td><td>${x.kg.toFixed(1)}</td><td>${yield_}</td><td>${x.run.toFixed(1)}</td><td>${avail}</td></tr>`;
+      return `<tr><td>${d.slice(5)}</td><td>${x.line}</td><td>${x.input.toFixed(1)}</td><td>${x.kg.toFixed(1)}</td><td>${yield_}</td><td>${x.run.toFixed(1)}</td></tr>`;
     }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted)">暂无数据</td></tr>';
 
-  // 按产品汇总
-  const prods = {};
-  live.forEach(r => r.outputs.forEach(o => { prods[o.product] = (prods[o.product] || 0) + o.kg; }));
-  $('prodTable').innerHTML = `<tr><th>产品</th><th>累计kg</th></tr>` +
-    Object.entries(prods).sort((a, b) => b[1] - a[1]).map(([p, k]) => `<tr><td>${p}</td><td>${k.toFixed(1)}</td></tr>`).join('') ||
-    '<tr><td colspan="2" style="text-align:center;color:var(--muted)">暂无数据</td></tr>';
+  // 按产线→产品汇总
+  const byLine = {};
+  live.forEach(r => {
+    const g = byLine[r.line] = byLine[r.line] || {};
+    r.outputs.forEach(o => { g[o.product] = (g[o.product] || 0) + o.kg; });
+  });
+  $('prodTable').innerHTML = `<tr><th>产线</th><th>产品</th><th>累计kg</th></tr>` +
+    Object.entries(byLine).map(([l, g]) =>
+      Object.entries(g).sort((a, b) => b[1] - a[1]).map(([p, k]) => `<tr><td>${l}</td><td>${p}</td><td>${k.toFixed(1)}</td></tr>`).join('')
+    ).join('') || '<tr><td colspan="3" style="text-align:center;color:var(--muted)">暂无数据</td></tr>';
 }
 
 /* ================= 同步 ================= */
