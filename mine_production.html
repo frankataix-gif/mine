@@ -211,7 +211,7 @@
 
 <script>
 /* ================= 数据层 ================= */
-const APP_VERSION = '2026-09-21-v5';
+const APP_VERSION = '2026-09-21-v6';
 const LS_REC = 'mine_records_v1';
 const LS_SET = 'mine_settings_v1';
 
@@ -767,11 +767,12 @@ async function checkUpdate() {
     const res = await fetch('./mine_production.html?ts=' + Date.now(), { cache: 'no-store' });
     const txt = await res.text();
     const m = txt.match(/APP_VERSION\s*=\s*'([^']+)'/);
-    if (m && m[1] !== APP_VERSION && !sessionStorage.getItem('mine_reloaded')) {
+    // 标记存"已响应过的远端版本号"：只对同一版本防重复刷新，不拦截后续新版本
+    if (m && m[1] !== APP_VERSION && sessionStorage.getItem('mine_reloaded') !== m[1]) {
       // 正在编辑记录时不打断，提示保存后重开更新
       const busy = editId || $('fInput').value || $('outputRows').children.length || feedData.xrfPhotos.length || feedData.ore.length;
       if (busy) { toast('发现新版本，保存后重开App更新'); return; }
-      sessionStorage.setItem('mine_reloaded', '1');
+      sessionStorage.setItem('mine_reloaded', m[1]);
       toast('发现新版本，正在更新…');
       setTimeout(() => location.reload(true), 1000);
     }
