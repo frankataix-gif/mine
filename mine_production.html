@@ -220,7 +220,7 @@
 
 <script>
 /* ================= 数据层 ================= */
-const APP_VERSION = '2026-09-21-v20';
+const APP_VERSION = '2026-09-22-v21';
 const LS_REC = 'mine_records_v1';
 const LS_SET = 'mine_settings_v1';
 
@@ -430,9 +430,11 @@ async function photoToDataURL(p) {
 }
 
 // XRF屏幕三列固定：元素名 | 含量% | 误差 —— 按行解析
-const XRF_ROWS = ['Ta', 'Nb', 'Bal', 'Mo', 'Zr', 'Bi', 'As', 'Fe', 'Mn', 'Ti'];
-const XRF_ALIAS = { ta: 'Ta', ts: 'Ta', nb: 'Nb', bal: 'Bal', ba1: 'Bal', bai: 'Bal', b4l: 'Bal',
-  mo: 'Mo', m0: 'Mo', hf: 'Hf', zr: 'Zr', bi: 'Bi', as: 'As', fe: 'Fe', mn: 'Mn', ti: 'Ti' };
+const XRF_ROWS = ['Ta', 'Nb', 'Bal', 'Mo', 'Zr', 'Bi', 'As', 'Fe', 'Mn', 'Ti'];   // 本机常见行序（仅用于排序显示，不过滤）
+const XRF_ALIAS = {};   // 全周期表 + Bal + OCR常见误读；不预设，屏上有什么读什么
+'H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr Rb Sr Y Zr Nb Mo Ru Rh Pd Ag Cd In Sn Sb Te I Cs Ba La Ce Pr Nd Pm Sm Eu Gd Tb Dy Ho Er Tm Yb Lu Hf Ta W Re Os Ir Pt Au Hg Tl Pb Bi Th Pa U'
+  .split(' ').forEach(e => XRF_ALIAS[e.toLowerCase()] = e);
+Object.assign(XRF_ALIAS, { bal:'Bal', ba1:'Bal', bai:'Bal', b4l:'Bal', ts:'Ta', m0:'Mo' });
 function parseXrfText(text) {
   // 修正OCR常见错：0_967/0-015 → 0.967/0.015（XRF屏里横线=小数点）
   text = (text || '').replace(/(\d)[_](\d)/g, '$1.$2').replace(/(\d)-(\d)/g, '$1.$2');
@@ -479,16 +481,15 @@ async function ocrPoint(t, photoIdx) {
   try {
     const img = await photoToDataURL(pt.xrfPhotos[photoIdx]);
     const j = await workerPost({ action: 'ocr', images: [img] });
-    // 优先用App端行级解析（raw原文），worker的elements兜底
+    // AI路径：worker已按"屏上是什么读什么"解析好，直接用；OCR路径：App端再按行解析raw
     let elements = j.elements || {};
-    if (j.raw) { const re = parseXrfText(j.raw); if (Object.keys(re).length) elements = re; }
+    if (j.via !== 'ai' && j.raw) { const re = parseXrfText(j.raw); if (Object.keys(re).length) elements = re; }
     if (j.error || !Object.keys(elements).length) {
       pt.ocrMsg = { t: '识别失败：' + (j.error || '数值没认出来，重拍或点重试'), err: true };
       renderPointArea(t); return;
     }
-    const ROW_ORDER = XRF_ROWS;   // 本机屏幕只有这10行，无Sn
+    const ROW_ORDER = XRF_ROWS;   // 仅用于排序显示：常见元素在前，其他元素照收排后
     Object.entries(elements).forEach(([el, val]) => {
-      if (!ROW_ORDER.includes(el)) return;   // 滤掉屏幕外的元素（如Sn误识别）
       if (!pt.xrf.some(x => x.el === el && x.val === val)) pt.xrf.push({ el, val, src: photoIdx });
     });
     // 按屏幕行序排列显示（手填的非标准元素排最后）
