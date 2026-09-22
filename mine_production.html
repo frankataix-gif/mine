@@ -219,7 +219,7 @@
 
 <script>
 /* ================= 数据层 ================= */
-const APP_VERSION = '2026-09-21-v16';
+const APP_VERSION = '2026-09-21-v17';
 const LS_REC = 'mine_records_v1';
 const LS_SET = 'mine_settings_v1';
 
@@ -428,6 +428,41 @@ async function photoToDataURL(p) {
   return new Promise(res2 => { const r = new FileReader(); r.onload = () => res2(r.result); r.readAsDataURL(blob); });
 }
 
+// XRF屏幕三列固定：元素名 | 含量% | 误差 —— 按行解析
+const XRF_ROWS = ['Ta', 'Nb', 'Bal', 'Hf', 'Zr', 'Bi', 'As', 'Fe', 'Mn', 'Ti'];
+const XRF_ALIAS = { ta: 'Ta', ts: 'Ta', nb: 'Nb', bal: 'Bal', ba1: 'Bal', bai: 'Bal', b4l: 'Bal',
+  hf: 'Hf', zr: 'Zr', bi: 'Bi', as: 'As', fe: 'Fe', mn: 'Mn', ti: 'Ti' };
+function parseXrfText(text) {
+  text = (text || '').replace(/(\d)[_](\d)/g, '$1.$2');
+  const tail = text.split(/\+\/-|\bsec\b/i).slice(-1)[0] || text;
+  const elements = {}; let ptr = 0;
+  for (const raw of tail.split('\n')) {
+    const line = raw.trim(); if (!line) continue;
+    // 找行内元素标签（容忍 |→l 等OCR误读）
+    let label = null, pos = -1, wlen = 0;
+    for (const w of (line.match(/[A-Za-z|]{2,4}/g) || [])) {
+      const key = w.toLowerCase().replace(/\|/g, 'l').replace(/1/g, 'l');
+      if (XRF_ALIAS[key]) { label = XRF_ALIAS[key]; pos = line.indexOf(w); wlen = w.length; break; }
+    }
+    if (label && elements[label] == null) {
+      // 标签后的第一个数字=含量（第二个=误差跳过）
+      const nums = (line.slice(pos + wlen).match(/\d+(\.\d+)?/g) || []).map(Number).filter(n => n <= 150);
+      if (nums.length) {
+        elements[label] = nums[0];
+        const ti = XRF_ROWS.indexOf(label); if (ti >= ptr) ptr = ti + 1;
+      }
+      continue;
+    }
+    // 无标签的数值行 → 按屏幕位置顺序补位
+    const nums = (line.match(/\d+(\.\d+)?/g) || []).map(Number).filter(n => n <= 150);
+    if (nums.length) {
+      while (ptr < XRF_ROWS.length && elements[XRF_ROWS[ptr]] != null) ptr++;
+      if (ptr < XRF_ROWS.length) elements[XRF_ROWS[ptr]] = nums[0];
+    }
+  }
+  return elements;
+}
+
 async function ocrPoint(t, photoIdx) {
   const pt = getPoint(t);
   pt.ocrMsg = { t: '识别中…（约5-10秒）', err: false };
@@ -435,12 +470,15 @@ async function ocrPoint(t, photoIdx) {
   try {
     const img = await photoToDataURL(pt.xrfPhotos[photoIdx]);
     const j = await workerPost({ action: 'ocr', images: [img] });
-    if (j.error || !j.elements || !Object.keys(j.elements).length) {
+    // 优先用App端行级解析（raw原文），worker的elements兜底
+    let elements = j.elements || {};
+    if (j.raw) { const re = parseXrfText(j.raw); if (Object.keys(re).length) elements = re; }
+    if (j.error || !Object.keys(elements).length) {
       pt.ocrMsg = { t: '识别失败：' + (j.error || '数值没认出来，重拍或点重试'), err: true };
       renderPointArea(t); return;
     }
-    const ROW_ORDER = ['Ta', 'Nb', 'Bal', 'Hf', 'Zr', 'Bi', 'As', 'Fe', 'Mn', 'Ti'];   // 本机屏幕只有这10行，无Sn
-    Object.entries(j.elements).forEach(([el, val]) => {
+    const ROW_ORDER = XRF_ROWS;   // 本机屏幕只有这10行，无Sn
+    Object.entries(elements).forEach(([el, val]) => {
       if (!ROW_ORDER.includes(el)) return;   // 滤掉屏幕外的元素（如Sn误识别）
       if (!pt.xrf.some(x => x.el === el && x.val === val)) pt.xrf.push({ el, val, src: photoIdx });
     });
