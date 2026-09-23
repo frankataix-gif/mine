@@ -59,6 +59,11 @@
   .rec-item { background: var(--card); border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
   .date-head { display: flex; justify-content: space-between; align-items: baseline; padding: 12px 4px 6px; font-weight: 700; font-size: 15px; color: var(--text); border-bottom: 2px solid var(--primary); }
   .date-head span { font-weight: 400; font-size: 12px; color: var(--muted); }
+  /* 查看模式：整个表单只读，仅底部编辑/删除可用 */
+  #tab-entry.viewing input, #tab-entry.viewing select, #tab-entry.viewing textarea { pointer-events: none; opacity: .65; }
+  #tab-entry.viewing button, #tab-entry.viewing a { pointer-events: none; opacity: .55; }
+  #tab-entry.viewing #viewBar button { pointer-events: auto; opacity: 1; }
+  #tab-entry.viewing #addOutput, #tab-entry.viewing #quickProducts, #tab-entry.viewing #fLineBtns { opacity: .5; }
   .rec-item .meta { font-size: 12px; color: var(--muted); margin-top: 3px; }
   .rec-item .nums { text-align: right; font-size: 13px; }
   .unsync { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #f59e0b; margin-left: 6px; }
@@ -161,6 +166,10 @@
     </div>
 
     <button class="primary btn-block" id="saveBtn" style="height:50px;font-size:16px">保存记录</button>
+    <div class="row" id="viewBar" style="display:none;margin-top:10px">
+      <div><button class="primary btn-block" id="vEdit" style="height:50px;font-size:16px">编辑此记录</button></div>
+      <div style="flex:0 0 110px"><button class="danger btn-block" id="vDel" style="height:50px">删除</button></div>
+    </div>
     <div style="height:20px"></div>
   </section>
 
@@ -224,7 +233,7 @@
 
 <script>
 /* ================= 数据层 ================= */
-const APP_VERSION = '2026-09-22-v23';
+const APP_VERSION = '2026-09-22-v24';
 const LS_REC = 'mine_records_v1';
 const LS_SET = 'mine_settings_v1';
 
@@ -371,10 +380,11 @@ $('fOrePhoto').onchange = photoHandler('ore');
 
 function renderPointArea(t) {
   const pt = getPoint(t); const box = getPointArea(t);
+  const ro = viewMode;   // 只读查看模式：不渲染删除/编辑控件
   const thumbs = (arr, kind) => arr.map((p, i) =>
     `<span style="display:inline-block;position:relative;margin:4px 6px 0 0">
       <img src="${imgUrl(p)}" data-zoom style="width:72px;height:54px;object-fit:cover;border-radius:6px;cursor:pointer">
-      <button data-delp="${kind}-${i}" style="position:absolute;top:-5px;right:-5px;width:18px;height:18px;min-height:18px;border-radius:50%;background:#ef4444;color:#fff;border:none;font-size:11px;padding:0">×</button>
+      ${ro ? '' : `<button data-delp="${kind}-${i}" style="position:absolute;top:-5px;right:-5px;width:18px;height:18px;min-height:18px;border-radius:50%;background:#ef4444;color:#fff;border:none;font-size:11px;padding:0">×</button>`}
     </span>`).join('');
   let h = '';
   if (pt.xrfPhotos.length || pt.ore.length)
@@ -386,10 +396,10 @@ function renderPointArea(t) {
     h += '<div style="margin-top:4px">' + sorted.map(r => {
       const ri = pt.xrf.indexOf(r);
       const main = r.el === 'Ta' || r.el === 'Nb';
-      return `<span style="display:inline-block;margin:2px 10px 2px 0;font-size:13px"><b>${r.el}</b><span style="color:var(--muted)">${EL_CN[r.el] || ''}</span> <span style="${main ? 'color:var(--primary);font-weight:700;font-size:16px' : ''}">${r.val}%</span> <a href="javascript:void 0" data-edit="${ri}" style="color:var(--primary)">编辑</a> <a href="javascript:void 0" data-delr="${ri}" style="color:var(--danger)">删</a></span>`;
+      return `<span style="display:inline-block;margin:2px 10px 2px 0;font-size:13px"><b>${r.el}</b><span style="color:var(--muted)">${EL_CN[r.el] || ''}</span> <span style="${main ? 'color:var(--primary);font-weight:700;font-size:16px' : ''}">${r.val}%</span>${ro ? '' : ` <a href="javascript:void 0" data-edit="${ri}" style="color:var(--primary)">编辑</a> <a href="javascript:void 0" data-delr="${ri}" style="color:var(--danger)">删</a>`}</span>`;
     }).join('') + '</div>';
   }
-  h += `<a href="javascript:void 0" data-add style="font-size:12px;color:var(--muted)">+手填读数</a>`;
+  if (!ro) h += `<a href="javascript:void 0" data-add style="font-size:12px;color:var(--muted)">+手填读数</a>`;
   box.innerHTML = h;
   box.querySelectorAll('[data-delp]').forEach(b => b.onclick = () => {
     const [k, i] = b.dataset.delp.split('-'); const idx = +i;
@@ -574,6 +584,38 @@ function resetForm() {
   $('saveBtn').textContent = '保存记录';
 }
 
+// ===== 查看模式：历史点记录 → 记一笔页面只读展示，底部"编辑"解锁 =====
+let viewMode = false;
+function viewRecord(rec) {
+  viewMode = true;
+  loadToForm(rec);
+  $('tab-entry').classList.add('viewing');
+  $('saveBtn').style.display = 'none';
+  $('viewBar').style.display = 'flex';
+  switchTab('entry');
+  window.scrollTo(0, 0);
+}
+function exitView(clearForm = true) {
+  viewMode = false;
+  $('tab-entry').classList.remove('viewing');
+  $('saveBtn').style.display = '';
+  $('viewBar').style.display = 'none';
+  editId = null;
+  if (clearForm) resetForm();
+}
+$('vEdit').onclick = () => {
+  viewMode = false;
+  $('tab-entry').classList.remove('viewing');
+  $('saveBtn').style.display = '';
+  $('viewBar').style.display = 'none';
+  renderPointArea('feed');
+  document.querySelectorAll('#outputRows > div').forEach(row => renderPointArea(row));
+};
+$('vDel').onclick = () => {
+  const r = records.find(x => x.id === editId); if (!r) return;
+  deleteRec(r);
+};
+
 function loadToForm(rec) {
   editId = rec.id;
   $('fDate').value = rec.date; $('fShift').value = rec.shift;
@@ -637,7 +679,9 @@ function recHtml(r) {
   </div>`;
 }
 function bindHistoryClicks() {
-  $('historyList').querySelectorAll('.rec-item').forEach(el => el.onclick = () => showDetail(el.dataset.id));
+  $('historyList').querySelectorAll('.rec-item').forEach(el => el.onclick = () => {
+    const r = records.find(x => x.id === el.dataset.id); if (r) viewRecord(r);
+  });
 }
 
 function showDetail(id) {
@@ -671,12 +715,17 @@ function showDetail(id) {
   $('modalRoot').querySelectorAll('[data-zoom]').forEach(im => im.onclick = () => zoomImg(im.src));
   $('mClose').onclick = closeModal;
   $('mEdit').onclick = () => { closeModal(); loadToForm(r); };
-  $('mDel').onclick = () => {
-    closeModal();
-    showModal(`<h3>确认删除？</h3><p style="color:var(--muted)">删除后不可恢复（云端同步时会标记删除）</p>
-      <div class="btns"><button class="secondary" id="cCancel">取消</button><button class="danger" id="cOk">确认删除</button></div>`);
-    $('cCancel').onclick = closeModal;
-    $('cOk').onclick = () => { r.deleted = true; r.synced = false; r.updated_at = new Date().toISOString(); save(); renderHistory(); renderStats(); updateSyncStatus(); closeModal(); trySync(); };
+  $('mDel').onclick = () => { closeModal(); deleteRec(r); };
+}
+
+function deleteRec(r) {
+  showModal(`<h3>确认删除？</h3><p style="color:var(--muted)">删除后不可恢复（云端同步时会标记删除）</p>
+    <div class="btns"><button class="secondary" id="cCancel">取消</button><button class="danger" id="cOk">确认删除</button></div>`);
+  $('cCancel').onclick = closeModal;
+  $('cOk').onclick = () => {
+    r.deleted = true; r.synced = false; r.updated_at = new Date().toISOString();
+    save(); renderHistory(); renderStats(); updateSyncStatus(); closeModal(); trySync();
+    if (viewMode) { exitView(); switchTab('history'); }
   };
 }
 
@@ -905,7 +954,10 @@ function switchTab(name) {
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
   ['entry', 'history', 'stats', 'settings'].forEach(t => $('tab-' + t).classList.toggle('hidden', t !== name));
 }
-document.querySelectorAll('nav button').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
+  if (b.dataset.tab === 'entry' && viewMode) exitView();   // 查看中点"记一笔"→ 回到新记录
+  switchTab(b.dataset.tab);
+});
 
 /* ================= 自动更新检查 ================= */
 async function checkUpdate() {
