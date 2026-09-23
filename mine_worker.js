@@ -219,7 +219,7 @@ export default {
               try {
                 const ai = await env.AI.run(model, args);
                 atext = (ai && (ai.response || ai.description)) || '';
-              } catch (e3) { continue; }
+              } catch (e3) { rawAll += 'ERR ' + model + ': ' + e3.message + '\n'; continue; }
               if (/noscreen/i.test(atext)) { noscreen++; continue; }
               rawAll += atext + '\n';
               const els = parseAiText(atext);
