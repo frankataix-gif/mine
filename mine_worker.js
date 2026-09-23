@@ -235,7 +235,7 @@ export default {
             if (vals.length >= 3 && !uniform && !badBal && !(noBal && halfSame)) {
               return json({ ok: true, elements: merged, raw: rawAll.trim(), via: 'ai' });
             }
-            return json({ error: noscreen ? 'not an assay screen' : 'ai unusable: ' + rawAll.slice(0, 200), elements: null });
+            return json({ error: (noscreen ? 'not an assay screen' : 'ai unusable') + ' :: ' + rawAll.slice(0, 300), elements: null });
           }
           // ---- 第二通道：OCR.space 文字识别 + 行解析 ----
           const fd = new URLSearchParams({
