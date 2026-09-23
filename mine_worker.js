@@ -235,9 +235,10 @@ export default {
             if (vals.length >= 3 && !uniform && !badBal && !(noBal && halfSame)) {
               return json({ ok: true, elements: merged, raw: rawAll.trim(), via: 'ai' });
             }
-            // AI判定非化验屏且无任何有效读数 → 直接拒；其余失败一律落到OCR.space兜底
-            if (noscreen && vals.length < 3) {
-              return json({ error: 'not an assay screen :: ' + rawAll.slice(0, 200), elements: null });
+            // 模型正常运行且判定非化验屏 → 直接拒；模型报错/空输出 → 落OCR.space兜底
+            const aiErr = /ERR /.test(rawAll);
+            if (noscreen && vals.length < 3 && !aiErr) {
+              return json({ error: 'not an assay screen', elements: null });
             }
           }
           // ---- 第二通道：OCR.space 文字识别 + 行解析 ----
