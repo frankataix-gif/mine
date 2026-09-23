@@ -288,6 +288,10 @@ export default {
               elements[el] = n; pending = null; skipNext = true; ptr++;
             }
           }
+          // 校验：真屏必有 Bal 余量且为大数；错位/瞎读的一律拒收，宁缺勿错
+          if (Object.keys(elements).length < 3 || !(elements.Bal >= 20)) {
+            return json({ error: 'ocr low-confidence (rows misaligned)', elements: null });
+          }
           return json({ ok: true, elements, raw: text });
         } catch (e) { return json({ error: 'ocr failed: ' + e.message }, 500); }
       }
