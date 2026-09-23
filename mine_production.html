@@ -115,6 +115,10 @@
           </select>
         </div>
       </div>
+      <div class="field">
+        <label>名称（这笔记录的名字，随便起）</label>
+        <input type="text" id="fName" placeholder="如：一号矿堆 / 东矿口第3批 / 上午摇床">
+      </div>
       <h3 style="margin-top:6px">入选（给矿）</h3>
       <div class="row">
         <div>
@@ -220,7 +224,7 @@
 
 <script>
 /* ================= 数据层 ================= */
-const APP_VERSION = '2026-09-22-v22';
+const APP_VERSION = '2026-09-22-v23';
 const LS_REC = 'mine_records_v1';
 const LS_SET = 'mine_settings_v1';
 
@@ -530,6 +534,7 @@ $('saveBtn').onclick = () => {
   const now = new Date().toISOString();
   const rec = {
     id: editId || uid(),
+    name: $('fName').value.trim(),
     date: $('fDate').value,
     shift: $('fShift').value,
     line: curLine,
@@ -562,7 +567,7 @@ $('saveBtn').onclick = () => {
 };
 
 function resetForm() {
-  $('fRuntime').value = $('fInput').value = $('fDown').value = $('fDownReason').value = $('fNote').value = '';
+  $('fRuntime').value = $('fInput').value = $('fDown').value = $('fDownReason').value = $('fNote').value = $('fName').value = '';
   feedData.xrfPhotos = []; feedData.xrf = []; feedData.ore = []; renderPointArea('feed');
   $('fXrfPhoto').value = ''; $('fOrePhoto').value = '';
   $('outputRows').innerHTML = '';
@@ -572,6 +577,7 @@ function resetForm() {
 function loadToForm(rec) {
   editId = rec.id;
   $('fDate').value = rec.date; $('fShift').value = rec.shift;
+  $('fName').value = rec.name || '';
   curLine = rec.line; lineOpen = false;   // 编辑时锁定在该工序
   renderLineBtns(); renderQuickProducts();
   $('fRuntime').value = rec.runtime_h || ''; $('fInput').value = rec.input_t || '';
@@ -625,7 +631,7 @@ function renderHistory() {
 function recHtml(r) {
   const outTxt = r.outputs.map(o => `${o.product}${o.qty ?? o.kg}${o.unit || 'kg'}${o.grade != null ? '@' + o.grade + '%' : ''}`).join('、') || '—';
   return `<div class="rec-item" data-id="${r.id}">
-    <div><b>${r.shift} · ${r.line}</b>
+    <div><b>${r.shift} · ${r.line}</b>${r.name ? ' <span style="color:var(--primary);font-size:12px">「' + r.name + '」</span>' : ''}
       <div class="meta">${outTxt}${r.synced ? '' : '<span class="unsync" title="待同步"></span>'}</div></div>
     <div class="nums">${r.input_t ? r.input_t + (r.input_unit === 'kg' ? 'kg' : 't') : ''}<br>${r.runtime_h ? r.runtime_h + 'h' : ''}</div>
   </div>`;
@@ -646,7 +652,7 @@ function showDetail(id) {
     return has ? `<div style="margin-top:8px;font-size:13px"><b>${o.product}</b> ${xrfTxt(o.xrf)}<br>${imgTags(o.xrf_photos)}${imgTags(o.ore_photos)}</div>` : '';
   }).join('');
   const outs = r.outputs.map(o => `${o.product}: ${o.qty ?? o.kg} ${o.unit || 'kg'}${o.grade != null ? ' · ' + o.grade + '%' : ''}`).join('<br>') || '无';
-  showModal(`<h3>${r.date} ${r.shift} · ${r.line}</h3>
+  showModal(`<h3>${r.date} ${r.shift} · ${r.line}${r.name ? '「' + r.name + '」' : ''}</h3>
     <table>
       <tr><td>运行时长</td><td>${r.runtime_h || '—'} h</td></tr>
       <tr><td>处理量</td><td>${r.input_t || '—'} ${r.input_unit === 'kg' ? 'kg' : 't'}</td></tr>
