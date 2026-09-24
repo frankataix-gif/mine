@@ -90,7 +90,7 @@
 <body>
 
 <header>
-  <a class="homebtn" href="/" title="返回工具箱">⌂ 主页</a>
+  <a class="homebtn" href="javascript:void 0" id="homeBtn" title="返回">⌂ 主页</a>
   <h1>钽铌矿生产统计</h1>
   <div id="syncStatus">检查网络中…</div>
 </header>
@@ -230,7 +230,7 @@
 
 <script>
 /* ================= 数据层 ================= */
-const APP_VERSION = '2026-09-23-v26';
+const APP_VERSION = '2026-09-23-v27';
 const LS_REC = 'mine_records_v1';
 const LS_SET = 'mine_settings_v1';
 
@@ -995,6 +995,12 @@ document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
   if (b.dataset.tab === 'entry' && viewMode) exitView();   // 查看中点"记一笔"→ 回到新记录
   switchTab(b.dataset.tab);
 });
+
+// 主页键：查看记录中 → 返回历史列表；否则回到"记一笔"空白页
+$('homeBtn').onclick = () => {
+  if (viewMode) { exitView(); switchTab('history'); }
+  else { resetForm(); switchTab('entry'); window.scrollTo(0, 0); }
+};
 
 /* ================= 自动更新检查 ================= */
 async function checkUpdate() {
