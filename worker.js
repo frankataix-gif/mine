@@ -32,9 +32,14 @@
 //   DB          = D1 field_samples（考察记录本）
 //   GITHUB_REPO = frankataix-gif/mine
 //   GITHUB_TOKEN= secret，GitHub PAT（数据读写）
-//   ACCESS_CODE = secret，门户统一访问密码
+//   ACCESS_CODE = secret，万能密码（管理员，所有 app 通进）
+//   USERS_JSON  = secret，用户表 [{"u":"用户名","p":"密码","apps":["mine","sampling"]}]
+//                 apps:["*"] = 全部应用。加人/改密码 = 更新这个 secret
 //   APP_TOKEN   = 可选，取样工具旧令牌兼容（未设）
 //   OPENAI_KEY  = 可选，配了就用 GPT-4o，没配自动走 Workers AI
+//
+// 权限模型：门户 / 公开；进具体 app 才要登录（用户名+密码，或只用万能密码）。
+// 新 app 在 HTML_PAGES 里声明 app key，然后给用户的 apps 数组加上该 key。
 // ============================================
 
 const CORS = {
@@ -43,11 +48,12 @@ const CORS = {
   'Access-Control-Allow-Headers': 'Content-Type, X-App-Token'
 };
 
+// 路径 → 仓库文件 + 所需应用权限（app key；null = 门户公开页）
 const HTML_PAGES = {
-  '/': 'index.html',
-  '/index.html': 'index.html',
-  '/mine_production.html': 'mine_production.html',
-  '/sampling_helper.html': 'sampling_helper.html'
+  '/':                { file: 'index.html',            app: null },
+  '/index.html':      { file: 'index.html',            app: null },
+  '/mine_production.html': { file: 'mine_production.html', app: 'mine' },
+  '/sampling_helper.html': { file: 'sampling_helper.html', app: 'sampling' }
 };
 
 const DATA_PREFIX = 'data/';           // 只允许读写 data/ 目录
@@ -57,18 +63,22 @@ const LOGIN_HTML = `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>登录 · Ecobox赞比亚</title>
 <style>body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:#f1f5f9;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}
 .c{background:#fff;border-radius:12px;padding:28px;width:min(90%,340px);box-shadow:0 2px 8px rgba(0,0,0,.08)}
-h1{font-size:17px;margin:0 0 18px;color:#1e293b}input{width:100%;box-sizing:border-box;padding:11px;border:1px solid #e2e8f0;border-radius:8px;font-size:16px}
-button{width:100%;margin-top:12px;padding:11px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:16px;min-height:44px}
-.e{color:#ef4444;font-size:13px;margin-top:10px;min-height:18px}</style></head>
+h1{font-size:17px;margin:0 0 18px;color:#1e293b}input{width:100%;box-sizing:border-box;padding:11px;border:1px solid #e2e8f0;border-radius:8px;font-size:16px;margin-bottom:10px}
+button{width:100%;margin-top:4px;padding:11px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:16px;min-height:44px}
+.e{color:#ef4444;font-size:13px;margin-top:10px;min-height:18px}
+.h{font-size:12px;color:#64748b;margin-top:12px}</style></head>
 <body><div class="c"><h1>Ecobox赞比亚</h1>
-<input type="password" id="pw" placeholder="访问密码" autocomplete="current-password">
-<button id="go">进入</button><div class="e" id="err"></div></div>
+<input type="text" id="un" placeholder="用户名（管理员可留空）" autocomplete="username">
+<input type="password" id="pw" placeholder="密码" autocomplete="current-password">
+<button id="go">进入</button><div class="e" id="err"></div>
+<div class="h">账号密码错误或没有此应用权限时，会回到本页</div></div>
 <script>
 document.getElementById('go').onclick = async () => {
-  const code = document.getElementById('pw').value.trim();
-  if (!code) return;
-  const r = await fetch('/', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'auth',code})});
-  if (r.ok) { localStorage.setItem('mine_access_code', code); location.reload(); }
+  const user = document.getElementById('un').value.trim();
+  const pass = document.getElementById('pw').value.trim();
+  if (!pass) return;
+  const r = await fetch(location.pathname, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'auth',user,pass})});
+  if (r.ok) { localStorage.setItem('mine_access_code', pass); location.reload(); }
   else document.getElementById('err').textContent = '密码错误';
 };
 document.getElementById('pw').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('go').click(); });
@@ -80,24 +90,50 @@ function getCookie(req, name) {
   return m ? decodeURIComponent(m[1]) : null;
 }
 
-// 门户登录态（Cookie）
+// 用户表：env.USERS_JSON = [{"u":"hxj","p":"xxx","apps":["mine","sampling"]}]
+// apps 里 "*" 表示全部应用。ACCESS_CODE 为万能密码（Cookie 直接存它 = 管理员）。
+function parseUsers(env) {
+  try { return JSON.parse(env.USERS_JSON || '[]'); } catch { return []; }
+}
+
+// 返回 'admin' / 用户记录 / null
+function authUser(request, env) {
+  const c = getCookie(request, 'app_auth');
+  if (!c) return null;
+  if (env.ACCESS_CODE && c === env.ACCESS_CODE) return 'admin';
+  const i = c.indexOf(':');
+  if (i < 0) return null;
+  const u = c.slice(0, i), p = c.slice(i + 1);
+  return parseUsers(env).find(x => x.u === u && x.p === p) || null;
+}
+
+// 是否有任何有效登录（ACCESS_CODE 和用户表都没配 → 视为全开放）
 function authed(request, env) {
-  if (!env.ACCESS_CODE) return true;
-  return getCookie(request, 'app_auth') === env.ACCESS_CODE;
+  if (!env.ACCESS_CODE && !parseUsers(env).length) return true;
+  return !!authUser(request, env);
 }
 
-// 取样工具接口鉴权：门户 Cookie 或旧 APP_TOKEN 二选一
+// 某应用权限：admin / 用户 apps 含该 app 或 '*'
+function canAccess(request, env, app) {
+  if (!env.ACCESS_CODE && !parseUsers(env).length) return true;
+  const a = authUser(request, env);
+  if (a === 'admin') return true;
+  if (!a) return false;
+  return a.apps.includes('*') || a.apps.includes(app);
+}
+
+// 取样工具接口鉴权：该应用权限 或 旧 APP_TOKEN
 function samplingAuthed(request, env) {
-  if (authed(request, env)) return true;
+  if (canAccess(request, env, 'sampling')) return true;
   if (env.APP_TOKEN && request.headers.get('X-App-Token') === env.APP_TOKEN) return true;
-  return !env.ACCESS_CODE && !env.APP_TOKEN;
+  return !env.ACCESS_CODE && !env.APP_TOKEN && !parseUsers(env).length;
 }
 
-// 生产统计接口鉴权：body.code 或门户 Cookie 二选一
+// 生产统计接口鉴权：该应用权限 或 body.code=ACCESS_CODE（旧 app 设置兼容）
 function mineAuthed(request, env, body) {
-  if (authed(request, env)) return true;
-  if (env.ACCESS_CODE && body && body.code === env.ACCESS_CODE) return true;
-  return !env.ACCESS_CODE;
+  if (canAccess(request, env, 'mine')) return true;
+  if (env.ACCESS_CODE && body && (body.code === env.ACCESS_CODE || body.pass === env.ACCESS_CODE)) return true;
+  return !env.ACCESS_CODE && !parseUsers(env).length;
 }
 
 function json(obj, status = 200) {
@@ -357,17 +393,17 @@ export default {
           return await handleSampling(request, env, url);
         }
 
-        // 页面
+        // 页面：门户公开，各 app 按权限拦截
         if (HTML_PAGES[p]) {
-          if (!authed(request, env)) {
+          const pg = HTML_PAGES[p];
+          if (pg.app && !canAccess(request, env, pg.app)) {
             return new Response(LOGIN_HTML, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } });
           }
-          return serveRepoFile(env, HTML_PAGES[p], 'text/html');
+          return serveRepoFile(env, pg.file, 'text/html');
         }
 
-        // Service Worker（登录后才允许注册，避免缓存登录页）
+        // Service Worker（公开，登录页不会被误存为 app——网络优先策略会纠正）
         if (p === '/sw.js') {
-          if (!authed(request, env)) return new Response('unauthorized', { status: 401, headers: CORS });
           return serveRepoFile(env, 'sw.js', 'application/javascript');
         }
 
@@ -376,9 +412,9 @@ export default {
         if (p === '/icon-192.png' || p === '/icon-512.png') return serveRepoBinary(env, p.slice(1), 'image/png');
         if (p === '/icon.svg') return serveRepoFile(env, 'icon.svg', 'image/svg+xml');
 
-        // 生产统计已同步照片
+        // 生产统计已同步照片（需 mine 权限）
         if (p.startsWith('/photos/')) {
-          if (!authed(request, env)) return new Response('unauthorized', { status: 401, headers: CORS });
+          if (!canAccess(request, env, 'mine')) return new Response('unauthorized', { status: 401, headers: CORS });
           return serveRepoBinary(env, p.slice(1), 'image/jpeg');
         }
 
@@ -397,15 +433,24 @@ export default {
       let body;
       try { body = await request.json(); } catch (e) { return json({ error: 'invalid body' }, 400); }
 
-      // 登录：验证密码并种 Cookie
+      // 登录：管理员密码（body.pass 或旧 body.code）或 用户名+密码 → 种 Cookie
       if (body.action === 'auth') {
-        if (env.ACCESS_CODE && body.code === env.ACCESS_CODE) {
-          return new Response(JSON.stringify({ ok: true }), {
+        const pass = body.pass || body.code || '';
+        const user = (body.user || '').trim();
+        // 万能密码：只看密码，用户名为空也行
+        if (env.ACCESS_CODE && pass === env.ACCESS_CODE) {
+          return new Response(JSON.stringify({ ok: true, admin: true }), {
             headers: { ...CORS, 'Content-Type': 'application/json', 'Set-Cookie': `app_auth=${encodeURIComponent(env.ACCESS_CODE)}; Path=/; Max-Age=31536000; SameSite=Lax` }
           });
         }
-        if (!env.ACCESS_CODE) return json({ ok: true });
-        return json({ error: '访问密码错误' }, 401);
+        const rec = parseUsers(env).find(x => x.u === user && x.p === pass);
+        if (rec) {
+          return new Response(JSON.stringify({ ok: true, user: rec.u, apps: rec.apps }), {
+            headers: { ...CORS, 'Content-Type': 'application/json', 'Set-Cookie': `app_auth=${encodeURIComponent(rec.u + ':' + rec.p)}; Path=/; Max-Age=31536000; SameSite=Lax` }
+          });
+        }
+        if (!env.ACCESS_CODE && !parseUsers(env).length) return json({ ok: true });
+        return json({ error: '账号或密码错误' }, 401);
       }
 
       if (!mineAuthed(request, env, body)) return json({ error: '访问密码错误' }, 401);
