@@ -207,11 +207,6 @@
           <input type="text" id="sWorker" placeholder="https://xxx.workers.dev/">
           <div class="hint">留空=自动用当前地址，无需填写</div>
         </div>
-        <div class="field">
-          <label>访问密码</label>
-          <input type="text" id="sCode" placeholder="Worker 里设置的 ACCESS_CODE">
-          <div class="hint">当前云端已取消密码，留空即可</div>
-        </div>
       </details>
     </div>
     <div class="card">
@@ -235,7 +230,7 @@
 
 <script>
 /* ================= 数据层 ================= */
-const APP_VERSION = '2026-09-23-v25';
+const APP_VERSION = '2026-09-23-v26';
 const LS_REC = 'mine_records_v1';
 const LS_SET = 'mine_settings_v1';
 
@@ -912,14 +907,12 @@ function renderSettings() {
   $('sRecorder').value = settings.recorder;
   $('sPlanHours').value = settings.planHours;
   $('sWorker').value = settings.workerUrl;
-  $('sCode').value = settings.accessCode;
   renderLineList();
 }
 $('saveSettings').onclick = () => {
   settings.recorder = $('sRecorder').value.trim();
   settings.planHours = num($('sPlanHours').value) || 10;
   settings.workerUrl = $('sWorker').value.trim();
-  settings.accessCode = $('sCode').value.trim();
   save(); toast('设置已保存');
 };
 function renderLineList() {
