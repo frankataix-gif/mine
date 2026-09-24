@@ -54,13 +54,13 @@ const DATA_PREFIX = 'data/';           // 只允许读写 data/ 目录
 const DATA_FILE = 'data/production_log.json';
 
 const LOGIN_HTML = `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>登录 · ECOBOX 现场工具箱</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>登录 · Ecobox赞比亚</title>
 <style>body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:#f1f5f9;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}
 .c{background:#fff;border-radius:12px;padding:28px;width:min(90%,340px);box-shadow:0 2px 8px rgba(0,0,0,.08)}
 h1{font-size:17px;margin:0 0 18px;color:#1e293b}input{width:100%;box-sizing:border-box;padding:11px;border:1px solid #e2e8f0;border-radius:8px;font-size:16px}
 button{width:100%;margin-top:12px;padding:11px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:16px;min-height:44px}
 .e{color:#ef4444;font-size:13px;margin-top:10px;min-height:18px}</style></head>
-<body><div class="c"><h1>ECOBOX 现场工具箱</h1>
+<body><div class="c"><h1>Ecobox赞比亚</h1>
 <input type="password" id="pw" placeholder="访问密码" autocomplete="current-password">
 <button id="go">进入</button><div class="e" id="err"></div></div>
 <script>
