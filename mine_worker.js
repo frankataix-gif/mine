@@ -175,6 +175,36 @@ export default {
         return json({ error: '访问密码错误' }, 401);
       }
 
+      // 当日生产AI分析：输入当天记录+前几日摘要，返回中文分析
+      if (body.action === 'analyze') {
+        if (!env.AI) return json({ error: 'ai not bound' });
+        const today = JSON.stringify(body.today || []);
+        const prev = JSON.stringify(body.prev || []);
+        const prompt = `你是钽铌矿加工厂的生产数据分析助手。下面是某一天各产线（洗矿机/摇床/手选组/跳汰机，彼此独立）的记录JSON，以及前几日按产线的汇总JSON。
+
+当天记录：${today}
+
+前几日汇总：${prev}
+
+字段说明：line=工序，input_t=入选量（配合input_unit单位），outputs=产出明细（kg、grade=Ta品位%、xrf=各元素%），ta_pct/nb_pct=入选品位，runtime_h=运行时长，downtime_h=停机。
+
+请用中文分条给出简洁实用的分析（总共300字内）：
+1. 投入产出与回收情况：各产线处理量、产出量、大致回收率（产出kg×品位 vs 入选kg×品位）
+2. 品位表现：Ta/Nb品位水平，与前几日相比是升是降
+3. 数据可信度：哪些记录缺照片、缺品位、数值可疑（如品位与产品不匹配、投入产出比例异常）
+4. 对明天生产的1-2条具体建议
+只说事实和建议，不要客套话。`;
+        try {
+          const ai = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+            messages: [{ role: 'user', content: prompt }],
+            max_tokens: 900
+          });
+          const txt = (ai && ai.response) || '';
+          if (!txt) return json({ error: 'ai empty' });
+          return json({ ok: true, text: txt });
+        } catch (e) { return json({ error: 'ai failed: ' + e.message }); }
+      }
+
       // XRF照片识别：AI视觉优先读屏（不预设元素清单，屏上有什么读什么），OCR.space兜底
       if (body.action === 'ocr') {
         const img = body.images && body.images[0];
