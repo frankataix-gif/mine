@@ -18,22 +18,23 @@
 //   DELETE /sample/<id>          → 删除样品
 //   POST /ocr                    → OpenAI GPT-4o XRF 识别（取样工具）
 //
-// 部署步骤：
-// 1. GitHub 仓库 frankataix-gif/mine 上传：index.html、sw.js、manifest.webmanifest、
-//    mine_production.html、sampling_helper.html、icon-192.png、icon-512.png、icon.svg
-//    （build_deploy.py 已把这些收集到 repo_bundle/）
-// 2. Cloudflare → Workers & Pages → 打开现在生产统计用的 Worker → Edit code →
-//    粘贴本文件 → Deploy
-// 3. Worker → Settings → Bindings → Add binding → D1 database：
-//      Variable name = DB，选现有 field_samples 库（数据无缝衔接）
-// 4. Worker → Settings → Variables and Secrets 确认/添加：
-//      GITHUB_TOKEN = 原 GitHub PAT（已有）
-//      GITHUB_REPO  = frankataix-gif/mine（已有）
-//      ACCESS_CODE  = 门户统一访问密码（已有）
-//      APP_TOKEN    = 取样工具旧令牌（可选，兼容旧部署；留空也行——登录 Cookie 即可）
-//      OPENAI_KEY   = 取样工具 AI 识别用（可选，从旧 Worker 复制）
-//      OCR_KEY      = OCR.space key（可选，原有逻辑）
-// 5. 手机打开 Worker 地址 → 登录 → 浏览器菜单"添加到主屏幕"，只装这一个图标
+// 部署方式（已配置好，改代码后一条 curl 即可）：
+//   CF=$(cat "G:\我的云端硬盘\1 New 7-8\AgentAI\W\cloudflare_api_token.txt")
+//   ACC=dff446b2b98a38ac2b82263e3ff14da9
+//   curl -X PUT "https://api.cloudflare.com/client/v4/accounts/$ACC/workers/scripts/mine-sync" \
+//     -H "Authorization: Bearer $CF" \
+//     -F 'metadata={"main_module":"worker.js","compatibility_date":"2026-09-19","bindings":[{"name":"AI","type":"ai"},{"name":"DB","type":"d1","id":"78e80331-66f2-486d-8d7a-d7cf906bc7a7"},{"name":"GITHUB_REPO","type":"plain_text","text":"frankataix-gif/mine"}]};type=application/json' \
+//     -F 'worker.js=@worker.js;type=application/javascript+module'
+//   （secret 类绑定 GITHUB_TOKEN / ACCESS_CODE 不传也会保留）
+//
+// 当前绑定/变量：
+//   AI          = Workers AI 绑定（XRF 识别回退用）
+//   DB          = D1 field_samples（考察记录本）
+//   GITHUB_REPO = frankataix-gif/mine
+//   GITHUB_TOKEN= secret，GitHub PAT（数据读写）
+//   ACCESS_CODE = secret，门户统一访问密码
+//   APP_TOKEN   = 可选，取样工具旧令牌兼容（未设）
+//   OPENAI_KEY  = 可选，配了就用 GPT-4o，没配自动走 Workers AI
 // ============================================
 
 const CORS = {
@@ -233,8 +234,30 @@ async function handleSampling(request, env, url) {
   return json({ ok: false, error: 'not found' }, 404);
 }
 
-/** GPT-4o 识别 XRF 屏幕读数 → [{element, value, unit}] */
+/** 识别 XRF 屏幕读数 → [{element, value, unit}]：优先 OpenAI，无 key 时回退 Workers AI */
 async function ocrAssay(imageB64, env) {
+  const PROMPT =
+    '这是一张手持式XRF光谱仪屏幕的照片（矿石/土壤元素含量检测）。请读出屏幕上所有元素含量读数。' +
+    '只返回JSON数组，不要任何其他文字：[{"element":"Cu","value":1.23,"unit":"%"}]。' +
+    'unit 只取 %、ppm、g/t、ppb；读数带 <LOD 或 nd 的跳过；没有读数返回 []。';
+  if (!env.OPENAI_KEY && env.AI) {
+    try {
+      const bytes = Uint8Array.from(atob(imageB64), c => c.charCodeAt(0));
+      const res = await env.AI.run('@cf/meta/llama-3.2-11b-vision-instruct', {
+        messages: [{ role: 'user', content: [
+          { type: 'text', text: PROMPT },
+          { type: 'image', image: [...bytes] },
+        ]}],
+        max_tokens: 500,
+      });
+      const text = res?.response || res?.description || '[]';
+      const m = String(text).match(/\[[\s\S]*\]/);
+      const assays = JSON.parse(m ? m[0] : '[]');
+      return json({ ok: true, assays, via: 'workers-ai' });
+    } catch (e) {
+      return json({ ok: false, error: 'Workers AI 识别失败: ' + e.message });
+    }
+  }
   if (!env.OPENAI_KEY) return json({ ok: false, error: 'OPENAI_KEY 未配置' }, 500);
   const r = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -247,10 +270,7 @@ async function ocrAssay(imageB64, env) {
       messages: [{
         role: 'user',
         content: [
-          { type: 'text', text:
-            '这是一张手持式XRF光谱仪屏幕的照片（矿石/土壤元素含量检测）。请读出屏幕上所有元素含量读数。' +
-            '只返回JSON数组，不要任何其他文字：[{"element":"Cu","value":1.23,"unit":"%"}]。' +
-            'unit 只取 %、ppm、g/t、ppb；读数带 <LOD 或 nd 的跳过；没有读数返回 []。' },
+          { type: 'text', text: PROMPT },
           { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${imageB64}` } },
         ],
       }],
