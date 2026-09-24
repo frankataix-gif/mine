@@ -235,7 +235,7 @@
 
 <script>
 /* ================= 数据层 ================= */
-const APP_VERSION = '2026-09-22-v24';
+const APP_VERSION = '2026-09-23-v25';
 const LS_REC = 'mine_records_v1';
 const LS_SET = 'mine_settings_v1';
 
@@ -667,7 +667,7 @@ function renderHistory() {
       const kg = rr.reduce((s, r) => s + r.outputs.reduce((a, o) => a + o.kg, 0), 0);
       return `${l} 产出${kg.toFixed(1)}kg`;
     }).join(' · ');
-    return `<div class="date-head">${d}<span>${daySum}</span></div>` + rs.map(recHtml).join('');
+    return `<div class="date-head">${d}<span>${daySum} <a href="javascript:void 0" data-ai="${d}" style="color:var(--primary);font-size:12px;font-weight:700">🤖AI分析</a></span></div>` + rs.map(recHtml).join('');
   }).join('');
   bindHistoryClicks();
 }
@@ -684,6 +684,48 @@ function bindHistoryClicks() {
   $('historyList').querySelectorAll('.rec-item').forEach(el => el.onclick = () => {
     const r = records.find(x => x.id === el.dataset.id); if (r) viewRecord(r);
   });
+  $('historyList').querySelectorAll('[data-ai]').forEach(el => el.onclick = () => aiAnalyze(el.dataset.ai));
+}
+
+// ===== 当日生产 AI 分析 =====
+async function aiAnalyze(date) {
+  if (!navigator.onLine) { toast('需要联网才能AI分析'); return; }
+  const strip = r => {
+    const { feed_xrf_photos, feed_ore_photos, photos, photo, ...rest } = r;
+    rest.outputs = (r.outputs || []).map(o => {
+      const { xrf_photos, ore_photos, ...o2 } = o; return o2;
+    });
+    return rest;
+  };
+  const today = records.filter(r => !r.deleted && r.date === date).map(strip);
+  // 前几日摘要：按产线给投入/产出/平均Ta品位
+  const prevMap = {};
+  records.filter(r => !r.deleted && r.date < date).forEach(r => {
+    const k = r.date + '|' + r.line;
+    const p = prevMap[k] = prevMap[k] || { date: r.date, line: r.line, input: 0, unit: r.input_unit || 't', out_kg: 0, ta: [], nb: [] };
+    p.input += r.input_t || 0;
+    p.out_kg += (r.outputs || []).reduce((s, o) => s + (o.kg || 0), 0);
+    if (r.ta_pct != null) p.ta.push(r.ta_pct);
+    if (r.nb_pct != null) p.nb.push(r.nb_pct);
+    (r.outputs || []).forEach(o => { if (o.grade != null) p.ta.push(o.grade); });
+  });
+  const prev = Object.values(prevMap).slice(-30).map(p => ({
+    date: p.date, line: p.line, input: +p.input.toFixed(2), unit: p.unit, out_kg: +p.out_kg.toFixed(2),
+    avg_ta: p.ta.length ? +(p.ta.reduce((a, b) => a + b, 0) / p.ta.length).toFixed(3) : null,
+    avg_nb: p.nb.length ? +(p.nb.reduce((a, b) => a + b, 0) / p.nb.length).toFixed(3) : null
+  }));
+  showModal(`<h3>${date} 生产 AI 分析</h3><p style="color:var(--muted)">分析中…</p>`);
+  try {
+    const j = await workerPost({ action: 'analyze', today, prev });
+    if (!j.ok) throw new Error(j.error || '分析失败');
+    showModal(`<h3>${date} 生产 AI 分析</h3><div style="font-size:14px;line-height:1.7;white-space:pre-wrap">${j.text}</div>
+      <div class="btns"><button class="secondary" id="mClose">关闭</button></div>`);
+    $('mClose').onclick = closeModal;
+  } catch (e) {
+    showModal(`<h3>${date} 生产 AI 分析</h3><p style="color:var(--danger)">分析失败：${e.message}</p>
+      <div class="btns"><button class="secondary" id="mClose">关闭</button></div>`);
+    $('mClose').onclick = closeModal;
+  }
 }
 
 function showDetail(id) {
