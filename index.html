@@ -44,6 +44,22 @@
   .app-arrow { color: var(--muted); font-size: 18px; }
   .section-title { font-size: 13px; color: var(--muted); margin: 18px 4px 8px; }
   footer { text-align: center; color: var(--muted); font-size: 12px; padding: 24px 0; }
+
+  /* ===== 加载遮罩 ===== */
+  #loader { position: fixed; inset: 0; background: var(--bg); z-index: 99; display: none;
+    flex-direction: column; align-items: center; justify-content: center; }
+  #loader.show { display: flex; }
+  .ld-icon { font-size: 44px; margin-bottom: 14px; }
+  .ld-title { font-size: 16px; font-weight: 600; margin-bottom: 18px; }
+  .ld-bar-wrap { width: min(70vw, 280px); height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  .ld-bar { height: 100%; width: 0; background: var(--primary); border-radius: 3px; transition: width .25s; }
+  .ld-bar.indet { width: 40%; animation: slide 1.1s ease-in-out infinite; }
+  @keyframes slide { 0% { margin-left: -40%; } 100% { margin-left: 100%; } }
+  .ld-status { font-size: 13px; color: var(--muted); margin-top: 12px; min-height: 18px; }
+  .ld-cancel { margin-top: 22px; background: var(--card); color: var(--muted); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 22px; font-size: 14px; min-height: 40px; }
+  .ld-retry { margin-top: 22px; background: var(--primary); color: #fff; border: none;
+    border-radius: 8px; padding: 8px 26px; font-size: 14px; min-height: 40px; display: none; }
 </style>
 </head>
 <body>
@@ -56,7 +72,7 @@
 <main>
   <div class="section-title">矿区现场</div>
 
-  <a class="app-card" href="mine_production.html">
+  <a class="app-card" href="mine_production.html" data-icon="🏭">
     <div class="app-icon">🏭</div>
     <div class="app-info">
       <div class="app-name">钽铌矿生产统计</div>
@@ -65,7 +81,7 @@
     <div class="app-arrow">›</div>
   </a>
 
-  <a class="app-card" href="sampling_helper.html">
+  <a class="app-card" href="sampling_helper.html" data-icon="⛏️">
     <div class="app-icon">⛏️</div>
     <div class="app-info">
       <div class="app-name">矿区考察记录本</div>
@@ -79,11 +95,91 @@
   <footer>ECOBOX · 赞比亚现场工具</footer>
 </main>
 
+<!-- ===== 应用加载遮罩 ===== -->
+<div id="loader">
+  <div class="ld-icon" id="ldIcon">🏭</div>
+  <div class="ld-title" id="ldTitle">正在加载…</div>
+  <div class="ld-bar-wrap"><div class="ld-bar indet" id="ldBar"></div></div>
+  <div class="ld-status" id="ldStatus">正在连接服务器…</div>
+  <button class="ld-retry" id="ldRetry">重试</button>
+  <button class="ld-cancel" id="ldCancel">取消</button>
+</div>
+
 <script>
 function netStatus(){ document.getElementById('netdot').className = 'netdot' + (navigator.onLine ? '' : ' off'); }
 window.addEventListener('online', netStatus);
 window.addEventListener('offline', netStatus);
 netStatus();
+
+/* ============ 带进度的应用加载 ============ */
+const ld = document.getElementById('loader');
+const ldBar = document.getElementById('ldBar');
+const ldStatus = document.getElementById('ldStatus');
+const ldRetry = document.getElementById('ldRetry');
+const ldCancel = document.getElementById('ldCancel');
+let ldCtrl = null, ldTimer = null, ldHref = null;
+
+function ldReset() {
+  ldCtrl = null; ldHref = null;
+  clearInterval(ldTimer);
+  ld.classList.remove('show');
+  ldRetry.style.display = 'none';
+  ldCancel.style.display = '';
+}
+ldCancel.onclick = () => { ldCtrl && ldCtrl.abort(); ldReset(); };
+ldRetry.onclick = () => { const el = ldHref && ldHref.el; ldReset(); if (el) openApp(el); };
+
+async function openApp(card) {
+  const href = card.getAttribute('href');
+  const name = card.querySelector('.app-name').textContent;
+  const icon = card.dataset.icon || '📱';
+  document.getElementById('ldIcon').textContent = icon;
+  document.getElementById('ldTitle').textContent = name;
+  ldStatus.textContent = '正在连接服务器…';
+  ldBar.className = 'ld-bar indet'; ldBar.style.width = '';
+  ld.classList.add('show');
+  ldHref = { el: card };
+
+  const t0 = Date.now();
+  ldTimer = setInterval(() => {
+    const s = Math.round((Date.now() - t0) / 1000);
+    if (s >= 8) ldStatus.textContent = `网络较慢，仍在加载…（已等 ${s} 秒）`;
+  }, 1000);
+
+  ldCtrl = new AbortController();
+  try {
+    const res = await fetch(href, { signal: ldCtrl.signal, cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    ldStatus.textContent = '正在下载页面…';
+
+    const total = +res.headers.get('content-length') || 0;
+    if (total) ldBar.className = 'ld-bar';
+    const reader = res.body.getReader();
+    const chunks = []; let got = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value); got += value.length;
+      const kb = (got / 1024).toFixed(0);
+      ldStatus.textContent = total ? `已下载 ${kb} / ${(total/1024).toFixed(0)} KB` : `已下载 ${kb} KB`;
+      if (total) ldBar.style.width = Math.min(99, got / total * 100) + '%';
+    }
+    ldBar.className = 'ld-bar'; ldBar.style.width = '100%';
+    ldStatus.textContent = '正在打开…';
+    const html = await new Blob(chunks).text();
+
+    // 不整页跳转：原地替换文档，保留历史可回退
+    history.pushState({ app: href }, '', href);
+    document.open(); document.write(html); document.close();
+  } catch (e) {
+    if (e.name === 'AbortError') return;
+    ldStatus.textContent = navigator.onLine ? '加载失败：' + e.message : '当前离线，且该应用还没有离线缓存';
+    ldRetry.style.display = '';
+    ldCancel.style.display = 'none';
+  }
+}
+document.querySelectorAll('.app-card').forEach(c => c.addEventListener('click', e => { e.preventDefault(); openApp(c); }));
+window.addEventListener('popstate', () => location.reload());
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
