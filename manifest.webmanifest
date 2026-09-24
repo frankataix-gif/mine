@@ -1,7 +1,7 @@
 {
-  "name": "钽铌矿生产统计",
-  "short_name": "矿场统计",
-  "description": "钽铌矿洗选厂生产记录",
+  "name": "ECOBOX 现场工具箱",
+  "short_name": "现场工具",
+  "description": "矿区现场工具集合：生产统计、考察记录等",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

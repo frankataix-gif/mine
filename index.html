@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-CN" translate="no">
+<head>
+<meta charset="UTF-8">
+<meta name="google" content="notranslate">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>ECOBOX 现场工具箱</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#2563eb">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="现场工具">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root {
+    --primary: #2563eb;
+    --bg: #f1f5f9;
+    --card: #ffffff;
+    --text: #1e293b;
+    --muted: #64748b;
+    --border: #e2e8f0;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: var(--bg); color: var(--text); font-size: 15px; }
+  header { background: var(--primary); color: #fff; padding: 14px 16px; position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 10px; }
+  header h1 { font-size: 17px; font-weight: 600; flex: 1; }
+  .netdot { width: 10px; height: 10px; border-radius: 50%; background: #4ade80; }
+  .netdot.off { background: #f87171; }
+  main { padding: 14px; max-width: 640px; margin: 0 auto; }
+  .app-card {
+    display: flex; align-items: center; gap: 14px;
+    background: var(--card); border-radius: 12px; padding: 16px;
+    margin-bottom: 12px; box-shadow: 0 1px 2px rgba(0,0,0,.06);
+    text-decoration: none; color: var(--text);
+  }
+  .app-card:active { background: #eff6ff; }
+  .app-icon {
+    width: 48px; height: 48px; border-radius: 12px; flex: 0 0 48px;
+    display: flex; align-items: center; justify-content: center; font-size: 26px;
+    background: #eff6ff;
+  }
+  .app-info { flex: 1; min-width: 0; }
+  .app-name { font-size: 16px; font-weight: 600; }
+  .app-desc { font-size: 13px; color: var(--muted); margin-top: 3px; }
+  .app-arrow { color: var(--muted); font-size: 18px; }
+  .section-title { font-size: 13px; color: var(--muted); margin: 18px 4px 8px; }
+  footer { text-align: center; color: var(--muted); font-size: 12px; padding: 24px 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>ECOBOX 现场工具箱</h1>
+  <span class="netdot" id="netdot" title="网络状态"></span>
+</header>
+
+<main>
+  <div class="section-title">矿区现场</div>
+
+  <a class="app-card" href="mine_production.html">
+    <div class="app-icon">🏭</div>
+    <div class="app-info">
+      <div class="app-name">钽铌矿生产统计</div>
+      <div class="app-desc">洗选厂产量记录、XRF 品位识别、按日/按产品汇总</div>
+    </div>
+    <div class="app-arrow">›</div>
+  </a>
+
+  <a class="app-card" href="sampling_helper.html">
+    <div class="app-icon">⛏️</div>
+    <div class="app-info">
+      <div class="app-name">矿区考察记录本</div>
+      <div class="app-desc">野外取样、GPS 轨迹、离线地图、GPX/KML/CSV 导出</div>
+    </div>
+    <div class="app-arrow">›</div>
+  </a>
+
+  <!-- 新功能：复制上面一个 app-card，改 href / 图标 / 名称即可 -->
+
+  <footer>ECOBOX · 现场工具箱</footer>
+</main>
+
+<script>
+function netStatus(){ document.getElementById('netdot').className = 'netdot' + (navigator.onLine ? '' : ' off'); }
+window.addEventListener('online', netStatus);
+window.addEventListener('offline', netStatus);
+netStatus();
+
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>

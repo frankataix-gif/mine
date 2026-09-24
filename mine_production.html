@@ -24,6 +24,7 @@
   body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: var(--bg); color: var(--text); font-size: 15px; }
   header { background: var(--primary); color: #fff; padding: 12px 16px; position: sticky; top: 0; z-index: 10; }
   header h1 { font-size: 17px; font-weight: 600; }
+  .homebtn { position: absolute; top: 10px; right: 12px; background: rgba(255,255,255,.2); color: #fff; border-radius: 8px; padding: 5px 11px; font-size: 14px; text-decoration: none; }
   #syncStatus { font-size: 12px; opacity: .9; margin-top: 2px; }
   #syncStatus.pending { color: #fde047; }
   nav { display: flex; background: var(--card); border-bottom: 1px solid var(--border); position: sticky; top: 58px; z-index: 9; }
@@ -89,6 +90,7 @@
 <body>
 
 <header>
+  <a class="homebtn" href="/" title="返回工具箱">⌂ 主页</a>
   <h1>钽铌矿生产统计</h1>
   <div id="syncStatus">检查网络中…</div>
 </header>
@@ -987,7 +989,7 @@ initEntry(); renderHistory(); renderStats(); renderSettings(); updateSyncStatus(
 $('verInfo').textContent = '版本 ' + APP_VERSION;
 trySync();
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
-  navigator.serviceWorker.register('mine_sw.js').catch(() => {});
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
 }
 </script>
 </body>
