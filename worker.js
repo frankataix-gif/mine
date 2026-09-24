@@ -278,11 +278,10 @@ async function ocrAssay(imageB64, env) {
     'unit 只取 %、ppm、g/t、ppb；读数带 <LOD 或 nd 的跳过；没有读数返回 []。';
   if (!env.OPENAI_KEY && env.AI) {
     try {
-      const bytes = Uint8Array.from(atob(imageB64), c => c.charCodeAt(0));
       const res = await env.AI.run('@cf/meta/llama-3.2-11b-vision-instruct', {
         messages: [{ role: 'user', content: [
           { type: 'text', text: PROMPT },
-          { type: 'image', image: [...bytes] },
+          { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${imageB64}` } },
         ]}],
         max_tokens: 500,
       });
