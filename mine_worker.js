@@ -10,8 +10,8 @@
 //      （注意：若是 fine-grained token 且只授权了 cathy-fencing，
 //        需在 GitHub 编辑该 token，把 tantalum-mine 加进授权仓库）
 //    - GITHUB_REPO   = frankataix-gif/tantalum-mine
-//    - ACCESS_CODE   = 自定义访问密码（如 TK2026zambia），不设置则任何人可写
-// 4. 把 Worker URL 填进 mine_production.html 设置页 + 访问密码
+//    - ACCESS_CODE   = 已取消访问密码（绑定可留可删，代码不再校验）
+// 4. 把 Worker URL 填进 mine_production.html 设置页
 // ============================================
 
 const CORS = {
@@ -24,38 +24,6 @@ const APP_PATH = 'mine_production.html';
 const SW_PATH = 'mine_sw.js';
 const DATA_PREFIX = 'data/';           // 只允许读写 data/ 目录
 const DATA_FILE = 'data/production_log.json';
-
-const LOGIN_HTML = `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>登录 · 钽铌矿生产统计</title>
-<style>body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:#f1f5f9;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}
-.c{background:#fff;border-radius:12px;padding:28px;width:min(90%,340px);box-shadow:0 2px 8px rgba(0,0,0,.08)}
-h1{font-size:17px;margin:0 0 18px;color:#1e293b}input{width:100%;box-sizing:border-box;padding:11px;border:1px solid #e2e8f0;border-radius:8px;font-size:16px}
-button{width:100%;margin-top:12px;padding:11px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:16px;min-height:44px}
-.e{color:#ef4444;font-size:13px;margin-top:10px;min-height:18px}</style></head>
-<body><div class="c"><h1>钽铌矿生产统计</h1>
-<input type="password" id="pw" placeholder="访问密码" autocomplete="current-password">
-<button id="go">进入</button><div class="e" id="err"></div></div>
-<script>
-document.getElementById('go').onclick = async () => {
-  const code = document.getElementById('pw').value.trim();
-  if (!code) return;
-  const r = await fetch(location.pathname, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'auth',code})});
-  if (r.ok) { localStorage.setItem('mine_access_code', code); location.reload(); }
-  else document.getElementById('err').textContent = '密码错误';
-};
-document.getElementById('pw').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('go').click(); });
-</script></body></html>`;
-
-function getCookie(req, name) {
-  const c = req.headers.get('Cookie') || '';
-  const m = c.match(new RegExp('(?:^|;\\s*)' + name + '=([^;]*)'));
-  return m ? decodeURIComponent(m[1]) : null;
-}
-
-function authed(request, env) {
-  if (!env.ACCESS_CODE) return true;
-  return getCookie(request, 'mine_auth') === env.ACCESS_CODE;
-}
 
 function json(obj, status = 200) {
   return new Response(JSON.stringify(obj), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
@@ -135,16 +103,12 @@ export default {
 
       const url = new URL(request.url);
 
-      // ---- 静态文件：托管应用页面（需登录） ----
+      // ---- 静态文件：托管应用页面 ----
       if (request.method === 'GET') {
         if (url.pathname === '/' || url.pathname === '/' + APP_PATH) {
-          if (!authed(request, env)) {
-            return new Response(LOGIN_HTML, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } });
-          }
           return serveRepoFile(env, APP_PATH, 'text/html');
         }
         if (url.pathname === '/' + SW_PATH) {
-          if (!authed(request, env)) return new Response('unauthorized', { status: 401, headers: CORS });
           return serveRepoFile(env, SW_PATH, 'application/javascript');
         }
         if (url.pathname === '/manifest.webmanifest') {
@@ -165,14 +129,9 @@ export default {
       let body;
       try { body = await request.json(); } catch (e) { return json({ error: 'invalid body' }, 400); }
 
-      // 登录：验证密码并种 Cookie
+      // 兼容旧版 App 的登录请求：已取消密码，直接放行
       if (body.action === 'auth') {
-        if (env.ACCESS_CODE && body.code === env.ACCESS_CODE) {
-          return new Response(JSON.stringify({ ok: true }), {
-            headers: { ...CORS, 'Content-Type': 'application/json', 'Set-Cookie': `mine_auth=${encodeURIComponent(env.ACCESS_CODE)}; Path=/; Max-Age=31536000; SameSite=Lax` }
-          });
-        }
-        return json({ error: '访问密码错误' }, 401);
+        return json({ ok: true });
       }
 
       // 当日生产AI分析：输入当天记录+前几日摘要，返回中文分析
@@ -325,10 +284,6 @@ export default {
           }
           return json({ ok: true, elements, raw: text });
         } catch (e) { return json({ error: 'ocr failed: ' + e.message }, 500); }
-      }
-
-      if (env.ACCESS_CODE && body.code !== env.ACCESS_CODE) {
-        return json({ error: '访问密码错误' }, 401);
       }
 
       // ---- 照片上传：存为仓库独立文件，记录里只存 ph:路径 ----
