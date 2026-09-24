@@ -667,7 +667,7 @@ function renderHistory() {
       const kg = rr.reduce((s, r) => s + r.outputs.reduce((a, o) => a + o.kg, 0), 0);
       return `${l} 产出${kg.toFixed(1)}kg`;
     }).join(' · ');
-    return `<div class="date-head">${d}<span>${daySum} <a href="javascript:void 0" data-ai="${d}" style="color:var(--primary);font-size:12px;font-weight:700">🤖AI分析</a></span></div>` + rs.map(recHtml).join('');
+    return `<div class="date-head">${d}<span>${daySum} <a href="javascript:void 0" data-ai="${d}" style="color:var(--primary);font-size:12px;font-weight:700">AI分析</a></span></div>` + rs.map(recHtml).join('');
   }).join('');
   bindHistoryClicks();
 }
