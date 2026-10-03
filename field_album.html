@@ -4,17 +4,16 @@
 <meta charset="UTF-8">
 <meta name="google" content="notranslate">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>现场相册与任务</title>
+<title>员工日常</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#2563eb">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="现场相册任务">
+<meta name="apple-mobile-web-app-title" content="员工日常">
 <link rel="apple-touch-icon" href="icon-192.png">
 <style>
   :root {
     --primary: #2563eb;
     --danger: #ef4444;
-    --success: #22c55e;
     --bg: #f1f5f9;
     --card: #ffffff;
     --text: #1e293b;
@@ -23,16 +22,12 @@
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: var(--bg); color: var(--text); font-size: 15px; }
-  header { background: var(--primary); color: #fff; padding: 12px 16px; position: sticky; top: 0; z-index: 10; }
+  header { background: var(--primary); color: #fff; padding: 12px 16px; position: sticky; top: 0; z-index: 10; display: flex; align-items: center; justify-content: space-between; }
   header h1 { font-size: 17px; font-weight: 600; }
-  .homebtn { position: absolute; top: 10px; right: 12px; background: rgba(255,255,255,.2); color: #fff; border-radius: 8px; padding: 5px 11px; font-size: 14px; text-decoration: none; border: none; cursor: pointer; min-height: 32px; }
+  .homebtn, .addbtn { background: rgba(255,255,255,.2); color: #fff; border-radius: 8px; padding: 5px 11px; font-size: 14px; text-decoration: none; border: none; cursor: pointer; min-height: 32px; }
   #syncStatus { font-size: 12px; opacity: .9; margin-top: 2px; }
   #syncStatus.pending { color: #fde047; }
-  nav { display: flex; background: var(--card); border-bottom: 1px solid var(--border); position: sticky; top: 58px; z-index: 9; }
-  nav button { flex: 1; padding: 12px 0; border: none; background: none; font-size: 14px; color: var(--muted); border-bottom: 2px solid transparent; min-height: 44px; }
-  nav button.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
   main { padding: 12px; max-width: 640px; margin: 0 auto; padding-bottom: 80px; }
-  .hidden { display: none; }
   .card { background: var(--card); border-radius: 10px; padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
   .card h3 { font-size: 14px; color: var(--muted); margin-bottom: 10px; font-weight: 600; }
   label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
@@ -41,131 +36,72 @@
   .primary { background: var(--primary); color: #fff; }
   .secondary { background: var(--border); color: var(--text); }
   .danger { background: var(--danger); color: #fff; }
-  .success { background: var(--success); color: #fff; }
   .btn-block { width: 100%; margin-top: 6px; }
-  .row { display: flex; gap: 10px; margin-bottom: 10px; }
-  .row > div { flex: 1; }
-  .field { margin-bottom: 10px; }
-  .quick-btns { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
-  .quick-btns button {
-    min-height: 30px; padding: 5px 13px; font-size: 0.78rem;
-    background: #fff; color: #374151; border: 1px solid #e5e7eb;
-    border-radius: 14px; white-space: nowrap;
-  }
-  .quick-btns button.qactive { background: var(--primary); color: #fff; border-color: var(--primary); }
-  .filter-bar {
-    position: sticky; top: 102px; z-index: 8;
-    background: var(--bg); padding: 8px 0;
-    margin: -12px -12px 10px; padding-left: 12px; padding-right: 12px;
-  }
+  .feed { display: flex; flex-direction: column; gap: 12px; }
+  .post { background: var(--card); border-radius: 10px; padding: 14px; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+  .post-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+  .post-user { font-weight: 600; }
+  .post-time { font-size: 12px; color: var(--muted); }
+  .post-note { margin-bottom: 10px; font-size: 15px; line-height: 1.5; }
+  .post-media { display: grid; gap: 4px; border-radius: 8px; overflow: hidden; }
+  .post-media.one { grid-template-columns: 1fr; }
+  .post-media.two { grid-template-columns: 1fr 1fr; }
+  .post-media.multi { grid-template-columns: 1fr 1fr 1fr; }
+  .post-media img { width: 100%; height: 180px; object-fit: cover; display: block; background: #111; }
+  .empty { text-align: center; color: var(--muted); padding: 60px 0; font-size: 14px; }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #1e293b; color: #fff; padding: 10px 20px; border-radius: 20px; font-size: 14px; z-index: 200; }
+  .hidden { display: none; }
+  .modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: none; align-items: flex-end; justify-content: center; z-index: 100; }
+  .modal-mask.show { display: flex; }
+  .modal { background: #fff; border-radius: 16px 16px 0 0; width: 100%; max-width: 640px; max-height: 90vh; overflow-y: auto; padding: 16px; }
+  .modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .modal-head h3 { font-size: 16px; }
   .upload-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 12px 0; }
   .upload-slot { aspect-ratio: 1; background: #f8fafc; border-radius: 8px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
   .upload-add { border: 1px dashed #cbd5e1; color: #94a3b8; font-size: 32px; cursor: pointer; }
   .upload-img { width: 100%; height: 100%; object-fit: cover; }
   .upload-del { position: absolute; top: 4px; right: 4px; width: 20px; height: 20px; background: rgba(0,0,0,.5); color: #fff; border-radius: 50%; font-size: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; border: none; padding: 0; min-height: 20px; }
   .upload-del:hover { background: var(--danger); }
-  .gallery { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
-  .photo-card { background: var(--card); border-radius: 10px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
-  .photo-card img { width: 100%; height: 140px; object-fit: cover; display: block; background: #111; }
-  .photo-info { padding: 10px; font-size: 12px; }
-  .tag { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; color: #fff; margin-right: 4px; }
-  .tag-production { background: #d32f2f; }
-  .tag-life { background: #388e3c; }
-  .tag-daily { background: #1976d2; }
-  .empty { text-align: center; color: var(--muted); padding: 40px 0; font-size: 14px; }
-  .project { background: var(--card); border-radius: 10px; margin-bottom: 10px; box-shadow: 0 1px 2px rgba(0,0,0,.05); overflow: hidden; }
-  .project-head { padding: 14px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
-  .project-title { font-weight: 600; }
-  .project-meta { font-size: 12px; color: var(--muted); }
-  .project-body { padding: 0 14px 14px; }
-  .task { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--border); }
-  .task-status { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--border); flex: 0 0 16px; cursor: pointer; }
-  .task-status.done { background: var(--success); border-color: var(--success); }
-  .task-main { flex: 1; }
-  .task-title { font-size: 14px; }
-  .task-title.done { text-decoration: line-through; color: var(--muted); }
-  .task-meta { font-size: 12px; color: var(--muted); }
-  .modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; z-index: 100; }
-  .modal { background: #fff; border-radius: 12px; width: min(90%, 420px); max-height: 85vh; overflow-y: auto; padding: 16px; }
-  .modal h3 { margin-bottom: 12px; font-size: 16px; }
-  .modal .btns { display: flex; gap: 10px; margin-top: 14px; }
-  .modal .btns button { flex: 1; }
-  .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #1e293b; color: #fff; padding: 10px 20px; border-radius: 20px; font-size: 14px; z-index: 200; }
-  .hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
 </style>
 </head>
 <body>
 
 <header>
   <button class="homebtn" onclick="goHome()" title="返回">⌂ 主页</button>
-  <h1>现场相册与任务</h1>
-  <div id="syncStatus">检查网络中…</div>
+  <h1>员工日常</h1>
+  <button class="addbtn" id="openPublish" title="发布">+</button>
 </header>
 
-<nav>
-  <button data-tab="album" class="active">相册</button>
-  <button data-tab="projects">项目</button>
-  <button data-tab="upload">上传</button>
-</nav>
-
 <main>
-  <!-- 相册 -->
-  <section id="tab-album">
-    <div class="filter-bar">
-      <div class="quick-btns" id="albumFilters">
-        <button data-cat="all" class="qactive">全部</button>
-        <button data-cat="production">生产</button>
-        <button data-cat="life">生活</button>
-        <button data-cat="daily">日常</button>
-      </div>
-    </div>
-    <div id="albumGrid" class="gallery"></div>
-  </section>
-
-  <!-- 项目 -->
-  <section id="tab-projects" class="hidden">
-    <div class="card">
-      <h3>项目</h3>
-      <div id="projectList"></div>
-      <button class="primary btn-block" id="addProjectBtn" style="margin-top:10px">+ 新建项目</button>
-    </div>
-  </section>
-
-  <!-- 上传 -->
-  <section id="tab-upload" class="hidden">
-    <div class="card" style="padding-top:12px">
-      <div class="field" style="margin-top:0">
-        <textarea id="uNote" rows="3" placeholder="这一刻的想法..." style="border:none;background:transparent;padding:0 2px;font-size:16px;resize:none;outline:none"></textarea>
-      </div>
-      <div class="upload-grid" id="uPreviewGrid">
-        <div class="upload-slot upload-add" id="uAddBtn" onclick="document.getElementById('uFile').click()">+</div>
-      </div>
-      <input type="file" id="uFile" accept="image/*" multiple style="display:none">
-      <div class="field" style="margin-top:4px">
-        <label>分类</label>
-        <div class="quick-btns" id="uCatChips">
-          <button data-cat="daily" class="qactive">日常</button>
-          <button data-cat="production">生产</button>
-          <button data-cat="life">生活</button>
-        </div>
-      </div>
-      <div class="row" style="margin-top:8px">
-        <div class="field" style="margin-bottom:0"><label>所属项目（可选）</label><select id="uProject"><option value="">不选</option></select></div>
-        <div class="field" style="margin-bottom:0"><label>任务（可选）</label><select id="uTask"><option value="">不选</option></select></div>
-      </div>
-      <button class="primary btn-block" id="uSubmit" style="margin-top:14px;height:48px;font-size:16px">发 布</button>
-    </div>
-  </section>
+  <div id="feed" class="feed"></div>
 </main>
+
+<div id="publishModal" class="modal-mask">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>发布日常</h3>
+      <button class="secondary" id="closePublish" style="min-height:32px;padding:4px 12px">取消</button>
+    </div>
+    <div class="field" style="margin-top:0">
+      <textarea id="uNote" rows="3" placeholder="这一刻的想法..." style="border:none;background:transparent;padding:0 2px;font-size:16px;resize:none;outline:none"></textarea>
+    </div>
+    <div class="upload-grid" id="uPreviewGrid">
+      <div class="upload-slot upload-add" id="uAddBtn" onclick="document.getElementById('uFile').click()">+</div>
+    </div>
+    <input type="file" id="uFile" accept="image/*" multiple style="display:none">
+    <button class="primary btn-block" id="uSubmit" style="height:48px;font-size:16px">发 布</button>
+    <p class="hint">照片会自动压缩，最多 9 张。视频目前暂不支持。</p>
+  </div>
+</div>
 
 <div id="toast" class="toast hidden"></div>
 
 <script>
 const DATA_FILE = 'data/field_log.json';
-let log = { projects: [], tasks: [], photos: [], updatedAt: '' };
+let log = { photos: [], updatedAt: '' };
 let currentUser = 'unknown';
-let albumCat = 'all';
-let expanded = {};
+let uploadQueue = [];
 
 function getCookie(name) {
   const m = document.cookie.match(new RegExp('(?:^|;)\\s*' + name + '=([^;]*)'));
@@ -175,7 +111,7 @@ function getCookie(name) {
 function parseUser() {
   const c = getCookie('app_auth');
   if (!c) return 'unknown';
-  if (c === c.split(':')[0]) return c; // admin
+  if (!c.includes(':')) return '管理员';
   const i = c.indexOf(':');
   return i > 0 ? c.slice(0, i) : c;
 }
@@ -209,9 +145,9 @@ async function loadLog() {
   try {
     const r = await api('read', { path: DATA_FILE });
     if (r.content) log = JSON.parse(r.content);
-    else log = { projects: [], tasks: [], photos: [], updatedAt: new Date().toISOString() };
+    else log = { photos: [], updatedAt: new Date().toISOString() };
     setStatus('已同步', false);
-    renderAlbum(); renderProjects(); fillProjectSelect();
+    renderFeed();
   } catch (e) {
     setStatus('同步失败', false);
     showToast('读取失败：' + e.message);
@@ -225,7 +161,7 @@ async function saveLog(message) {
     const r = await api('save', { path: DATA_FILE, content: JSON.stringify(log, null, 2), message: message || 'Update field log' });
     if (r.error) throw new Error(r.error);
     setStatus('已保存', false);
-    renderAlbum(); renderProjects(); fillProjectSelect();
+    renderFeed();
     return true;
   } catch (e) {
     setStatus('保存失败', false);
@@ -238,101 +174,40 @@ function id() { return 'f_' + Date.now().toString(36) + '_' + Math.random().toSt
 
 function fmtDate(s) { return s ? new Date(s).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''; }
 
-function projectName(pid) { const p = log.projects.find(x => x.id === pid); return p ? p.name : ''; }
-function taskName(tid) { const t = log.tasks.find(x => x.id === tid); return t ? t.name : ''; }
-
-function renderAlbum() {
-  const grid = document.getElementById('albumGrid');
-  let photos = log.photos.slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  if (albumCat !== 'all') photos = photos.filter(p => p.category === albumCat);
-  if (!photos.length) { grid.innerHTML = '<div class="empty" style="grid-column:1/-1">暂无照片</div>'; return; }
-  grid.innerHTML = photos.map(p => `
-    <div class="photo-card">
-      <img src="/photos/${p.filename}" alt="" loading="lazy">
-      <div class="photo-info">
-        <span class="tag tag-${p.category}">${catText(p.category)}</span>
-        <div style="margin-top:4px">${p.note || ''}</div>
-        <div class="project-meta">${projectName(p.projectId)} ${taskName(p.taskId)} · ${p.uploader} · ${fmtDate(p.createdAt)}</div>
-      </div>
-    </div>
-  `).join('');
-}
-
-function catText(c) { return { production: '生产', life: '生活', daily: '日常' }[c] || c; }
-
-function renderProjects() {
-  const list = document.getElementById('projectList');
-  if (!log.projects.length) { list.innerHTML = '<div class="empty">还没有项目</div>'; return; }
-  list.innerHTML = log.projects.map(pr => {
-    const tasks = log.tasks.filter(t => t.projectId === pr.id).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    const done = tasks.filter(t => t.status === 'done').length;
+function renderFeed() {
+  const feed = document.getElementById('feed');
+  const posts = {};
+  const sorted = log.photos.slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  for (const p of sorted) {
+    const key = p.note + '|' + p.createdAt;
+    if (!posts[key]) posts[key] = { ...p, photos: [] };
+    posts[key].photos.push(p);
+  }
+  const list = Object.values(posts);
+  if (!list.length) { feed.innerHTML = '<div class="empty">还没有动态，点右上角 + 发布第一条</div>'; return; }
+  feed.innerHTML = list.map(post => {
+    const cls = post.photos.length === 1 ? 'one' : post.photos.length === 2 ? 'two' : 'multi';
     return `
-      <div class="project">
-        <div class="project-head" onclick="toggleProject('${pr.id}')">
-          <div>
-            <div class="project-title">${pr.name}</div>
-            <div class="project-meta">${tasks.length} 个任务 · ${done} 已完成</div>
-          </div>
-          <div style="font-size:18px;color:var(--muted)">${expanded[pr.id] ? '▾' : '▸'}</div>
+      <div class="post">
+        <div class="post-head">
+          <span class="post-user">${post.uploader}</span>
+          <span class="post-time">${fmtDate(post.createdAt)}</span>
         </div>
-        <div class="project-body" ${expanded[pr.id] ? '' : 'style="display:none"'}>
-          ${tasks.length ? tasks.map(t => `
-            <div class="task">
-              <div class="task-status ${t.status === 'done' ? 'done' : ''}" onclick="toggleTask('${t.id}', event)"></div>
-              <div class="task-main">
-                <div class="task-title ${t.status === 'done' ? 'done' : ''}">${t.name}</div>
-                <div class="task-meta">${t.note || ''} · ${fmtDate(t.createdAt)}</div>
-              </div>
-            </div>
-          `).join('') : '<div class="empty" style="padding:10px 0">暂无任务</div>'}
-          <button class="secondary btn-block" style="margin-top:10px" onclick="addTask('${pr.id}')">+ 添加任务</button>
+        ${post.note ? `<div class="post-note">${post.note.replace(/\n/g, '<br>')}</div>` : ''}
+        <div class="post-media ${cls}">
+          ${post.photos.map(p => `<img src="/photos/${p.filename}" loading="lazy" alt="">`).join('')}
         </div>
       </div>
     `;
   }).join('');
 }
 
-function toggleProject(pid) { expanded[pid] = !expanded[pid]; renderProjects(); }
+// 发布弹窗
+const modal = document.getElementById('publishModal');
+document.getElementById('openPublish').onclick = () => { modal.classList.add('show'); fillProjectSelect ? 0 : 0; };
+document.getElementById('closePublish').onclick = () => { modal.classList.remove('show'); };
+modal.onclick = e => { if (e.target === modal) modal.classList.remove('show'); };
 
-function fillProjectSelect() {
-  const p = document.getElementById('uProject');
-  const t = document.getElementById('uTask');
-  p.innerHTML = '<option value="">不选</option>' + log.projects.map(x => `<option value="${x.id}">${x.name}</option>`).join('');
-  p.onchange = () => {
-    const pid = p.value;
-    t.innerHTML = '<option value="">不选</option>' + log.tasks.filter(x => x.projectId === pid).map(x => `<option value="${x.id}">${x.name}</option>`).join('');
-  };
-  t.innerHTML = '<option value="">不选</option>';
-}
-
-async function toggleTask(tid, e) {
-  if (e) e.stopPropagation();
-  const t = log.tasks.find(x => x.id === tid);
-  if (!t) return;
-  t.status = t.status === 'done' ? 'pending' : 'done';
-  t.updatedAt = new Date().toISOString();
-  await saveLog('update task status');
-}
-
-async function addTask(pid) {
-  const name = prompt('任务名称：');
-  if (!name) return;
-  const note = prompt('备注（可选）：') || '';
-  log.tasks.unshift({ id: id(), projectId: pid, name, note, status: 'pending', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
-  expanded[pid] = true;
-  await saveLog('add task');
-}
-
-document.getElementById('addProjectBtn').onclick = async () => {
-  const name = prompt('项目名称：');
-  if (!name) return;
-  log.projects.unshift({ id: id(), name, status: 'active', createdAt: new Date().toISOString() });
-  await saveLog('add project');
-};
-
-// 上传
-let uCategory = 'daily';
-let uploadQueue = [];
 const uFile = document.getElementById('uFile');
 const uPreviewGrid = document.getElementById('uPreviewGrid');
 
@@ -375,13 +250,6 @@ uFile.onchange = () => {
   uFile.value = '';
 };
 
-// 分类 chip
-document.getElementById('uCatChips').onclick = e => {
-  if (e.target.tagName !== 'BUTTON') return;
-  uCategory = e.target.dataset.cat;
-  document.querySelectorAll('#uCatChips button').forEach(b => b.classList.toggle('qactive', b.dataset.cat === uCategory));
-};
-
 function resizeImage(dataUrl, maxW = 1200, quality = 0.8) {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -419,8 +287,6 @@ document.getElementById('uSubmit').onclick = async () => {
   if (!uploadQueue.length) { showToast('请先选择照片'); return; }
   setStatus('发布中…', true);
   const note = document.getElementById('uNote').value;
-  const projectId = document.getElementById('uProject').value;
-  const taskId = document.getElementById('uTask').value;
   try {
     for (const item of uploadQueue) {
       const resized = await resizeImage(item.dataUrl);
@@ -431,9 +297,9 @@ document.getElementById('uSubmit').onclick = async () => {
       log.photos.unshift({
         id: id(),
         filename,
-        category: uCategory,
-        projectId,
-        taskId,
+        category: 'daily',
+        projectId: '',
+        taskId: '',
         note,
         uploader: currentUser,
         createdAt: new Date().toISOString()
@@ -443,29 +309,13 @@ document.getElementById('uSubmit').onclick = async () => {
     uploadQueue = [];
     document.getElementById('uNote').value = '';
     renderUploadGrid();
-    switchTab('album');
+    modal.classList.remove('show');
     showToast('发布成功');
   } catch (e) {
     setStatus('发布失败', false);
     showToast('发布失败：' + e.message);
   }
 };
-
-// 相册筛选
-document.getElementById('albumFilters').onclick = e => {
-  if (e.target.tagName !== 'BUTTON') return;
-  albumCat = e.target.dataset.cat;
-  document.querySelectorAll('#albumFilters button').forEach(b => b.classList.toggle('qactive', b.dataset.cat === albumCat));
-  renderAlbum();
-};
-
-// Tab 切换
-document.querySelectorAll('nav button').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
-function switchTab(tab) {
-  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
-  document.querySelectorAll('main > section').forEach(s => s.classList.toggle('hidden', s.id !== 'tab-' + tab));
-  if (tab === 'upload') fillProjectSelect();
-}
 
 function goHome() { window.location.href = 'index.html'; }
 
