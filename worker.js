@@ -53,7 +53,8 @@ const HTML_PAGES = {
   '/':                { file: 'index.html',            app: null },
   '/index.html':      { file: 'index.html',            app: null },
   '/mine_production.html': { file: 'mine_production.html', app: 'mine' },
-  '/sampling_helper.html': { file: 'sampling_helper.html', app: 'sampling' }
+  '/sampling_helper.html': { file: 'sampling_helper.html', app: 'sampling' },
+  '/field_album.html': { file: 'field_album.html', app: 'field' }
 };
 
 const DATA_PREFIX = 'data/';           // 只允许读写 data/ 目录
@@ -129,9 +130,10 @@ function samplingAuthed(request, env) {
   return !env.ACCESS_CODE && !env.APP_TOKEN && !parseUsers(env).length;
 }
 
-// 生产统计接口鉴权：该应用权限 或 body.code=ACCESS_CODE（旧 app 设置兼容）
+// 生产统计 / 现场相册 接口鉴权：该应用权限 或 body.code=ACCESS_CODE（旧 app 设置兼容）
 function mineAuthed(request, env, body) {
   if (canAccess(request, env, 'mine')) return true;
+  if (canAccess(request, env, 'field')) return true;
   if (env.ACCESS_CODE && body && (body.code === env.ACCESS_CODE || body.pass === env.ACCESS_CODE)) return true;
   return !env.ACCESS_CODE && !parseUsers(env).length;
 }
@@ -411,9 +413,9 @@ export default {
         if (p === '/icon-192.png' || p === '/icon-512.png') return serveRepoBinary(env, p.slice(1), 'image/png');
         if (p === '/icon.svg') return serveRepoFile(env, 'icon.svg', 'image/svg+xml');
 
-        // 生产统计已同步照片（需 mine 权限）
+        // 生产统计 / 现场相册 已同步照片（需 mine 或 field 权限）
         if (p.startsWith('/photos/')) {
-          if (!canAccess(request, env, 'mine')) return new Response('unauthorized', { status: 401, headers: CORS });
+          if (!canAccess(request, env, 'mine') && !canAccess(request, env, 'field')) return new Response('unauthorized', { status: 401, headers: CORS });
           return serveRepoBinary(env, p.slice(1), 'image/jpeg');
         }
 
