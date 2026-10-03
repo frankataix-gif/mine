@@ -58,6 +58,12 @@
     background: var(--bg); padding: 8px 0;
     margin: -12px -12px 10px; padding-left: 12px; padding-right: 12px;
   }
+  .upload-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 12px 0; }
+  .upload-slot { aspect-ratio: 1; background: #f8fafc; border-radius: 8px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+  .upload-add { border: 1px dashed #cbd5e1; color: #94a3b8; font-size: 32px; cursor: pointer; }
+  .upload-img { width: 100%; height: 100%; object-fit: cover; }
+  .upload-del { position: absolute; top: 4px; right: 4px; width: 20px; height: 20px; background: rgba(0,0,0,.5); color: #fff; border-radius: 50%; font-size: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; border: none; padding: 0; min-height: 20px; }
+  .upload-del:hover { background: var(--danger); }
   .gallery { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .photo-card { background: var(--card); border-radius: 10px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
   .photo-card img { width: 100%; height: 140px; object-fit: cover; display: block; background: #111; }
@@ -127,24 +133,27 @@
 
   <!-- 上传 -->
   <section id="tab-upload" class="hidden">
-    <div class="card">
-      <h3>上传照片</h3>
-      <div class="field"><label>分类</label>
-        <select id="uCategory">
-          <option value="daily">日常</option>
-          <option value="production">生产</option>
-          <option value="life">生活</option>
-        </select>
+    <div class="card" style="padding-top:12px">
+      <div class="field" style="margin-top:0">
+        <textarea id="uNote" rows="3" placeholder="这一刻的想法..." style="border:none;background:transparent;padding:0 2px;font-size:16px;resize:none;outline:none"></textarea>
       </div>
-      <div class="field"><label>选择照片</label><input type="file" id="uFile" accept="image/*"></div>
-      <div class="row">
+      <div class="upload-grid" id="uPreviewGrid">
+        <div class="upload-slot upload-add" id="uAddBtn" onclick="document.getElementById('uFile').click()">+</div>
+      </div>
+      <input type="file" id="uFile" accept="image/*" multiple style="display:none">
+      <div class="field" style="margin-top:4px">
+        <label>分类</label>
+        <div class="quick-btns" id="uCatChips">
+          <button data-cat="daily" class="qactive">日常</button>
+          <button data-cat="production">生产</button>
+          <button data-cat="life">生活</button>
+        </div>
+      </div>
+      <div class="row" style="margin-top:8px">
         <div class="field" style="margin-bottom:0"><label>所属项目（可选）</label><select id="uProject"><option value="">不选</option></select></div>
         <div class="field" style="margin-bottom:0"><label>任务（可选）</label><select id="uTask"><option value="">不选</option></select></div>
       </div>
-      <div class="field"><label>说明</label><textarea id="uNote" rows="2" placeholder="可选说明"></textarea></div>
-      <div class="field" id="uPreviewBox" style="display:none"><img id="uPreview" style="width:100%;border-radius:8px"></div>
-      <button class="primary btn-block" id="uSubmit">上传并保存</button>
-      <p class="hint">照片会自动压缩，单张建议不超过 5MB。</p>
+      <button class="primary btn-block" id="uSubmit" style="margin-top:14px;height:48px;font-size:16px">发 布</button>
     </div>
   </section>
 </main>
@@ -322,16 +331,55 @@ document.getElementById('addProjectBtn').onclick = async () => {
 };
 
 // 上传
+let uCategory = 'daily';
+let uploadQueue = [];
 const uFile = document.getElementById('uFile');
-const uPreview = document.getElementById('uPreview');
-const uPreviewBox = document.getElementById('uPreviewBox');
+const uPreviewGrid = document.getElementById('uPreviewGrid');
+
+document.getElementById('uAddBtn').onclick = () => uFile.click();
+
+function renderUploadGrid() {
+  uPreviewGrid.innerHTML = '';
+  uploadQueue.forEach((item, idx) => {
+    const div = document.createElement('div');
+    div.className = 'upload-slot';
+    div.innerHTML = `<img class="upload-img" src="${item.dataUrl}"><button class="upload-del" data-idx="${idx}">×</button>`;
+    uPreviewGrid.appendChild(div);
+  });
+  if (uploadQueue.length < 9) {
+    const add = document.createElement('div');
+    add.className = 'upload-slot upload-add';
+    add.id = 'uAddBtn';
+    add.textContent = '+';
+    add.onclick = () => uFile.click();
+    uPreviewGrid.appendChild(add);
+  }
+  uPreviewGrid.querySelectorAll('.upload-del').forEach(b => b.onclick = e => {
+    e.stopPropagation();
+    uploadQueue.splice(+b.dataset.idx, 1);
+    renderUploadGrid();
+  });
+}
 
 uFile.onchange = () => {
-  const f = uFile.files[0];
-  if (!f) return;
-  const reader = new FileReader();
-  reader.onload = e => { uPreview.src = e.target.result; uPreviewBox.style.display = 'block'; };
-  reader.readAsDataURL(f);
+  const files = Array.from(uFile.files);
+  if (!files.length) return;
+  const remain = 9 - uploadQueue.length;
+  if (remain <= 0) { showToast('最多 9 张照片'); return; }
+  const take = files.slice(0, remain);
+  for (const f of take) {
+    const reader = new FileReader();
+    reader.onload = e => { uploadQueue.push({ dataUrl: e.target.result, file: f }); renderUploadGrid(); };
+    reader.readAsDataURL(f);
+  }
+  uFile.value = '';
+};
+
+// 分类 chip
+document.getElementById('uCatChips').onclick = e => {
+  if (e.target.tagName !== 'BUTTON') return;
+  uCategory = e.target.dataset.cat;
+  document.querySelectorAll('#uCatChips button').forEach(b => b.classList.toggle('qactive', b.dataset.cat === uCategory));
 };
 
 function resizeImage(dataUrl, maxW = 1200, quality = 0.8) {
@@ -352,6 +400,10 @@ function resizeImage(dataUrl, maxW = 1200, quality = 0.8) {
   });
 }
 
+function readFileAsDataURL(file) {
+  return new Promise((resolve, reject) => { const r = new FileReader(); r.onload = e => resolve(e.target.result); r.onerror = reject; r.readAsDataURL(file); });
+}
+
 async function dataUrlToB64(dataUrl) {
   const r = await fetch(dataUrl);
   const b = await r.blob();
@@ -364,32 +416,38 @@ async function dataUrlToB64(dataUrl) {
 }
 
 document.getElementById('uSubmit').onclick = async () => {
-  const f = uFile.files[0];
-  if (!f) { showToast('请先选择照片'); return; }
-  setStatus('上传中…', true);
+  if (!uploadQueue.length) { showToast('请先选择照片'); return; }
+  setStatus('发布中…', true);
+  const note = document.getElementById('uNote').value;
+  const projectId = document.getElementById('uProject').value;
+  const taskId = document.getElementById('uTask').value;
   try {
-    const resized = await resizeImage(await new Promise((res, rej) => { const r = new FileReader(); r.onload = e => res(e.target.result); r.onerror = rej; r.readAsDataURL(f); }));
-    const b64 = await dataUrlToB64(resized);
-    const filename = 'field_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6) + '.jpg';
-    const up = await api('up_photo', { name: filename, b64 });
-    if (up.error) throw new Error(up.error);
-    log.photos.unshift({
-      id: id(),
-      filename,
-      category: document.getElementById('uCategory').value,
-      projectId: document.getElementById('uProject').value,
-      taskId: document.getElementById('uTask').value,
-      note: document.getElementById('uNote').value,
-      uploader: currentUser,
-      createdAt: new Date().toISOString()
-    });
-    await saveLog('upload photo');
-    uFile.value = ''; uPreviewBox.style.display = 'none'; document.getElementById('uNote').value = '';
+    for (const item of uploadQueue) {
+      const resized = await resizeImage(item.dataUrl);
+      const b64 = await dataUrlToB64(resized);
+      const filename = 'field_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6) + '.jpg';
+      const up = await api('up_photo', { name: filename, b64 });
+      if (up.error) throw new Error(up.error);
+      log.photos.unshift({
+        id: id(),
+        filename,
+        category: uCategory,
+        projectId,
+        taskId,
+        note,
+        uploader: currentUser,
+        createdAt: new Date().toISOString()
+      });
+    }
+    await saveLog('upload photos');
+    uploadQueue = [];
+    document.getElementById('uNote').value = '';
+    renderUploadGrid();
     switchTab('album');
-    showToast('上传成功');
+    showToast('发布成功');
   } catch (e) {
-    setStatus('上传失败', false);
-    showToast('上传失败：' + e.message);
+    setStatus('发布失败', false);
+    showToast('发布失败：' + e.message);
   }
 };
 
