@@ -580,35 +580,34 @@ async function marketRefresh(env) {
         if (seenT.has(arts[i].title)) arts.splice(i, 1); else seenT.add(arts[i].title);
       }
       parsed = { prices: [], news: arts.slice(0, 6).map(a => ({ title: a.title, summary: a.desc || a.src, impact: '中性', url: a.url })), advice: '' };
+      // AI 把素材整理成一段播报稿（纯文本，不要 JSON）
       if (env.AI && arts.length) {
-        const list = arts.map((a, i) => `${i + 1}. ${a.title} — ${a.desc}（${a.src} ${a.date}）`).join('\n');
-        const aiPrompt = `以下是过去48小时钽铌（tantalum/niobium/coltan）相关新闻标题。挑出与钽铌矿价/供给最相关的6条，译成中文，按影响力排序，输出严格JSON（不要多余文字）：{"news":[{"title":"中文标题","summary":"一句话","impact":"利多/利空/中性"}],"advice":"一句话对非洲钽铌精矿生产商的建议","spoken":"80-120字中文口播稿，口语化，把最重要行情和新闻串成一段，适合直接朗读"}\n\n${list}`;
+        const list = arts.map((a, i) => `${i + 1}. ${a.title} — ${a.desc}（${a.src}）`).join('\n');
+        const today = new Date(Date.now() + 8 * 3600e3);
+        const dateStr = `${today.getUTCMonth() + 1}月${today.getUTCDate()}日`;
+        const aiPrompt = `你是行业新闻播音员。根据以下钽铌（tantalum/niobium/coltan）相关新闻素材，写一段今日行业播报稿。
+要求：
+- 开头："各位好，今天是${dateStr}，为您播报钽铌行业动态。"
+- 挑出与钽铌矿业、价格、供给最相关的3-6条，口语化连贯地讲出来，不要逐条念标题，要归纳成新闻语言
+- 英文素材翻成中文
+- 结尾加一句对非洲钽铌精矿生产商的操作建议
+- 总长200-300字，可直接朗读，不要任何标题、列表符号或多余说明
+素材：
+${list}`;
         const MODELS = ['@cf/meta/llama-4-scout-17b-16e-instruct', '@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b', '@cf/meta/llama-3.2-3b-instruct'];
-        const extractJson = t => {
-          const s = t.indexOf('{'); if (s < 0) return null;
-          let depth = 0;
-          for (let i = s; i < t.length; i++) {
-            if (t[i] === '{') depth++;
-            else if (t[i] === '}') { depth--; if (!depth) return t.slice(s, i + 1); }
-          }
-          return null;
-        };
-        let done = false;
+        let lastErr = '';
         for (const mdl of MODELS) {
-          if (done) break;
           try {
-            const ar = await env.AI.run(mdl, { messages: [{ role: 'user', content: aiPrompt }] });
-            const t = (ar && (ar.response || ar.result || '')) || '';
-            const js = extractJson(t);
-            if (js) {
-              const p2 = JSON.parse(js);
-              if (p2.news) parsed.news = p2.news;
-              if (p2.advice) parsed.advice = p2.advice;
-              if (p2.spoken) parsed.spoken = p2.spoken;
-              done = true;
-            } else parsed.aiError = mdl + ' 输出无JSON';
-          } catch (e) { parsed.aiError = mdl + ': ' + e.message; }
+            const ar = await env.AI.run(mdl, { messages: [{ role: 'user', content: aiPrompt }], max_tokens: 900 });
+            const t = ((ar && (ar.response || ar.result)) || '').trim();
+            if (t.length > 80) {
+              parsed.spoken = t.replace(/\*\*|#+|\n\s*[-•*]/g, '').replace(/\n{2,}/g, '。').replace(/\n/g, ' ').replace(/\s{2,}/g, ' ').replace(/。{2,}/g, '。').trim();
+              parsed.aiModel = mdl;
+              break;
+            } else lastErr = mdl + ' 输出过短';
+          } catch (e) { lastErr = mdl + ': ' + e.message; }
         }
+        if (!parsed.spoken) parsed.aiError = lastErr;
       }
     }
 
