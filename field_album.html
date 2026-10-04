@@ -117,7 +117,9 @@
   .post-media.two { grid-template-columns: 1fr 1fr; }
   .post-media.multi { grid-template-columns: 1fr 1fr 1fr; }
   .post-media img { width: 100%; height: 180px; object-fit: cover; display: block; background: #111; }
+  .post-media.two img, .post-media.multi img { height: auto; aspect-ratio: 1; }
   .post-media video { width: 100%; height: 180px; object-fit: contain; display: block; background: #000; }
+  .post-media.two video, .post-media.multi video { height: auto; aspect-ratio: 1; }
   .post-actions { display: flex; border-top: 1px solid var(--border); margin-top: 10px; padding-top: 8px; }
   .post-actions button { flex: 1; background: transparent; border: none; color: var(--muted); font-size: 13px; min-height: 32px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; }
   .post-actions button.liked { color: var(--danger); font-weight: 600; }
