@@ -421,8 +421,9 @@ function mediaGrid(media) {
 
 function renderFeed() {
   const feed = document.getElementById('feed');
+  const y = window.scrollY || document.documentElement.scrollTop || 0;
   const list = (log.posts || []).slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  if (!list.length) { feed.innerHTML = '<div class="empty">还没有动态。<br>点右下角 + 发图片/文字，或在 Telegram 发给 @frank_zambia_bot 发视频。</div>'; return; }
+  if (!list.length) { feed.innerHTML = '<div class="empty">还没有动态。<br>点右下角 + 发图片/文字，或在 Telegram 发给 @frank_zambia_bot 发视频。</div>'; setTimeout(() => window.scrollTo(0, y), 0); return; }
   feed.innerHTML = list.map(post => {
     const open = expanded['p_' + post.id] ? 'open' : '';
     const liked = (post.likes || []).includes(currentUser);
@@ -448,6 +449,7 @@ function renderFeed() {
       </div>
     `;
   }).join('');
+  setTimeout(() => window.scrollTo(0, y), 0);
 }
 
 async function likePost(pid, e) {
