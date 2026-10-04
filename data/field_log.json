@@ -9,7 +9,20 @@
       "updatedAt": "2026-10-04T21:48:48.216Z"
     }
   ],
-  "tasks": [],
+  "tasks": [
+    {
+      "id": "f_muucsyd6_dhst",
+      "projectId": "f_muucs0rc_qonm",
+      "name": "1台摇床的满负荷生产目标",
+      "description": "",
+      "assignee": "",
+      "createdBy": "Frank",
+      "status": "pending",
+      "comments": [],
+      "createdAt": "2026-10-04T21:49:31.770Z",
+      "updatedAt": "2026-10-04T21:49:31.770Z"
+    }
+  ],
   "production": [],
   "posts": [
     {
@@ -114,5 +127,5 @@
       "comments": []
     }
   ],
-  "updatedAt": "2026-10-04T21:48:48.217Z"
+  "updatedAt": "2026-10-04T21:49:31.770Z"
 }
