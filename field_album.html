@@ -430,7 +430,7 @@ function renderFeed() {
     const comments = post.comments || [];
     return `
       <div class="post" data-pid="${post.id}">
-        ${post.uploader === currentUser ? `<div class="post-head"><div><span class="post-user">${post.uploader}</span><div class="post-time">${fmtDate(post.createdAt)}</div></div><button class="post-more" onclick="togglePostMenu('${post.id}', event)">⋯</button><div class="post-menu ${expanded['m_' + post.id] ? 'open' : ''}" id="pm-${post.id}"><button onclick="editPost('${post.id}', event)">编辑</button><button class="danger" onclick="deletePost('${post.id}', event)">删除</button></div></div>` : `<div class="post-head"><div><span class="post-user">${post.uploader}</span><div class="post-time">${fmtDate(post.createdAt)}</div></div></div>`}
+        ${(post.uploader === currentUser || currentUser === '管理员' || currentUser === 'unknown') ? `<div class="post-head"><div><span class="post-user">${post.uploader}</span><div class="post-time">${fmtDate(post.createdAt)}</div></div><button class="post-more" onclick="togglePostMenu('${post.id}', event)">⋯</button><div class="post-menu ${expanded['m_' + post.id] ? 'open' : ''}" id="pm-${post.id}"><button onclick="editPost('${post.id}', event)">编辑</button><button class="danger" onclick="deletePost('${post.id}', event)">删除</button></div></div>` : `<div class="post-head"><div><span class="post-user">${post.uploader}</span><div class="post-time">${fmtDate(post.createdAt)}</div></div></div>`}
         ${post.note ? `<div class="post-note">${post.note.replace(/\n/g, '<br>')}</div>` : ''}
         ${mediaGrid(post.media || [])}
         ${likes.length ? `<div class="post-likes">${likes.join('、')} 点了赞</div>` : ''}
