@@ -305,7 +305,11 @@
     <div class="modal-head"><h3>设置</h3><button type="button" class="btn" id="closeSet" style="background:#e5e7eb;color:#374151">关闭</button></div>
     <div class="card" style="margin-top:10px">
       <p><strong>当前用户：</strong><span id="setUser">-</span></p>
-      <p class="hint" style="margin-top:8px">其他设置项后续开发。</p>
+      <div style="margin-top:12px">
+        <input type="text" id="setNameInput" placeholder="修改你的名字" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:15px">
+        <button type="button" class="btn" id="setNameSave" style="width:100%;margin-top:8px">保存</button>
+      </div>
+      <p class="hint" style="margin-top:8px">首次打开请先设置名字，别人会看到你的动态作者。</p>
     </div>
   </div>
 </div>
@@ -336,7 +340,7 @@ function parseUser() {
   const i = c.indexOf(':');
   return i > 0 ? c.slice(0, i) : c;
 }
-currentUser = parseUser();
+currentUser = localStorage.getItem('uploader') || parseUser() || 'unknown';
 document.getElementById('setUser').textContent = currentUser;
 
 async function api(action, data) {
@@ -751,6 +755,18 @@ const setModal = document.getElementById('settingsModal');
 document.getElementById('openSet').onclick = e => { if (e) e.preventDefault(); setModal.classList.add('show'); };
 document.getElementById('closeSet').onclick = e => { if (e) e.preventDefault(); setModal.classList.remove('show'); };
 setModal.onclick = e => { if (e.target === setModal) setModal.classList.remove('show'); };
+document.getElementById('setNameSave').onclick = () => {
+  const name = document.getElementById('setNameInput').value.trim();
+  if (!name) { showToast('请输入名字'); return; }
+  localStorage.setItem('uploader', name);
+  currentUser = name;
+  document.getElementById('setUser').textContent = name;
+  document.getElementById('setNameInput').value = '';
+  showToast('名字已保存');
+};
+if (currentUser === 'unknown') {
+  setTimeout(() => { setModal.classList.add('show'); document.getElementById('setNameInput').focus(); }, 300);
+}
 
 // 图片放大查看
 const imgModal = document.getElementById('imgModal');
