@@ -1029,6 +1029,10 @@ document.getElementById('uSubmit').onclick = () => {
 
 function goHome() { window.location.href = 'index.html'; }
 
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+
 loadLog();
 </script>
 </body>
