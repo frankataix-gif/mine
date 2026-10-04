@@ -465,9 +465,11 @@ async function likePost(pid, e) {
 
 function togglePostComments(pid, e) {
   if (e) { e.stopPropagation(); e.preventDefault(); }
-  expanded['p_' + pid] = !expanded['p_' + pid];
-  renderFeed();
-  if (expanded['p_' + pid]) setTimeout(() => { const el = document.getElementById('pcc-' + pid); if (el) el.focus(); }, 50);
+  const el = document.getElementById('pc-' + pid);
+  if (!el) return;
+  el.classList.toggle('open');
+  expanded['p_' + pid] = el.classList.contains('open');
+  if (expanded['p_' + pid]) setTimeout(() => { const inp = document.getElementById('pcc-' + pid); if (inp) inp.focus(); }, 50);
 }
 
 async function submitPostComment(pid) {
@@ -485,8 +487,11 @@ function togglePostMenu(pid, e) {
   if (e) { e.stopPropagation(); e.preventDefault(); }
   const key = 'm_' + pid;
   for (const k of Object.keys(expanded)) { if (k.startsWith('m_') && k !== key) delete expanded[k]; }
-  expanded[key] = !expanded[key];
-  renderFeed();
+  document.querySelectorAll('.post-menu.open').forEach(m => { if (m.id !== 'pm-' + pid) m.classList.remove('open'); });
+  const m = document.getElementById('pm-' + pid);
+  if (!m) return;
+  m.classList.toggle('open');
+  expanded[key] = m.classList.contains('open');
 }
 
 async function editPost(pid, e) {
@@ -711,14 +716,14 @@ document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
 
 // 发布弹窗
 const modal = document.getElementById('publishModal');
-document.getElementById('openPublish').onclick = () => { modal.classList.add('show'); };
-document.getElementById('closePublish').onclick = () => { modal.classList.remove('show'); };
+document.getElementById('openPublish').onclick = e => { if (e) e.preventDefault(); modal.classList.add('show'); };
+document.getElementById('closePublish').onclick = e => { if (e) e.preventDefault(); modal.classList.remove('show'); };
 modal.onclick = e => { if (e.target === modal) modal.classList.remove('show'); };
 
 // 设置弹窗
 const setModal = document.getElementById('settingsModal');
-document.getElementById('openSet').onclick = () => { setModal.classList.add('show'); };
-document.getElementById('closeSet').onclick = () => { setModal.classList.remove('show'); };
+document.getElementById('openSet').onclick = e => { if (e) e.preventDefault(); setModal.classList.add('show'); };
+document.getElementById('closeSet').onclick = e => { if (e) e.preventDefault(); setModal.classList.remove('show'); };
 setModal.onclick = e => { if (e.target === setModal) setModal.classList.remove('show'); };
 
 // 上传
