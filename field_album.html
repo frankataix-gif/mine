@@ -515,34 +515,38 @@ function renderProduction() {
 document.getElementById('pDate').valueAsDate = new Date();
 
 document.getElementById('pSubmit').onclick = async () => {
-  const rec = {
-    id: id(),
-    date: document.getElementById('pDate').value,
-    shift: document.getElementById('pShift').value,
-    input: parseFloat(document.getElementById('pInput').value) || 0,
-    runtime: parseFloat(document.getElementById('pRuntime').value) || 0,
-    concentrate: parseFloat(document.getElementById('pCon').value) || 0,
-    ta: parseFloat(document.getElementById('pTa').value) || 0,
-    nb: parseFloat(document.getElementById('pNb').value) || 0,
-    sn: parseFloat(document.getElementById('pSn').value) || 0,
-    note: document.getElementById('pNote').value,
-    recorder: currentUser,
-    createdAt: new Date().toISOString()
-  };
-  if (!rec.date) { showToast('请选择日期'); return; }
-  if (!log.production) log.production = [];
-  log.production.unshift(rec);
-  if (await saveLog('add production')) {
-    document.getElementById('pInput').value = '';
-    document.getElementById('pRuntime').value = '';
-    document.getElementById('pCon').value = '';
-    document.getElementById('pTa').value = '';
-    document.getElementById('pNb').value = '';
-    document.getElementById('pSn').value = '';
-    document.getElementById('pNote').value = '';
-    renderProduction();
-    showToast('产能记录已保存');
-  }
+  const btn = document.getElementById('pSubmit');
+  btn.disabled = true; btn.textContent = '保存中...';
+  try {
+    const rec = {
+      id: id(),
+      date: document.getElementById('pDate').value,
+      shift: document.getElementById('pShift').value,
+      input: parseFloat(document.getElementById('pInput').value) || 0,
+      runtime: parseFloat(document.getElementById('pRuntime').value) || 0,
+      concentrate: parseFloat(document.getElementById('pCon').value) || 0,
+      ta: parseFloat(document.getElementById('pTa').value) || 0,
+      nb: parseFloat(document.getElementById('pNb').value) || 0,
+      sn: parseFloat(document.getElementById('pSn').value) || 0,
+      note: document.getElementById('pNote').value,
+      recorder: currentUser,
+      createdAt: new Date().toISOString()
+    };
+    if (!rec.date) { showToast('请选择日期'); return; }
+    if (!log.production) log.production = [];
+    log.production.unshift(rec);
+    if (await saveLog('add production')) {
+      document.getElementById('pInput').value = '';
+      document.getElementById('pRuntime').value = '';
+      document.getElementById('pCon').value = '';
+      document.getElementById('pTa').value = '';
+      document.getElementById('pNb').value = '';
+      document.getElementById('pSn').value = '';
+      document.getElementById('pNote').value = '';
+      renderProduction();
+      showToast('产能记录已保存');
+    }
+  } finally { btn.disabled = false; btn.textContent = '保存产能记录'; }
 };
 
 function updateClocks() {
@@ -641,7 +645,9 @@ async function dataUrlToB64(dataUrl) {
 }
 
 document.getElementById('uSubmit').onclick = async () => {
+  const btn = document.getElementById('uSubmit');
   if (!uploadQueue.length) { showToast('请先选择照片'); return; }
+  btn.disabled = true; btn.textContent = '发送中...';
   const note = document.getElementById('uNote').value;
   try {
     for (const item of uploadQueue) {
@@ -656,6 +662,7 @@ document.getElementById('uSubmit').onclick = async () => {
     uploadQueue = []; document.getElementById('uNote').value = ''; renderUploadGrid();
     modal.classList.remove('show'); showToast('发布成功');
   } catch (e) { showToast('发布失败：' + e.message); }
+  finally { btn.disabled = false; btn.textContent = '发 布'; }
 };
 
 function goHome() { window.location.href = 'index.html'; }
