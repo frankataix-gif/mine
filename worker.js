@@ -552,6 +552,12 @@ export default {
           if (pg.app && !canAccess(request, env, pg.app)) {
             return new Response(LOGIN_HTML, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } });
           }
+          // field_album 强制去缓存：无 v 参数时重定向到 ?v=时间戳（保留 user 等参数）
+          if (p === '/field_album.html' && !url.searchParams.has('v')) {
+            const u = new URL(request.url);
+            u.searchParams.set('v', Date.now().toString());
+            return Response.redirect(u.toString(), 302);
+          }
           return serveRepoFile(env, pg.file, 'text/html');
         }
 

@@ -1081,6 +1081,23 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js?v=4').catch(() => {});
 }
 
+// 主动更新：定时拉版本号，变了就强制刷新拿最新代码
+async function checkVersion() {
+  try {
+    const r = await api('read', { path: 'data/app_version.json' });
+    const v = r && r.content ? JSON.parse(r.content).v : null;
+    const seen = localStorage.getItem('appVersion');
+    if (v && seen && String(v) !== String(seen)) {
+      localStorage.setItem('appVersion', v);
+      if (!uploading) location.reload();
+      return;
+    }
+    if (v) localStorage.setItem('appVersion', v);
+  } catch (e) {}
+}
+checkVersion();
+setInterval(checkVersion, 60000);
+
 loadLog();
 </script>
 </body>
