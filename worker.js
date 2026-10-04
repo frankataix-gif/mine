@@ -528,10 +528,22 @@ async function r2Presign(env, method, key, contentType) {
   return `https://${R2_HOST}/${R2_BUCKET}/${key}?${query}&X-Amz-Signature=${sig}`;
 }
 
+// ---- SMM 行情：由用户本机脚本抓取后 POST 到 market_smm，存 data/smm_prices.json ----
+async function smmPrices(env) {
+  try {
+    const f = await readFile(env, 'data/smm_prices.json');
+    if (!f || !f.content) return [];
+    const d = JSON.parse(f.content);
+    if (Date.now() - new Date(d.fetchedAt).getTime() > 48 * 3600e3) return [];
+    return d.prices || [];
+  } catch (e) { return []; }
+}
+
 // ---- 钽铌市场日报：存 data/market_daily.json ----
 // 有 OPENAI_KEY → GPT-4o 联网搜索（含价格摘要）；否则 → Google News RSS + Workers AI 翻译摘要
 async function marketRefresh(env) {
   try {
+    const smmRows = await smmPrices(env);
     let parsed = null;
     if (env.OPENAI_KEY) {
       const prompt = `你是钽铌市场分析助手。请联网搜索今天（北京时间）钽铌市场公开信息，输出严格 JSON（不要 markdown 围栏，不要多余文字）：
@@ -583,16 +595,18 @@ async function marketRefresh(env) {
       // AI 把素材整理成一段播报稿（纯文本，不要 JSON）
       if (env.AI && arts.length) {
         const list = arts.map((a, i) => `${i + 1}. ${a.title} — ${a.desc}（${a.src}）`).join('\n');
+        const smmText = smmRows && smmRows.length ? '\n今日上海有色网(SMM)实时行情：' + smmRows.map(p => `${p.name} ${p.value}${p.unit}（${p.note}）`).join('；') + '。\n' : '';
         const today = new Date(Date.now() + 8 * 3600e3);
         const dateStr = `${today.getUTCMonth() + 1}月${today.getUTCDate()}日`;
-        const aiPrompt = `你是行业新闻播音员。根据以下钽铌（tantalum/niobium/coltan）相关新闻素材，写一段今日行业播报稿。
+        const aiPrompt = `你是行业新闻播音员。根据以下钽铌（tantalum/niobium/coltan）实时行情和新闻素材，写一段今日行业播报稿。
 要求：
 - 开头："各位好，今天是${dateStr}，为您播报钽铌行业动态。"
+- 先报今日行情（钽矿到岸价、五氧化二钽、五氧化二铌、铌铁等真实价格），再讲新闻
 - 挑出与钽铌矿业、价格、供给最相关的3-6条，口语化连贯地讲出来，不要逐条念标题，要归纳成新闻语言
 - 英文素材翻成中文
 - 结尾加一句对非洲钽铌精矿生产商的操作建议
-- 总长200-300字，可直接朗读，不要任何标题、列表符号或多余说明
-素材：
+- 总长250-350字，可直接朗读，不要任何标题、列表符号或多余说明
+${smmText}新闻素材：
 ${list}`;
         const MODELS = ['@cf/meta/llama-4-scout-17b-16e-instruct', '@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b', '@cf/meta/llama-3.2-3b-instruct'];
         let lastErr = '';
@@ -611,7 +625,8 @@ ${list}`;
       }
     }
 
-    // 价格：AI 拿到真实报价才留，否则空数组（前端不显示）
+    // 价格：SMM 真实行情优先；没有则只留 AI 给的真实报价，否则空数组（前端不显示）
+    if (smmRows.length) parsed.prices = smmRows;
     if (parsed.prices && parsed.prices.length) {
       parsed.prices = parsed.prices.filter(p => p.value && !/暂无|未知|NA/i.test(p.value));
     }
@@ -790,6 +805,14 @@ export default {
       // 钽铌市场日报（手动刷新；cron 每天定时自动跑）
       if (body.action === 'market_refresh') {
         return json(await marketRefresh(env));
+      }
+
+      // SMM 行情（本机脚本 POST 上来，存 data/smm_prices.json）
+      if (body.action === 'market_smm') {
+        const path = 'data/smm_prices.json';
+        const existing = await readFile(env, path);
+        const wr = await writeFile(env, path, JSON.stringify({ fetchedAt: new Date().toISOString(), prices: body.prices || [] }, null, 2), 'smm prices', existing && existing.sha);
+        return json(wr.ok ? { ok: true } : { error: wr.error || 'save failed' });
       }
 
       // 数据读写（只允许 data/ 目录）
