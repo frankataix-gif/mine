@@ -340,6 +340,8 @@ function parseUser() {
   const i = c.indexOf(':');
   return i > 0 ? c.slice(0, i) : c;
 }
+const urlUser = new URLSearchParams(location.search).get('user') || new URLSearchParams(location.search).get('u') || new URLSearchParams(location.search).get('name');
+if (urlUser) { localStorage.setItem('uploader', urlUser); }
 currentUser = localStorage.getItem('uploader') || parseUser() || 'unknown';
 document.getElementById('setUser').textContent = currentUser;
 
