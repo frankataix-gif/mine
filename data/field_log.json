@@ -2,27 +2,35 @@
   "projects": [],
   "tasks": [],
   "production": [],
-  "photos": [
+  "photos": [],
+  "updatedAt": "2026-10-04T11:17:25.290Z",
+  "posts": [
     {
-      "id": "f_mutpyv24_z63v",
-      "filename": "field_1791112213795_oagt.jpg",
-      "category": "daily",
-      "projectId": "",
-      "taskId": "",
       "note": "",
       "uploader": "unknown",
-      "createdAt": "2026-10-04T11:10:16.252Z"
+      "createdAt": "2026-10-04T11:10:16.252Z",
+      "media": [
+        {
+          "type": "image",
+          "filename": "field_1791112213795_oagt.jpg"
+        }
+      ],
+      "id": "f_mutq6uin_a2v3",
+      "likes": [
+        "unknown"
+      ]
     },
     {
-      "id": "f_mutpytfp_6ohk",
-      "filename": "field_1791112211679_gvph.jpg",
-      "category": "daily",
-      "projectId": "",
-      "taskId": "",
       "note": "",
       "uploader": "unknown",
-      "createdAt": "2026-10-04T11:10:14.149Z"
+      "createdAt": "2026-10-04T11:10:14.149Z",
+      "media": [
+        {
+          "type": "image",
+          "filename": "field_1791112211679_gvph.jpg"
+        }
+      ],
+      "id": "f_mutq6uin_mweo"
     }
-  ],
-  "updatedAt": "2026-10-04T11:10:16.252Z"
+  ]
 }
