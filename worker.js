@@ -188,7 +188,7 @@ async function serveRepoFile(env, path, mime) {
     const f = await readFile(env, path);
     if (!f) return new Response('应用文件未部署到仓库：' + path, { status: 404, headers: CORS });
     return new Response(f.content, {
-      headers: { ...CORS, 'Content-Type': mime + '; charset=utf-8', 'Cache-Control': 'no-cache' }
+      headers: { ...CORS, 'Content-Type': mime + '; charset=utf-8', 'Cache-Control': 'no-store, must-revalidate', 'Pragma': 'no-cache' }
     });
   } catch (e) {
     return new Response('读取失败: ' + e.message, { status: 502, headers: CORS });

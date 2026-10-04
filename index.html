@@ -191,7 +191,7 @@ document.querySelectorAll('.app-card').forEach(c => c.addEventListener('click', 
 window.addEventListener('popstate', () => location.reload());
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
-  navigator.serviceWorker.register('/sw.js').catch(() => {});
+  navigator.serviceWorker.register('/sw.js?v=3').catch(() => {});
 }
 </script>
 </body>
