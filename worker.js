@@ -619,6 +619,18 @@ export default {
         return json({ error: '账号或密码错误' }, 401);
       }
 
+      // 微信小程序登录：code → openid
+      if (body.action === 'login') {
+        const code = body.code || '';
+        const appid = env.WEAPP_APPID || '';
+        const secret = env.WEAPP_SECRET || '';
+        if (!appid || !secret || !code) return json({ error: 'login not configured' }, 400);
+        const res = await fetch(`https://api.weixin.qq.com/sns/jscode2session?appid=${appid}&secret=${secret}&js_code=${code}&grant_type=authorization_code`);
+        const data = await res.json();
+        if (data.openid) return json({ ok: true, openid: data.openid });
+        return json({ error: data.errmsg || 'login failed' }, 400);
+      }
+
       if (!mineAuthed(request, env, body)) return json({ error: '访问密码错误' }, 401);
 
       // XRF照片识别：OCR.space
