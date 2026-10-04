@@ -23,7 +23,7 @@
 //   ACC=dff446b2b98a38ac2b82263e3ff14da9
 //   curl -X PUT "https://api.cloudflare.com/client/v4/accounts/$ACC/workers/scripts/mine-sync" \
 //     -H "Authorization: Bearer $CF" \
-//     -F 'metadata={"main_module":"worker.js","compatibility_date":"2026-09-19","bindings":[{"name":"AI","type":"ai"},{"name":"DB","type":"d1","id":"78e80331-66f2-486d-8d7a-d7cf906bc7a7"},{"name":"GITHUB_REPO","type":"plain_text","text":"frankataix-gif/mine"}]};type=application/json' \
+//     -F 'metadata={"main_module":"worker.js","compatibility_date":"2026-09-19","bindings":[{"name":"AI","type":"ai"},{"name":"DB","type":"d1","id":"78e80331-66f2-486d-8d7a-d7cf906bc7a7"},{"name":"GITHUB_REPO","type":"plain_text","text":"frankataix-gif/mine"},{"name":"MEDIA_BUCKET","type":"r2_bucket","bucket_name":"ecobox-media"}]};type=application/json' \
 //     -F 'worker.js=@worker.js;type=application/javascript+module'
 //   （secret 类绑定 GITHUB_TOKEN / ACCESS_CODE 不传也会保留）
 //
