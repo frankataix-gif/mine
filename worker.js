@@ -446,6 +446,33 @@ async function proxyTelegramFile(request, env, kind) {
   return new Response(r.body, { headers: { 'Content-Type': type, 'Cache-Control': 'public, max-age=3600' } });
 }
 
+/* ================= R2 媒体上传/播放 ================= */
+
+async function handleUpload(request, env) {
+  if (!env.MEDIA_BUCKET) return new Response('no bucket', { status: 500 });
+  let form;
+  try { form = await request.formData(); } catch (e) { return json({ error: 'invalid form' }, 400); }
+  const file = form.get('file');
+  if (!file) return json({ error: 'no file' }, 400);
+  const now = Date.now();
+  const rand = Math.random().toString(36).slice(2, 8);
+  const ext = (file.name || '').split('.').pop() || 'bin';
+  const key = `media/${now}_${rand}.${ext}`;
+  await env.MEDIA_BUCKET.put(key, file, { httpMetadata: { contentType: file.type || 'application/octet-stream' } });
+  return json({ ok: true, key });
+}
+
+async function serveMedia(request, env) {
+  if (!env.MEDIA_BUCKET) return new Response('no bucket', { status: 500 });
+  const url = new URL(request.url);
+  const key = url.searchParams.get('key');
+  if (!key) return new Response('no key', { status: 400 });
+  if (!canAccess(request, env, 'field') && !canAccess(request, env, 'mine')) return new Response('unauthorized', { status: 401, headers: CORS });
+  const obj = await env.MEDIA_BUCKET.get(key);
+  if (!obj) return new Response('not found', { status: 404 });
+  return new Response(obj.body, { headers: { 'Content-Type': obj.httpMetadata.contentType || 'application/octet-stream', 'Cache-Control': 'public, max-age=3600' } });
+}
+
 /* ================= 主入口 ================= */
 
 export default {
@@ -493,8 +520,14 @@ export default {
         if (p === '/tgvideo') return proxyTelegramFile(request, env, 'video');
         if (p === '/tgphoto') return proxyTelegramFile(request, env, 'photo');
 
+        // R2 媒体代理
+        if (p === '/media') return serveMedia(request, env);
+
         return new Response('OK', { headers: CORS });
       }
+
+      // ---- R2 媒体上传 ----
+      if (p === '/upload' && request.method === 'POST') return handleUpload(request, env);
 
       // ---- Telegram 机器人 Webhook ----
       if (p === '/telegram' && request.method === 'POST') return handleTelegram(request, env);

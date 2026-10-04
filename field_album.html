@@ -282,12 +282,12 @@
     <div class="upload-grid" id="uPreviewGrid">
       <div class="upload-slot upload-add" id="uAddBtn" onclick="document.getElementById('uFile').click()">+</div>
     </div>
-    <input type="file" id="uFile" accept="image/*" multiple style="display:none">
+    <input type="file" id="uFile" accept="image/*,video/*" multiple style="display:none">
     <div class="field" style="margin-top:10px">
       <input type="url" id="vUrl" placeholder="视频链接（可选，如 Telegram / YouTube / .mp4 链接）" style="border:none;background:transparent;padding:8px 2px;font-size:15px">
     </div>
     <button class="btn" id="uSubmit" style="width:100%;min-height:46px;font-size:16px;margin-top:10px">发 布</button>
-    <p class="hint">照片最多 9 张。也可在 Telegram 把照片/视频发给 @frank_zambia_bot，会自动出现。</p>
+    <p class="hint">照片会自动压缩，最多 9 张。视频直接上传到 R2。也支持贴外部视频链接。</p>
   </div>
 </div>
 
@@ -392,9 +392,11 @@ function mediaGrid(media) {
   const cls = count === 1 ? 'one' : count === 2 ? 'two' : count === 4 ? 'four' : 'multi';
   return `<div class="post-media ${cls}">
     ${media.map(m => m.type === 'video'
-      ? (m.url.includes('youtube') || m.url.includes('bilibili')
-        ? `<a href="${m.url}" target="_blank" style="display:flex;align-items:center;justify-content:center;height:180px;background:#000;color:#fff;font-size:14px">▶ 打开视频</a>`
-        : `<video controls src="${m.url}" preload="metadata"></video>`)
+      ? (m.r2Key
+        ? `<video controls src="/media?key=${m.r2Key}" preload="metadata"></video>`
+        : (m.url && (m.url.includes('youtube') || m.url.includes('bilibili'))
+          ? `<a href="${m.url}" target="_blank" style="display:flex;align-items:center;justify-content:center;height:180px;background:#000;color:#fff;font-size:14px">▶ 打开视频</a>`
+          : `<video controls src="${m.url || ''}" preload="metadata"></video>`))
       : m.type === 'tgVideo'
         ? `<video controls src="/tgvideo?fid=${m.fileId}" preload="metadata"></video>`
         : m.type === 'tgPhoto'
@@ -702,7 +704,10 @@ function renderUploadGrid() {
   uploadQueue.forEach((item, idx) => {
     const div = document.createElement('div');
     div.className = 'upload-slot';
-    div.innerHTML = `<img class="upload-img" src="${item.dataUrl}"><button class="upload-del" data-idx="${idx}">×</button>`;
+    const media = item.isVideo
+      ? `<video class="upload-img" src="${item.url}" muted preload="metadata"></video>`
+      : `<img class="upload-img" src="${item.dataUrl}">`;
+    div.innerHTML = `${media}<button class="upload-del" data-idx="${idx}">×</button>`;
     uPreviewGrid.appendChild(div);
   });
   if (uploadQueue.length < 9) {
@@ -721,12 +726,17 @@ uFile.onchange = () => {
   const files = Array.from(uFile.files);
   if (!files.length) return;
   const remain = 9 - uploadQueue.length;
-  if (remain <= 0) { showToast('最多 9 张照片'); return; }
+  if (remain <= 0) { showToast('最多 9 个文件'); return; }
   const take = files.slice(0, remain);
   for (const f of take) {
-    const reader = new FileReader();
-    reader.onload = e => { uploadQueue.push({ dataUrl: e.target.result, file: f }); renderUploadGrid(); };
-    reader.readAsDataURL(f);
+    if (f.type.startsWith('video')) {
+      uploadQueue.push({ file: f, url: URL.createObjectURL(f), isVideo: true });
+      renderUploadGrid();
+    } else {
+      const reader = new FileReader();
+      reader.onload = e => { uploadQueue.push({ dataUrl: e.target.result, url: e.target.result, file: f, isVideo: false }); renderUploadGrid(); };
+      reader.readAsDataURL(f);
+    }
   }
   uFile.value = '';
 };
@@ -766,12 +776,21 @@ document.getElementById('uSubmit').onclick = async () => {
     const media = [];
     if (vUrl) media.push({ type: 'video', url: vUrl });
     for (const item of uploadQueue) {
-      const resized = await resizeImage(item.dataUrl);
-      const b64 = await dataUrlToB64(resized);
-      const filename = 'field_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6) + '.jpg';
-      const up = await api('up_photo', { name: filename, b64 });
-      if (up.error) throw new Error(up.error);
-      media.push({ type: 'image', filename });
+      if (item.isVideo) {
+        const form = new FormData();
+        form.append('file', item.file, item.file.name);
+        const res = await fetch('/upload', { method: 'POST', body: form });
+        const up = await res.json();
+        if (up.error) throw new Error(up.error);
+        media.push({ type: 'video', r2Key: up.key });
+      } else {
+        const resized = await resizeImage(item.dataUrl);
+        const b64 = await dataUrlToB64(resized);
+        const filename = 'field_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6) + '.jpg';
+        const up = await api('up_photo', { name: filename, b64 });
+        if (up.error) throw new Error(up.error);
+        media.push({ type: 'image', filename });
+      }
     }
     const post = {
       id: id(),
@@ -784,6 +803,7 @@ document.getElementById('uSubmit').onclick = async () => {
     };
     log.posts.unshift(post);
     await saveLog('add post');
+    uploadQueue.forEach(i => { if (i.url && i.isVideo) URL.revokeObjectURL(i.url); });
     uploadQueue = []; document.getElementById('uNote').value = ''; document.getElementById('vUrl').value = ''; renderUploadGrid();
     modal.classList.remove('show'); showToast('发布成功');
   } catch (e) { showToast('发布失败：' + e.message); }
