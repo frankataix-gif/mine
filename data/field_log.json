@@ -4,6 +4,32 @@
   "production": [],
   "posts": [
     {
+      "id": "f_muu8jmdn_h15k",
+      "note": "这是摇床洗出来的钽铌精粉，钽含量10%",
+      "uploader": "管理员",
+      "createdAt": "2026-10-04T19:50:17.867Z",
+      "media": [
+        {
+          "type": "image",
+          "r2Key": "media/1791143416310_psaadq.jpg"
+        },
+        {
+          "type": "image",
+          "r2Key": "media/1791143416308_00sqi0.jpg"
+        },
+        {
+          "type": "image",
+          "r2Key": "media/1791143416310_3rwmc2.jpg"
+        },
+        {
+          "type": "image",
+          "r2Key": "media/1791143416310_7r95sl.jpg"
+        }
+      ],
+      "likes": [],
+      "comments": []
+    },
+    {
       "id": "f_muu8clp6_o07c",
       "note": "今日刚到矿区\n这个黑疙瘩，钽含量70%\n在水池的地方挖到",
       "uploader": "管理员",
@@ -63,5 +89,5 @@
       "comments": []
     }
   ],
-  "updatedAt": "2026-10-04T19:45:46.730Z"
+  "updatedAt": "2026-10-04T19:50:17.868Z"
 }
