@@ -2,6 +2,32 @@
   "projects": [],
   "tasks": [],
   "production": [],
-  "posts": [],
-  "updatedAt": "2026-10-04T19:35:25.589Z"
+  "posts": [
+    {
+      "id": "f_muu8anpa_1hl2",
+      "note": "",
+      "uploader": "管理员",
+      "createdAt": "2026-10-04T19:43:19.678Z",
+      "media": [
+        {
+          "type": "video",
+          "r2Key": "media/1791142766465_s5cpys.mp4",
+          "thumbKey": "media/1791142765464_3nhc6e.jpg"
+        },
+        {
+          "type": "video",
+          "r2Key": "media/1791142766732_m62mzf.mp4",
+          "thumbKey": "media/1791142765464_obqtvx.jpg"
+        },
+        {
+          "type": "video",
+          "r2Key": "media/1791142766846_fdgy6l.mp4",
+          "thumbKey": "media/1791142765462_z6vab9.jpg"
+        }
+      ],
+      "likes": [],
+      "comments": []
+    }
+  ],
+  "updatedAt": "2026-10-04T19:43:19.678Z"
 }
