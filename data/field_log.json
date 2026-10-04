@@ -4,6 +4,32 @@
   "production": [],
   "posts": [
     {
+      "id": "f_muu4rbvx_cvo8",
+      "note": "矿区一览",
+      "uploader": "管理员",
+      "createdAt": "2026-10-04T18:04:19.053Z",
+      "media": [
+        {
+          "type": "image",
+          "filename": "field_1791137046222_yc8q.jpg"
+        },
+        {
+          "type": "image",
+          "filename": "field_1791137049521_r25e.jpg"
+        },
+        {
+          "type": "image",
+          "filename": "field_1791137052816_6324.jpg"
+        },
+        {
+          "type": "image",
+          "filename": "field_1791137056116_s3up.jpg"
+        }
+      ],
+      "likes": [],
+      "comments": []
+    },
+    {
       "id": "f_muu2hus8_3duv",
       "note": "",
       "uploader": "unknown",
@@ -299,5 +325,5 @@
       "comments": []
     }
   ],
-  "updatedAt": "2026-10-04T17:24:20.081Z"
+  "updatedAt": "2026-10-04T18:04:19.055Z"
 }
