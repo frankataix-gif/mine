@@ -743,16 +743,28 @@ function createVideoThumb(file) {
     video.src = url;
     video.muted = true;
     video.playsInline = true;
-    video.onloadedmetadata = () => { video.currentTime = Math.min(1, video.duration / 2 || 0); };
+    video.preload = 'auto';
+    video.style.cssText = 'position:fixed;top:-1px;left:-1px;width:1px;height:1px;visibility:hidden;';
+    document.body.appendChild(video);
+    let done = false;
+    const cleanup = () => { URL.revokeObjectURL(url); if (video.parentNode) video.parentNode.removeChild(video); };
+    const finish = (blob) => { if (done) return; done = true; cleanup(); resolve(blob); };
+    video.onloadeddata = () => { try { video.currentTime = Math.min(1, video.duration / 2 || 0); video.play().catch(() => {}); } catch (e) { finish(null); } };
     video.onseeked = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = 320; canvas.height = 180;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      URL.revokeObjectURL(url);
-      canvas.toBlob(b => resolve(b), 'image/jpeg', 0.8);
+      if (done) return;
+      try { video.pause();
+        const canvas = document.createElement('canvas');
+        const w = video.videoWidth || 320; const h = video.videoHeight || 180;
+        const scale = Math.min(320 / w, 180 / h, 1);
+        canvas.width = w * scale; canvas.height = h * scale;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(b => finish(b), 'image/jpeg', 0.8);
+      } catch (e) { finish(null); }
     };
-    video.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+    video.onerror = () => finish(null);
+    setTimeout(() => finish(null), 8000);
+    video.load();
   });
 }
 
