@@ -1,12 +1,11 @@
 // ECOBOX 现场工具箱 — 统一 Service Worker
 // 缓存门户 + 全部子应用页面，离线可打开；API 请求不拦截
-const CACHE = 'ecobox-tools-v3';
+const CACHE = 'ecobox-tools-v4';
 const ASSETS = [
   '/',
   '/index.html',
   '/mine_production.html',
   '/sampling_helper.html',
-  '/field_album.html',
   '/manifest.webmanifest',
   '/icon-192.png',
   '/icon-512.png',
