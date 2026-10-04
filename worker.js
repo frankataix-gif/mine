@@ -534,7 +534,7 @@ async function smmPrices(env) {
     const f = await readFile(env, 'data/smm_prices.json');
     if (!f || !f.content) return [];
     const d = JSON.parse(f.content);
-    if (Date.now() - new Date(d.fetchedAt).getTime() > 48 * 3600e3) return [];
+    if (Date.now() - new Date(d.fetchedAt).getTime() > 72 * 3600e3) return [];
     return d.prices || [];
   } catch (e) { return []; }
 }
