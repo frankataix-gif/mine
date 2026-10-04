@@ -4,6 +4,20 @@
   "production": [],
   "posts": [
     {
+      "id": "f_muub6ijz_cvw1",
+      "note": "https://weixin.qq.com/sph/AcRigdP2mV\n\nhttps://weixin.qq.com/sph/AEwKzgdl1R\n\n三盘磁选机介绍",
+      "uploader": "管理员",
+      "createdAt": "2026-10-04T21:04:05.231Z",
+      "media": [
+        {
+          "type": "image",
+          "r2Key": "media/1791147844261_vzooaa.jpg"
+        }
+      ],
+      "likes": [],
+      "comments": []
+    },
+    {
       "id": "f_muu8jmdn_h15k",
       "note": "这是摇床洗出来的钽铌精粉，钽含量9-10%；铌8-9%；但铁和钛有55%！目前重选已经无法分离他们，因为铁钛的重量和钽铌矿相近，需要用三盘磁选机来分离！",
       "uploader": "管理员",
@@ -90,5 +104,5 @@
       "comments": []
     }
   ],
-  "updatedAt": "2026-10-04T20:58:15.800Z"
+  "updatedAt": "2026-10-04T21:04:05.231Z"
 }
