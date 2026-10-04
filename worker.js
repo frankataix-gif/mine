@@ -528,6 +528,106 @@ async function r2Presign(env, method, key, contentType) {
   return `https://${R2_HOST}/${R2_BUCKET}/${key}?${query}&X-Amz-Signature=${sig}`;
 }
 
+// ---- 钽铌市场日报：存 data/market_daily.json ----
+// 有 OPENAI_KEY → GPT-4o 联网搜索（含价格摘要）；否则 → Google News RSS + Workers AI 翻译摘要
+async function marketRefresh(env) {
+  try {
+    let parsed = null;
+    if (env.OPENAI_KEY) {
+      const prompt = `你是钽铌市场分析助手。请联网搜索今天（北京时间）钽铌市场公开信息，输出严格 JSON（不要 markdown 围栏，不要多余文字）：
+{"prices":[{"name":"品名","value":"价格区间","unit":"单位","note":"涨跌/来源"}],"news":[{"title":"标题","summary":"一句话摘要","impact":"利多/利空/中性"}],"advice":"一句话操作建议"}
+要求：
+- prices 覆盖：钽精矿 Ta2O5 30%（CIF 中国，美元/磅 或 人民币元/吨度）、铌精矿 Nb2O5 50%、氧化钽 Ta2O5 99.5% 出厂价、氧化铌 Nb2O5 99.5% 出厂价；找不到确切报价就写"暂无公开报价"并在 note 注明最近参考价与日期
+- news 覆盖：刚果（金）Rubaya 及东部矿区、卢旺达、尼日利亚供给动态；国内冶炼厂（宁夏东方钽业、九江有色等）开工/招标；ITSCI/RMAP 合规动态；关税/物流/宏观对矿价影响；最多 6 条按影响力排序
+- advice 针对非洲矿山直供的钽铌精矿生产商（伴生锡）：当前适合现货快出货、锁长单、还是观望惜售
+- 不确定的价格标注"约"，并尽量注明来源与时间`;
+      const res = await fetch('https://api.openai.com/v1/responses', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + env.OPENAI_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'gpt-4o', tools: [{ type: 'web_search_preview' }], input: prompt })
+      });
+      const data = await res.json();
+      if (!res.ok) return { error: 'openai: ' + ((data.error && data.error.message) || res.status) };
+      let text = '';
+      for (const item of data.output || []) {
+        if (item.type === 'message') for (const c of item.content || []) if (c.type === 'output_text') text += c.text;
+      }
+      const m = text.match(/\{[\s\S]*\}/);
+      if (m) parsed = JSON.parse(m[0]);
+    }
+
+    // 免费路径：Bing News RSS + Workers AI 翻译摘要
+    if (!parsed) {
+      const arts = [];
+      const rssUrls = [
+        'https://www.bing.com/news/search?q=' + encodeURIComponent('钽 铌 钽铌矿 价格') + '&format=rss&setlang=zh-CN',
+        'https://www.bing.com/news/search?q=' + encodeURIComponent('tantalum niobium coltan mining price') + '&format=rss&setlang=en-US'
+      ];
+      for (const ru of rssUrls) {
+        try {
+          const rss = await (await fetch(ru, { headers: { 'User-Agent': 'Mozilla/5.0' } })).text();
+          for (const m of rss.matchAll(/<item>([\s\S]*?)<\/item>/g)) {
+            const it = m[1];
+            const grab = tag => ((it.match(new RegExp('<' + tag + '[^>]*>([\\s\\S]*?)<\\/' + tag + '>')) || [])[1] || '').replace(/<!\[CDATA\[|\]\]>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').trim();
+            const clean = s => s.replace(/[ -"\\]/g, ' ').slice(0, 160);
+            const title = clean(grab('title')), pub = grab('pubDate'), src = grab('News:Source'), desc = clean(grab('description')), link = grab('link');
+            if (title) arts.push({ title, date: pub, src, desc, url: link });
+          }
+        } catch (e) {}
+      }
+      const seenT = new Set();
+      for (let i = arts.length - 1; i >= 0; i--) {
+        if (seenT.has(arts[i].title)) arts.splice(i, 1); else seenT.add(arts[i].title);
+      }
+      parsed = { prices: [], news: arts.slice(0, 6).map(a => ({ title: a.title, summary: a.desc || a.src, impact: '中性', url: a.url })), advice: '' };
+      if (env.AI && arts.length) {
+        const list = arts.map((a, i) => `${i + 1}. ${a.title} — ${a.desc}（${a.src} ${a.date}）`).join('\n');
+        const aiPrompt = `以下是过去48小时钽铌（tantalum/niobium/coltan）相关新闻标题。挑出与钽铌矿价/供给最相关的6条，译成中文，按影响力排序，输出严格JSON（不要多余文字）：{"news":[{"title":"中文标题","summary":"一句话","impact":"利多/利空/中性"}],"advice":"一句话对非洲钽铌精矿生产商的建议"}\n\n${list}`;
+        const MODELS = ['@cf/meta/llama-4-scout-17b-16e-instruct', '@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b', '@cf/meta/llama-3.2-3b-instruct'];
+        const extractJson = t => {
+          const s = t.indexOf('{'); if (s < 0) return null;
+          let depth = 0;
+          for (let i = s; i < t.length; i++) {
+            if (t[i] === '{') depth++;
+            else if (t[i] === '}') { depth--; if (!depth) return t.slice(s, i + 1); }
+          }
+          return null;
+        };
+        let done = false;
+        for (const mdl of MODELS) {
+          if (done) break;
+          try {
+            const ar = await env.AI.run(mdl, { messages: [{ role: 'user', content: aiPrompt }] });
+            const t = (ar && (ar.response || ar.result || '')) || '';
+            const js = extractJson(t);
+            if (js) {
+              const p2 = JSON.parse(js);
+              if (p2.news) parsed.news = p2.news;
+              if (p2.advice) parsed.advice = p2.advice;
+              done = true;
+            } else parsed.aiError = mdl + ' 输出无JSON';
+          } catch (e) { parsed.aiError = mdl + ': ' + e.message; }
+        }
+      }
+    }
+
+    if (!parsed.prices || !parsed.prices.length) {
+      parsed.prices = [
+        { name: '钽精矿 Ta2O5 30% CIF中国', value: '暂无公开报价', unit: '', note: 'OTC 场外报价需订阅亚洲金属网/百川盈孚' },
+        { name: '铌精矿 Nb2O5 50%', value: '暂无公开报价', unit: '', note: '' },
+        { name: '氧化钽 Ta2O5 99.5%', value: '暂无公开报价', unit: '', note: '' },
+        { name: '氧化铌 Nb2O5 99.5%', value: '暂无公开报价', unit: '', note: '' }
+      ];
+    }
+    parsed.updatedAt = new Date().toISOString();
+    const path = 'data/market_daily.json';
+    const existing = await readFile(env, path);
+    const wr = await writeFile(env, path, JSON.stringify(parsed, null, 2), 'market daily', existing && existing.sha);
+    if (!wr.ok) return { error: wr.error || 'save failed' };
+    return { ok: true, updatedAt: parsed.updatedAt };
+  } catch (e) { return { error: e.message }; }
+}
+
 /* ================= 主入口 ================= */
 
 export default {
@@ -683,6 +783,11 @@ export default {
         return json({ ok: true, key, url });
       }
 
+      // 钽铌市场日报（手动刷新；cron 每天定时自动跑）
+      if (body.action === 'market_refresh') {
+        return json(await marketRefresh(env));
+      }
+
       // 数据读写（只允许 data/ 目录）
       const path = body.path || DATA_FILE;
       if (!path.startsWith(DATA_PREFIX)) return json({ error: 'forbidden path' }, 403);
@@ -702,5 +807,10 @@ export default {
     } catch (e) {
       return json({ error: e.message || 'internal error' }, 500);
     }
+  },
+
+  // 每天北京时间 18:00（UTC 10:00）自动生成市场日报
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(marketRefresh(env));
   }
 };

@@ -219,6 +219,7 @@
 
 <main>
   <section class="tab-content active" id="tab-media">
+    <div id="marketCard"></div>
     <div id="feed" class="feed"></div>
   </section>
 
@@ -416,9 +417,59 @@ async function loadLog() {
     migrateFromPhotos();
     renderFeed(); renderProjects(); renderProduction();
     renderUserLinks();
+    loadMarket();
   } catch (e) {
     showToast('数据读取失败：' + e.message);
   }
+}
+
+// ---- 钽铌市场日报卡片 ----
+async function loadMarket() {
+  const el = document.getElementById('marketCard');
+  try {
+    const r = await api('read', { path: 'data/market_daily.json' });
+    if (!r || !r.content) {
+      el.innerHTML = `<div class="card" style="padding:12px 16px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <strong>📈 钽铌市场日报</strong>
+          ${isAdmin() ? '<button type="button" class="btn" style="padding:4px 10px;font-size:12px" onclick="refreshMarket()">生成</button>' : ''}
+        </div>
+        <p class="hint" style="margin-top:6px">暂无数据，${isAdmin() ? '点「生成」联网拉取今日行情' : '等管理员生成'}</p>
+      </div>`;
+      return;
+    }
+    const d = JSON.parse(r.content);
+    const prices = (d.prices || []).map(p =>
+      `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dashed #f1f5f9">
+        <span style="color:var(--muted)">${p.name}</span>
+        <span style="font-weight:600;text-align:right">${p.value || '—'} ${p.unit || ''}<br><span class="hint" style="font-weight:400">${p.note || ''}</span></span>
+      </div>`).join('');
+    const news = (d.news || []).map(n => {
+      const c = n.impact === '利多' ? 'var(--danger)' : n.impact === '利空' ? 'var(--success)' : 'var(--gray)';
+      return `<div style="padding:5px 0"><b style="color:${c}">[${n.impact || '—'}]</b> ${n.title}<br><span class="hint">${n.summary || ''}</span></div>`;
+    }).join('');
+    el.innerHTML = `<div class="card" style="padding:12px 16px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <strong>📈 钽铌市场日报</strong>
+        <span style="display:flex;gap:8px;align-items:center">
+          <span class="hint">${fmtDate(d.updatedAt)}</span>
+          ${isAdmin() ? '<button type="button" class="btn" style="padding:4px 10px;font-size:12px" onclick="refreshMarket()">刷新</button>' : ''}
+        </span>
+      </div>
+      ${prices ? `<div style="margin-top:8px">${prices}</div>` : ''}
+      ${news ? `<div style="margin-top:8px">${news}</div>` : ''}
+      ${d.advice ? `<div style="margin-top:8px;padding:8px 10px;background:var(--primary-light);border-radius:8px;font-size:14px"><b>建议：</b>${d.advice}</div>` : ''}
+      <p class="hint" style="margin-top:8px">网络公开信息摘要，仅供参考</p>
+    </div>`;
+  } catch (e) {
+    el.innerHTML = '';
+  }
+}
+async function refreshMarket() {
+  showToast('正在联网生成，约需 30 秒…');
+  const r = await api('market_refresh', {});
+  if (r && r.ok) { showToast('已更新'); loadMarket(); }
+  else showToast('失败：' + ((r && r.error) || '未知'));
 }
 
 async function saveLog(message) {
