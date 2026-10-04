@@ -402,7 +402,10 @@ function mediaGrid(media) {
   return `<div class="post-media ${cls}">
     ${media.map(m => {
     if (m.r2Key) {
-      if (m.type === 'video') return `<video controls src="/media?key=${m.r2Key}" preload="metadata"></video>`;
+      if (m.type === 'video') {
+        const poster = m.thumbKey ? `poster="/media?key=${m.thumbKey}"` : '';
+        return `<video controls ${poster} src="/media?key=${m.r2Key}" preload="metadata"></video>`;
+      }
       return `<img src="/media?key=${m.r2Key}" loading="lazy" alt="">`;
     }
     if (m.type === 'video') {
@@ -733,7 +736,27 @@ function renderUploadGrid() {
   });
 }
 
-uFile.onchange = () => {
+function createVideoThumb(file) {
+  return new Promise(resolve => {
+    const video = document.createElement('video');
+    const url = URL.createObjectURL(file);
+    video.src = url;
+    video.muted = true;
+    video.playsInline = true;
+    video.onloadedmetadata = () => { video.currentTime = Math.min(1, video.duration / 2 || 0); };
+    video.onseeked = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 320; canvas.height = 180;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      canvas.toBlob(b => resolve(b), 'image/jpeg', 0.8);
+    };
+    video.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+  });
+}
+
+uFile.onchange = async () => {
   const files = Array.from(uFile.files);
   if (!files.length) return;
   const remain = 9 - uploadQueue.length;
@@ -741,7 +764,8 @@ uFile.onchange = () => {
   const take = files.slice(0, remain);
   for (const f of take) {
     if (f.type.startsWith('video')) {
-      uploadQueue.push({ file: f, url: URL.createObjectURL(f), isVideo: true });
+      const thumb = await createVideoThumb(f);
+      uploadQueue.push({ file: f, url: URL.createObjectURL(f), isVideo: true, thumbBlob: thumb });
       renderUploadGrid();
     } else {
       const reader = new FileReader();
@@ -818,11 +842,18 @@ async function uploadOne(item, onProgress) {
   let retries = 2;
   while (retries >= 0) {
     try {
-      let blob, contentType, type;
+      let blob, contentType, type, thumbKey;
       if (item.isVideo) {
         blob = item.file;
         contentType = 'video/mp4';
         type = 'video';
+        if (item.thumbBlob) {
+          const tp = await api('presign', { type: 'image', ext: 'jpg', contentType: 'image/jpeg' });
+          if (tp && tp.url) {
+            await requestWithProgress(tp.url, item.thumbBlob, () => {}, false, 'image/jpeg');
+            thumbKey = tp.key;
+          }
+        }
       } else {
         const resized = await resizeImage(item.dataUrl || item.url);
         blob = await (await fetch(resized)).blob();
@@ -833,7 +864,7 @@ async function uploadOne(item, onProgress) {
       const presign = await api('presign', { type, ext: type === 'image' ? 'jpg' : 'mp4', contentType });
       if (!presign || !presign.url) throw new Error('presign 失败');
       await requestWithProgress(presign.url, blob, onProgress, false, contentType);
-      return { type, r2Key: presign.key };
+      return { type, r2Key: presign.key, thumbKey };
     } catch (e) {
       onProgress(0, item.file ? item.file.size : 1);
       if (retries > 0) { retries--; continue; }
