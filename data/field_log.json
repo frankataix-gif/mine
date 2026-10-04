@@ -1,5 +1,14 @@
 {
-  "projects": [],
+  "projects": [
+    {
+      "id": "f_muucs0rc_qonm",
+      "name": "塞伦杰印度佬合资矿试生产",
+      "description": "",
+      "createdBy": "Frank",
+      "createdAt": "2026-10-04T21:48:48.216Z",
+      "updatedAt": "2026-10-04T21:48:48.216Z"
+    }
+  ],
   "tasks": [],
   "production": [],
   "posts": [
@@ -105,5 +114,5 @@
       "comments": []
     }
   ],
-  "updatedAt": "2026-10-04T21:14:06.014Z"
+  "updatedAt": "2026-10-04T21:48:48.217Z"
 }
