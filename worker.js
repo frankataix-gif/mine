@@ -535,7 +535,7 @@ async function marketRefresh(env) {
     let parsed = null;
     if (env.OPENAI_KEY) {
       const prompt = `你是钽铌市场分析助手。请联网搜索今天（北京时间）钽铌市场公开信息，输出严格 JSON（不要 markdown 围栏，不要多余文字）：
-{"prices":[{"name":"品名","value":"价格区间","unit":"单位","note":"涨跌/来源"}],"news":[{"title":"标题","summary":"一句话摘要","impact":"利多/利空/中性"}],"advice":"一句话操作建议"}
+{"prices":[{"name":"品名","value":"价格区间","unit":"单位","note":"涨跌/来源"}],"news":[{"title":"标题","summary":"一句话摘要","impact":"利多/利空/中性"}],"advice":"一句话操作建议","spoken":"80-120字中文口播稿，口语化，把最重要的行情和新闻串成一段话，适合直接朗读"}
 要求：
 - prices 覆盖：钽精矿 Ta2O5 30%（CIF 中国，美元/磅 或 人民币元/吨度）、铌精矿 Nb2O5 50%、氧化钽 Ta2O5 99.5% 出厂价、氧化铌 Nb2O5 99.5% 出厂价；找不到确切报价就写"暂无公开报价"并在 note 注明最近参考价与日期
 - news 覆盖：刚果（金）Rubaya 及东部矿区、卢旺达、尼日利亚供给动态；国内冶炼厂（宁夏东方钽业、九江有色等）开工/招标；ITSCI/RMAP 合规动态；关税/物流/宏观对矿价影响；最多 6 条按影响力排序
@@ -582,7 +582,7 @@ async function marketRefresh(env) {
       parsed = { prices: [], news: arts.slice(0, 6).map(a => ({ title: a.title, summary: a.desc || a.src, impact: '中性', url: a.url })), advice: '' };
       if (env.AI && arts.length) {
         const list = arts.map((a, i) => `${i + 1}. ${a.title} — ${a.desc}（${a.src} ${a.date}）`).join('\n');
-        const aiPrompt = `以下是过去48小时钽铌（tantalum/niobium/coltan）相关新闻标题。挑出与钽铌矿价/供给最相关的6条，译成中文，按影响力排序，输出严格JSON（不要多余文字）：{"news":[{"title":"中文标题","summary":"一句话","impact":"利多/利空/中性"}],"advice":"一句话对非洲钽铌精矿生产商的建议"}\n\n${list}`;
+        const aiPrompt = `以下是过去48小时钽铌（tantalum/niobium/coltan）相关新闻标题。挑出与钽铌矿价/供给最相关的6条，译成中文，按影响力排序，输出严格JSON（不要多余文字）：{"news":[{"title":"中文标题","summary":"一句话","impact":"利多/利空/中性"}],"advice":"一句话对非洲钽铌精矿生产商的建议","spoken":"80-120字中文口播稿，口语化，把最重要行情和新闻串成一段，适合直接朗读"}\n\n${list}`;
         const MODELS = ['@cf/meta/llama-4-scout-17b-16e-instruct', '@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b', '@cf/meta/llama-3.2-3b-instruct'];
         const extractJson = t => {
           const s = t.indexOf('{'); if (s < 0) return null;
@@ -604,6 +604,7 @@ async function marketRefresh(env) {
               const p2 = JSON.parse(js);
               if (p2.news) parsed.news = p2.news;
               if (p2.advice) parsed.advice = p2.advice;
+              if (p2.spoken) parsed.spoken = p2.spoken;
               done = true;
             } else parsed.aiError = mdl + ' 输出无JSON';
           } catch (e) { parsed.aiError = mdl + ': ' + e.message; }
@@ -611,13 +612,17 @@ async function marketRefresh(env) {
       }
     }
 
-    if (!parsed.prices || !parsed.prices.length) {
-      parsed.prices = [
-        { name: '钽精矿 Ta2O5 30% CIF中国', value: '暂无公开报价', unit: '', note: 'OTC 场外报价需订阅亚洲金属网/百川盈孚' },
-        { name: '铌精矿 Nb2O5 50%', value: '暂无公开报价', unit: '', note: '' },
-        { name: '氧化钽 Ta2O5 99.5%', value: '暂无公开报价', unit: '', note: '' },
-        { name: '氧化铌 Nb2O5 99.5%', value: '暂无公开报价', unit: '', note: '' }
-      ];
+    // 价格：AI 拿到真实报价才留，否则空数组（前端不显示）
+    if (parsed.prices && parsed.prices.length) {
+      parsed.prices = parsed.prices.filter(p => p.value && !/暂无|未知|NA/i.test(p.value));
+    }
+    if (!parsed.prices) parsed.prices = [];
+
+    // 口播稿：AI 已给就用，没有就从新闻拼
+    if (!parsed.spoken) {
+      const n = (parsed.news || []).slice(0, 5);
+      parsed.spoken = '钽铌市场简报。' + n.map((x, i) => `第${i + 1}条，${x.title}。`).join('') +
+        (parsed.advice ? '操作建议：' + parsed.advice : '');
     }
     parsed.updatedAt = new Date().toISOString();
     const path = 'data/market_daily.json';
