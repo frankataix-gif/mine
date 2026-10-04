@@ -68,7 +68,8 @@
         }
       ],
       "likes": [
-        "unknown"
+        "unknown",
+        "管理员"
       ],
       "comments": [
         {
@@ -104,5 +105,5 @@
       "comments": []
     }
   ],
-  "updatedAt": "2026-10-04T21:06:16.693Z"
+  "updatedAt": "2026-10-04T21:06:21.044Z"
 }
