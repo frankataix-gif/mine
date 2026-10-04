@@ -793,36 +793,86 @@ function hideProgress() {
   document.getElementById('uploadProgress').classList.add('hidden');
 }
 
-async function uploadOne(item) {
-  if (item.isVideo) {
-    const form = new FormData();
-    form.append('file', item.file, item.file.name);
-    const res = await fetch('/upload', { method: 'POST', body: form });
-    const up = await res.json();
-    if (up.error) throw new Error(up.error);
-    return { type: 'video', r2Key: up.key };
-  } else {
-    const resized = await resizeImage(item.dataUrl);
-    const b64 = await dataUrlToB64(resized);
-    const filename = 'field_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6) + '.jpg';
-    const up = await api('up_photo', { name: filename, b64 });
-    if (up.error) throw new Error(up.error);
-    return { type: 'image', filename };
+function requestWithProgress(url, send, onProgress, withCreds) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && e.total > 0) onProgress(e.loaded, e.total);
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const r = JSON.parse(xhr.responseText);
+          if (r.error || r.message) reject(new Error(r.error || r.message));
+          else resolve(r);
+        } catch (ex) { reject(new Error('返回解析失败')); }
+      } else {
+        reject(new Error('上传失败 ' + xhr.status));
+      }
+    };
+    xhr.onerror = () => reject(new Error('网络错误'));
+    xhr.ontimeout = () => reject(new Error('上传超时'));
+    xhr.open('POST', url, true);
+    if (withCreds) xhr.withCredentials = true;
+    xhr.send(send);
+  });
+}
+
+async function uploadOne(item, onProgress) {
+  let retries = 2;
+  while (retries >= 0) {
+    try {
+      onProgress(0, item.file ? item.file.size : 1);
+      if (item.isVideo) {
+        const form = new FormData();
+        form.append('file', item.file, item.file.name);
+        const r = await requestWithProgress('/upload', form, onProgress, true);
+        return { type: 'video', r2Key: r.key };
+      } else {
+        const resized = await resizeImage(item.dataUrl);
+        const b64 = await dataUrlToB64(resized);
+        const filename = 'field_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6) + '.jpg';
+        const body = JSON.stringify({ action: 'up_photo', name: filename, b64 });
+        await requestWithProgress('/', body, onProgress, true);
+        return { type: 'image', filename };
+      }
+    } catch (e) {
+      onProgress(0, item.file ? item.file.size : 1);
+      if (retries > 0) { retries--; continue; }
+      throw e;
+    }
   }
+  throw new Error('上传失败');
 }
 
 async function backgroundUpload(queue, note, vUrl) {
-  updateProgress(0, queue.length);
   const media = [];
   if (vUrl) media.push({ type: 'video', url: vUrl });
-  let done = 0;
+  const loaded = new Array(queue.length).fill(0);
+  const total = new Array(queue.length).fill(0);
+  let completed = 0;
+  function render() {
+    const t = total.reduce((a, b) => a + (b || 0), 0);
+    const l = loaded.reduce((a, b) => a + (b || 0), 0);
+    const pct = t ? Math.round(l / t * 100) : 0;
+    const el = document.getElementById('uploadProgress');
+    const fill = document.getElementById('upFill');
+    const text = document.getElementById('upText');
+    const count = document.getElementById('upCount');
+    el.classList.remove('hidden');
+    fill.style.width = pct + '%';
+    count.textContent = completed + '/' + queue.length;
+    text.textContent = '上传中 ' + pct + '%';
+    text.style.color = 'var(--muted)';
+  }
+  render();
   try {
-    const parts = await Promise.all(queue.map(async (item) => {
-      const m = await uploadOne(item);
-      done++;
-      updateProgress(done, queue.length);
-      return m;
-    }));
+    const parts = await Promise.all(queue.map((item, i) => (async () => {
+      const r = await uploadOne(item, (l, t) => { loaded[i] = l; total[i] = t; render(); });
+      completed++;
+      render();
+      return r;
+    })()));
     media.push(...parts);
     const post = {
       id: id(),
