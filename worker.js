@@ -546,6 +546,14 @@ export default {
           return await handleSampling(request, env, url);
         }
 
+        // 根路径直接进动态页（门户首页仍可从 /index.html 访问）
+        if (p === '/') {
+          const u = new URL(request.url);
+          u.pathname = '/field_album.html';
+          u.searchParams.set('v', Date.now().toString());
+          return Response.redirect(u.toString(), 302);
+        }
+
         // 页面：门户公开，各 app 按权限拦截
         if (HTML_PAGES[p]) {
           const pg = HTML_PAGES[p];

@@ -89,6 +89,9 @@
   /* 内容区 */
   .tab-content { display: none; padding: 12px; padding-bottom: 80px; max-width: 760px; margin: 0 auto; }
   .tab-content.active { display: block; }
+  .app-card { display: flex; align-items: center; gap: 12px; cursor: pointer; }
+  .app-card-icon { font-size: 24px; width: 44px; height: 44px; background: var(--primary-light); border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+  .app-card-arrow { color: var(--gray); font-size: 20px; }
   .card {
     background: var(--card);
     border-radius: 12px; padding: 16px;
@@ -262,8 +265,22 @@
     <div class="card"><h2>矿证</h2><p class="empty" style="padding:20px 0">建设中：待接入矿业部门台账</p></div>
   </section>
 
-  <section class="tab-content" id="tab-logistics">
-    <div class="card"><h2>物流</h2><p class="empty" style="padding:20px 0">建设中：待接入物流跟踪</p></div>
+  <section class="tab-content" id="tab-apps">
+    <div class="card app-card" onclick="location.href='/mine_production.html'">
+      <div class="app-card-icon">📊</div>
+      <div style="flex:1"><strong>钽铌矿生产统计</strong><div class="hint">洗选厂产量记录、XRF 品位识别、按日汇总</div></div>
+      <div class="app-card-arrow">›</div>
+    </div>
+    <div class="card app-card" onclick="location.href='/sampling_helper.html'">
+      <div class="app-card-icon">⛏</div>
+      <div style="flex:1"><strong>矿区考察记录本</strong><div class="hint">野外取样、GPS 轨迹、离线地图、GPX/KML 导出</div></div>
+      <div class="app-card-arrow">›</div>
+    </div>
+    <div class="card app-card" style="opacity:.6">
+      <div class="app-card-icon">🚚</div>
+      <div style="flex:1"><strong>物流</strong><div class="hint">建设中：待接入物流跟踪</div></div>
+      <div class="app-card-arrow">›</div>
+    </div>
   </section>
 </main>
 
@@ -273,7 +290,7 @@
     <button type="button" class="tab" data-tab="schedule" title="任务"><span>任务</span></button>
     <button type="button" class="tab" data-tab="mine" title="钽铌生产"><span>生产</span></button>
     <button type="button" class="tab" data-tab="licenses" title="矿证"><span>矿证</span></button>
-    <button type="button" class="tab" data-tab="logistics" title="物流"><span>物流</span></button>
+    <button type="button" class="tab" data-tab="apps" title="其他应用"><span>其他应用</span></button>
   </div>
 </nav>
 
@@ -1078,7 +1095,7 @@ document.getElementById('uSubmit').onclick = () => {
 function goHome() { window.location.href = 'index.html'; }
 
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js?v=4').catch(() => {});
+  navigator.serviceWorker.register('/sw.js?v=5').catch(() => {});
 }
 
 // 主动更新：定时拉版本号，变了就强制刷新拿最新代码
