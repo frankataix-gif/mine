@@ -5,7 +5,7 @@
   "posts": [
     {
       "id": "f_muu8jmdn_h15k",
-      "note": "这是摇床洗出来的钽铌精粉，钽含量10%",
+      "note": "这是摇床洗出来的钽铌精粉，钽含量10%！",
       "uploader": "管理员",
       "createdAt": "2026-10-04T19:50:17.867Z",
       "media": [
@@ -27,7 +27,8 @@
         }
       ],
       "likes": [],
-      "comments": []
+      "comments": [],
+      "updatedAt": "2026-10-04T19:52:03.647Z"
     },
     {
       "id": "f_muu8clp6_o07c",
@@ -89,5 +90,5 @@
       "comments": []
     }
   ],
-  "updatedAt": "2026-10-04T19:50:17.868Z"
+  "updatedAt": "2026-10-04T19:52:03.647Z"
 }
