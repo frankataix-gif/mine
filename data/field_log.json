@@ -4,20 +4,6 @@
   "production": [],
   "posts": [
     {
-      "id": "f_muu57ypx_pppx",
-      "note": "",
-      "uploader": "管理员",
-      "createdAt": "2026-10-04T18:17:15.141Z",
-      "media": [
-        {
-          "type": "video",
-          "r2Key": "media/1791137831093_5y9osg.mp4"
-        }
-      ],
-      "likes": [],
-      "comments": []
-    },
-    {
       "id": "f_muu2gsnx_nwp0",
       "note": "",
       "uploader": "unknown",
@@ -246,5 +232,5 @@
       "comments": []
     }
   ],
-  "updatedAt": "2026-10-04T19:34:42.156Z"
+  "updatedAt": "2026-10-04T19:34:45.292Z"
 }
