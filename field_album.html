@@ -322,14 +322,19 @@
     <div class="modal-head"><h3>设置</h3><button type="button" class="btn" id="closeSet" style="background:#e5e7eb;color:#374151">关闭</button></div>
     <div class="card" style="margin-top:10px">
       <p><strong>当前用户：</strong><span id="setUser">-</span></p>
+      <div id="myLink" style="margin-top:8px"></div>
       <div style="margin-top:12px">
         <input type="text" id="setNameInput" placeholder="修改你的名字" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:15px">
         <button type="button" class="btn" id="setNameSave" style="width:100%;margin-top:8px">保存</button>
       </div>
       <p class="hint" style="margin-top:8px">首次打开请先设置名字，别人会看到你的动态作者。</p>
-      <div style="margin-top:12px">
+      <div id="adminSection" style="margin-top:12px;display:none">
         <p><strong>用户链接：</strong></p>
         <div id="userLinks" style="margin-top:8px;font-size:14px"></div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <input type="text" id="newUserInput" placeholder="新用户名字" style="flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:14px">
+          <button type="button" class="btn" id="newUserSave" style="padding:8px 16px">创建</button>
+        </div>
       </div>
     </div>
   </div>
@@ -414,8 +419,10 @@ async function loadLog() {
     if (!log.projects) log.projects = [];
     if (!log.tasks) log.tasks = [];
     if (!log.production) log.production = [];
+    if (!log.users) log.users = [];
     migrateFromPhotos();
     renderFeed(); renderProjects(); renderProduction();
+    renderUserLinks();
   } catch (e) {
     showToast('数据读取失败：' + e.message);
   }
@@ -792,28 +799,69 @@ document.getElementById('setNameSave').onclick = () => {
   currentUser = name;
   document.getElementById('setUser').textContent = name;
   document.getElementById('setNameInput').value = '';
+  renderUserLinks();
   showToast('名字已保存');
 };
 if (currentUser === 'unknown') {
   setTimeout(() => { setModal.classList.add('show'); document.getElementById('setNameInput').focus(); }, 300);
 }
 
-// 用户链接
-const userLinksEl = document.getElementById('userLinks');
-function renderUserLinks() {
-  userLinksEl.innerHTML = USER_LINKS.map(u => `
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f1f5f9">
-      <span>${u.label}</span>
-      <button type="button" class="btn" style="padding:6px 12px;font-size:13px;background:#eff6ff;color:var(--primary)" onclick="copyUserLink('${u.name}')">复制链接</button>
-    </div>`).join('');
-}
+// 用户链接（管理员可见 + 可创建新用户）
+const ADMIN_NAMES = ['Frank', '管理员'];
+function isAdmin() { return ADMIN_NAMES.includes(currentUser); }
+function userLink(name) { return location.origin + '/field_album.html?user=' + encodeURIComponent(name); }
 function copyUserLink(name) {
-  const url = location.origin + '/field_album.html?user=' + encodeURIComponent(name);
+  const url = userLink(name);
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(url).then(() => showToast('链接已复制'));
   } else {
     prompt('复制链接：', url);
   }
+}
+function renderUserLinks() {
+  // 每个人都能看到自己的链接
+  document.getElementById('myLink').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f1f5f9">
+      <span>我的链接</span>
+      <button type="button" class="btn" style="padding:6px 12px;font-size:13px;background:#eff6ff;color:var(--primary)" onclick="copyUserLink('${currentUser}')">复制</button>
+    </div>`;
+  // 管理员才看到全部用户 + 创建入口
+  const adminEl = document.getElementById('adminSection');
+  if (!isAdmin()) { adminEl.style.display = 'none'; return; }
+  adminEl.style.display = 'block';
+  const custom = (log.users || []);
+  document.getElementById('userLinks').innerHTML =
+    USER_LINKS.map(u => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f1f5f9">
+        <span>${u.label}</span>
+        <button type="button" class="btn" style="padding:6px 12px;font-size:13px;background:#eff6ff;color:var(--primary)" onclick="copyUserLink('${u.name}')">复制链接</button>
+      </div>`).join('') +
+    custom.map(u => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f1f5f9">
+        <span>${u.name}</span>
+        <div style="display:flex;gap:6px">
+          <button type="button" class="btn" style="padding:6px 12px;font-size:13px;background:#eff6ff;color:var(--primary)" onclick="copyUserLink('${u.name}')">复制链接</button>
+          <button type="button" class="btn" style="padding:6px 12px;font-size:13px;background:#fee2e2;color:var(--danger)" onclick="delUser('${u.name}')">删除</button>
+        </div>
+      </div>`).join('');
+}
+document.getElementById('newUserSave').onclick = async () => {
+  const name = document.getElementById('newUserInput').value.trim();
+  if (!name) { showToast('请输入名字'); return; }
+  if (!log.users) log.users = [];
+  if (log.users.some(u => u.name === name) || USER_LINKS.some(u => u.name === name)) { showToast('已存在'); return; }
+  log.users.push({ name });
+  if (await saveLog('add user')) {
+    document.getElementById('newUserInput').value = '';
+    renderUserLinks();
+    copyUserLink(name);
+    showToast('已创建：' + name);
+  }
+};
+async function delUser(name) {
+  if (!confirm('删除用户 ' + name + '？')) return;
+  log.users = (log.users || []).filter(u => u.name !== name);
+  if (await saveLog('del user')) renderUserLinks();
 }
 renderUserLinks();
 
