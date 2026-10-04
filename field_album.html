@@ -737,7 +737,7 @@ function renderUploadGrid() {
 }
 
 function createVideoThumb(file) {
-  return new Promise(resolve => {
+  return new Promise(async resolve => {
     const video = document.createElement('video');
     const url = URL.createObjectURL(file);
     video.src = url;
@@ -749,22 +749,32 @@ function createVideoThumb(file) {
     let done = false;
     const cleanup = () => { URL.revokeObjectURL(url); if (video.parentNode) video.parentNode.removeChild(video); };
     const finish = (blob) => { if (done) return; done = true; cleanup(); resolve(blob); };
-    video.onloadeddata = () => { try { video.currentTime = Math.min(1, video.duration / 2 || 0); video.play().catch(() => {}); } catch (e) { finish(null); } };
-    video.onseeked = () => {
-      if (done) return;
-      try { video.pause();
-        const canvas = document.createElement('canvas');
+    const draw = () => {
+      try {
         const w = video.videoWidth || 320; const h = video.videoHeight || 180;
         const scale = Math.min(320 / w, 180 / h, 1);
-        canvas.width = w * scale; canvas.height = h * scale;
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(w * scale)); canvas.height = Math.max(1, Math.round(h * scale));
         const ctx = canvas.getContext('2d');
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         canvas.toBlob(b => finish(b), 'image/jpeg', 0.8);
       } catch (e) { finish(null); }
     };
     video.onerror = () => finish(null);
-    setTimeout(() => finish(null), 8000);
-    video.load();
+    try {
+      await video.play();
+    } catch (e) { finish(null); return; }
+    const target = video.duration ? Math.min(video.duration * 0.2, 0.5) : 0.3;
+    const onTime = () => {
+      if (done) return;
+      if (video.currentTime >= target) {
+        video.pause();
+        video.removeEventListener('timeupdate', onTime);
+        draw();
+      }
+    };
+    video.addEventListener('timeupdate', onTime);
+    setTimeout(() => { if (!done) { video.pause(); draw(); } }, 3000);
   });
 }
 
