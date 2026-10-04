@@ -18,20 +18,6 @@
       "comments": []
     },
     {
-      "id": "f_muu55t6m_6b55",
-      "note": "",
-      "uploader": "管理员",
-      "createdAt": "2026-10-04T18:15:34.654Z",
-      "media": [
-        {
-          "type": "video",
-          "r2Key": "media/1791137733663_dr0i1t.mp4"
-        }
-      ],
-      "likes": [],
-      "comments": []
-    },
-    {
       "id": "f_muu4rbvx_cvo8",
       "note": "矿区一览",
       "uploader": "管理员",
@@ -353,5 +339,5 @@
       "comments": []
     }
   ],
-  "updatedAt": "2026-10-04T19:32:51.261Z"
+  "updatedAt": "2026-10-04T19:32:57.261Z"
 }
