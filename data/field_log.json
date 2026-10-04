@@ -4,6 +4,32 @@
   "production": [],
   "posts": [
     {
+      "id": "f_muu8clp6_o07c",
+      "note": "今日刚到矿区\n这个黑疙瘩，钽含量70%\n在水池的地方挖到",
+      "uploader": "管理员",
+      "createdAt": "2026-10-04T19:44:50.394Z",
+      "media": [
+        {
+          "type": "image",
+          "r2Key": "media/1791143088064_1n0sxp.jpg"
+        },
+        {
+          "type": "image",
+          "r2Key": "media/1791143088065_czzirx.jpg"
+        },
+        {
+          "type": "image",
+          "r2Key": "media/1791143088064_7d3ymd.jpg"
+        },
+        {
+          "type": "image",
+          "r2Key": "media/1791143088062_wczi1t.jpg"
+        }
+      ],
+      "likes": [],
+      "comments": []
+    },
+    {
       "id": "f_muu8anpa_1hl2",
       "note": "",
       "uploader": "管理员",
@@ -29,5 +55,5 @@
       "comments": []
     }
   ],
-  "updatedAt": "2026-10-04T19:43:19.678Z"
+  "updatedAt": "2026-10-04T19:44:50.394Z"
 }
