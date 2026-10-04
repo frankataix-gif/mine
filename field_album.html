@@ -287,7 +287,7 @@
       <input type="url" id="vUrl" placeholder="视频链接（可选，如 Telegram / YouTube / .mp4 链接）" style="border:none;background:transparent;padding:8px 2px;font-size:15px">
     </div>
     <button class="btn" id="uSubmit" style="width:100%;min-height:46px;font-size:16px;margin-top:10px">发 布</button>
-    <p class="hint">照片会自动压缩，最多 9 张。视频暂不支持本地上传，可贴外部链接。</p>
+    <p class="hint">照片最多 9 张。也可在 Telegram 把照片/视频发给 @frank_zambia_bot，会自动出现。</p>
   </div>
 </div>
 
@@ -395,14 +395,18 @@ function mediaGrid(media) {
       ? (m.url.includes('youtube') || m.url.includes('bilibili')
         ? `<a href="${m.url}" target="_blank" style="display:flex;align-items:center;justify-content:center;height:180px;background:#000;color:#fff;font-size:14px">▶ 打开视频</a>`
         : `<video controls src="${m.url}" preload="metadata"></video>`)
-      : `<img src="/photos/${m.filename}" loading="lazy" alt="">`).join('')}
+      : m.type === 'tgVideo'
+        ? `<video controls src="/tgvideo?fid=${m.fileId}" preload="metadata"></video>`
+        : m.type === 'tgPhoto'
+          ? `<img src="/tgphoto?fid=${m.fileId}" loading="lazy" alt="">`
+          : `<img src="/photos/${m.filename}" loading="lazy" alt="">`).join('')}
   </div>`;
 }
 
 function renderFeed() {
   const feed = document.getElementById('feed');
   const list = (log.posts || []).slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  if (!list.length) { feed.innerHTML = '<div class="empty">还没有动态，点右下角 + 发布第一条</div>'; return; }
+  if (!list.length) { feed.innerHTML = '<div class="empty">还没有动态。<br>点右下角 + 发图片/文字，或在 Telegram 发给 @frank_zambia_bot 发视频。</div>'; return; }
   feed.innerHTML = list.map(post => {
     const open = expanded['p_' + post.id] ? 'open' : '';
     const liked = (post.likes || []).includes(currentUser);

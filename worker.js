@@ -376,6 +376,76 @@ async function ocrSpace(img, env) {
   return json({ ok: true, elements, raw: text });
 }
 
+/* ================= Telegram Bot ================= */
+
+async function tgApi(token, path) {
+  const r = await fetch('https://api.telegram.org/bot' + token + path);
+  return await r.json();
+}
+
+async function addTelegramPost(env, text, media, uploader) {
+  const path = 'data/field_log.json';
+  const existing = await readFile(env, path);
+  const log = existing ? JSON.parse(existing.content) : { projects: [], tasks: [], production: [], posts: [], updatedAt: '' };
+  if (!log.projects) log.projects = [];
+  if (!log.tasks) log.tasks = [];
+  if (!log.production) log.production = [];
+  if (!log.posts) log.posts = [];
+  log.posts.unshift({
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    note: text || '',
+    uploader,
+    createdAt: new Date().toISOString(),
+    media,
+    likes: [],
+    comments: []
+  });
+  log.updatedAt = new Date().toISOString();
+  await writeFile(env, path, JSON.stringify(log, null, 2), 'telegram post', existing?.sha);
+}
+
+async function handleTelegram(request, env) {
+  if (!env.TG_BOT_TOKEN) return new Response('no token', { status: 500 });
+  const upd = await request.json().catch(() => ({}));
+  const msg = upd.message;
+  if (!msg) return new Response('ok');
+  const chatId = msg.chat.id;
+  const from = msg.from || {};
+  const uploader = (from.first_name || '') + (from.last_name ? ' ' + from.last_name : '') || from.username || 'Telegram';
+  const caption = msg.caption || '';
+  if (msg.video) {
+    await addTelegramPost(env, caption, [{ type: 'tgVideo', fileId: msg.video.file_id }], uploader);
+    await fetch('https://api.telegram.org/bot' + env.TG_BOT_TOKEN + '/sendMessage?chat_id=' + chatId + '&text=' + encodeURIComponent('视频已发布到动态'));
+    return new Response('ok');
+  }
+  if (msg.photo && msg.photo.length) {
+    const largest = msg.photo[msg.photo.length - 1];
+    await addTelegramPost(env, caption, [{ type: 'tgPhoto', fileId: largest.file_id }], uploader);
+    await fetch('https://api.telegram.org/bot' + env.TG_BOT_TOKEN + '/sendMessage?chat_id=' + chatId + '&text=' + encodeURIComponent('照片已发布到动态'));
+    return new Response('ok');
+  }
+  if (msg.text) {
+    await addTelegramPost(env, msg.text, [], uploader);
+    await fetch('https://api.telegram.org/bot' + env.TG_BOT_TOKEN + '/sendMessage?chat_id=' + chatId + '&text=' + encodeURIComponent('消息已发布到动态'));
+    return new Response('ok');
+  }
+  return new Response('ok');
+}
+
+async function proxyTelegramFile(request, env, kind) {
+  if (!env.TG_BOT_TOKEN) return new Response('no token', { status: 500 });
+  const url = new URL(request.url);
+  const fid = url.searchParams.get('fid');
+  if (!fid) return new Response('no fid', { status: 400 });
+  const info = await tgApi(env.TG_BOT_TOKEN, '/getFile?file_id=' + encodeURIComponent(fid));
+  if (!info.ok || !info.result?.file_path) return new Response('file not found', { status: 404 });
+  const fileUrl = 'https://api.telegram.org/file/bot' + env.TG_BOT_TOKEN + '/' + info.result.file_path;
+  const r = await fetch(fileUrl);
+  if (!r.ok) return new Response('telegram error', { status: 502 });
+  const type = kind === 'photo' ? 'image/jpeg' : 'video/mp4';
+  return new Response(r.body, { headers: { 'Content-Type': type, 'Cache-Control': 'public, max-age=3600' } });
+}
+
 /* ================= 主入口 ================= */
 
 export default {
@@ -419,8 +489,15 @@ export default {
           return serveRepoBinary(env, p.slice(1), 'image/jpeg');
         }
 
+        // Telegram 媒体代理
+        if (p === '/tgvideo') return proxyTelegramFile(request, env, 'video');
+        if (p === '/tgphoto') return proxyTelegramFile(request, env, 'photo');
+
         return new Response('OK', { headers: CORS });
       }
+
+      // ---- Telegram 机器人 Webhook ----
+      if (p === '/telegram' && request.method === 'POST') return handleTelegram(request, env);
 
       // ---- 取样工具 API（POST/DELETE）----
       if (p === '/sample' || p === '/ocr' || p.startsWith('/sample/')) {
