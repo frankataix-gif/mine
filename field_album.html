@@ -400,17 +400,19 @@ function mediaGrid(media) {
   const count = media.length;
   const cls = count === 1 ? 'one' : count === 2 ? 'two' : count === 4 ? 'four' : 'multi';
   return `<div class="post-media ${cls}">
-    ${media.map(m => m.type === 'video'
-      ? (m.r2Key
-        ? `<video controls src="/media?key=${m.r2Key}" preload="metadata"></video>`
-        : (m.url && (m.url.includes('youtube') || m.url.includes('bilibili'))
-          ? `<a href="${m.url}" target="_blank" style="display:flex;align-items:center;justify-content:center;height:180px;background:#000;color:#fff;font-size:14px">▶ 打开视频</a>`
-          : `<video controls src="${m.url || ''}" preload="metadata"></video>`))
-      : m.type === 'tgVideo'
-        ? `<video controls src="/tgvideo?fid=${m.fileId}" preload="metadata"></video>`
-        : m.type === 'tgPhoto'
-          ? `<img src="/tgphoto?fid=${m.fileId}" loading="lazy" alt="">`
-          : `<img src="/photos/${m.filename}" loading="lazy" alt="">`).join('')}
+    ${media.map(m => {
+    if (m.r2Key) {
+      if (m.type === 'video') return `<video controls src="/media?key=${m.r2Key}" preload="metadata"></video>`;
+      return `<img src="/media?key=${m.r2Key}" loading="lazy" alt="">`;
+    }
+    if (m.type === 'video') {
+      if (m.url && (m.url.includes('youtube') || m.url.includes('bilibili'))) return `<a href="${m.url}" target="_blank" style="display:flex;align-items:center;justify-content:center;height:180px;background:#000;color:#fff;font-size:14px">▶ 打开视频</a>`;
+      return `<video controls src="${m.url || ''}" preload="metadata"></video>`;
+    }
+    if (m.type === 'tgVideo') return `<video controls src="/tgvideo?fid=${m.fileId}" preload="metadata"></video>`;
+    if (m.type === 'tgPhoto') return `<img src="/tgphoto?fid=${m.fileId}" loading="lazy" alt="">`;
+    return `<img src="/photos/${m.filename}" loading="lazy" alt="">`;
+  }).join('')}
   </div>`;
 }
 
@@ -793,26 +795,20 @@ function hideProgress() {
   document.getElementById('uploadProgress').classList.add('hidden');
 }
 
-function requestWithProgress(url, send, onProgress, withCreds) {
+function requestWithProgress(url, send, onProgress, withCreds, contentType) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable && e.total > 0) onProgress(e.loaded, e.total);
     };
     xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        try {
-          const r = JSON.parse(xhr.responseText);
-          if (r.error || r.message) reject(new Error(r.error || r.message));
-          else resolve(r);
-        } catch (ex) { reject(new Error('返回解析失败')); }
-      } else {
-        reject(new Error('上传失败 ' + xhr.status));
-      }
+      if (xhr.status >= 200 && xhr.status < 300) resolve();
+      else reject(new Error('上传失败 ' + xhr.status + (xhr.responseText ? ': ' + xhr.responseText.slice(0, 100) : '')));
     };
     xhr.onerror = () => reject(new Error('网络错误'));
     xhr.ontimeout = () => reject(new Error('上传超时'));
-    xhr.open('POST', url, true);
+    xhr.open('PUT', url, true);
+    if (contentType) xhr.setRequestHeader('Content-Type', contentType);
     if (withCreds) xhr.withCredentials = true;
     xhr.send(send);
   });
@@ -822,20 +818,22 @@ async function uploadOne(item, onProgress) {
   let retries = 2;
   while (retries >= 0) {
     try {
-      onProgress(0, item.file ? item.file.size : 1);
+      let blob, contentType, type;
       if (item.isVideo) {
-        const form = new FormData();
-        form.append('file', item.file, item.file.name);
-        const r = await requestWithProgress('/upload', form, onProgress, true);
-        return { type: 'video', r2Key: r.key };
+        blob = item.file;
+        contentType = 'video/mp4';
+        type = 'video';
       } else {
-        const resized = await resizeImage(item.dataUrl);
-        const b64 = await dataUrlToB64(resized);
-        const filename = 'field_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6) + '.jpg';
-        const body = JSON.stringify({ action: 'up_photo', name: filename, b64 });
-        await requestWithProgress('/', body, onProgress, true);
-        return { type: 'image', filename };
+        const resized = await resizeImage(item.dataUrl || item.url);
+        blob = await (await fetch(resized)).blob();
+        contentType = 'image/jpeg';
+        type = 'image';
       }
+      onProgress(0, blob.size);
+      const presign = await api('presign', { type, ext: type === 'image' ? 'jpg' : 'mp4', contentType });
+      if (!presign || !presign.url) throw new Error('presign 失败');
+      await requestWithProgress(presign.url, blob, onProgress, false, contentType);
+      return { type, r2Key: presign.key };
     } catch (e) {
       onProgress(0, item.file ? item.file.size : 1);
       if (retries > 0) { retries--; continue; }

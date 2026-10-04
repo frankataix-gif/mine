@@ -475,6 +475,59 @@ async function serveMedia(request, env) {
   return new Response(obj.body, { headers: { 'Content-Type': obj.httpMetadata.contentType || 'application/octet-stream', 'Cache-Control': 'public, max-age=3600' } });
 }
 
+/* ================= R2 直传签名 ================= */
+
+const R2_ACCOUNT = 'dff446b2b98a38ac2b82263e3ff14da9';
+const R2_BUCKET = 'ecobox-media';
+const R2_REGION = 'auto';
+const R2_SERVICE = 's3';
+const R2_HOST = `${R2_ACCOUNT}.r2.cloudflarestorage.com`;
+const R2_EXPIRES = '900';
+
+function hexBytes(b) { return Array.from(new Uint8Array(b)).map(x => x.toString(16).padStart(2, '0')).join(''); }
+async function sha256Text(message) {
+  const enc = new TextEncoder();
+  return crypto.subtle.digest('SHA-256', enc.encode(message));
+}
+async function hmacSha256(key, message) {
+  const k = typeof key === 'string' ? new TextEncoder().encode(key) : key;
+  const c = await crypto.subtle.importKey('raw', k, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  return crypto.subtle.sign('HMAC', c, new TextEncoder().encode(message));
+}
+async function getSignatureKey(secret, date, region, service) {
+  const k1 = await hmacSha256('AWS4' + secret, date);
+  const k2 = await hmacSha256(k1, region);
+  const k3 = await hmacSha256(k2, service);
+  return hmacSha256(k3, 'aws4_request');
+}
+async function r2Presign(env, method, key, contentType) {
+  const access = env.R2_ACCESS_KEY_ID;
+  const secret = env.R2_SECRET_ACCESS_KEY;
+  if (!access || !secret) throw new Error('no r2 keys');
+  const now = new Date();
+  const pad = n => n.toString().padStart(2, '0');
+  const date = `${now.getUTCFullYear()}${pad(now.getUTCMonth() + 1)}${pad(now.getUTCDate())}`;
+  const ts = `${date}T${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}${pad(now.getUTCSeconds())}Z`;
+  const credential = encodeURIComponent(`${access}/${date}/${R2_REGION}/${R2_SERVICE}/aws4_request`);
+  const signedHeaders = 'content-type;host';
+  const params = [
+    ['X-Amz-Algorithm', 'AWS4-HMAC-SHA256'],
+    ['X-Amz-Content-Sha256', 'UNSIGNED-PAYLOAD'],
+    ['X-Amz-Credential', credential],
+    ['X-Amz-Date', ts],
+    ['X-Amz-Expires', R2_EXPIRES],
+    ['X-Amz-SignedHeaders', encodeURIComponent(signedHeaders)]
+  ];
+  const query = params.map(([k, v]) => `${encodeURIComponent(k)}=${v}`).join('&');
+  const headers = `content-type:${contentType}\nhost:${R2_HOST}\n`;
+  const canonical = `${method}\n/${R2_BUCKET}/${key}\n${query}\n${headers}\n${signedHeaders}\nUNSIGNED-PAYLOAD`;
+  const canonicalHash = hexBytes(await sha256Text(canonical));
+  const skey = await getSignatureKey(secret, date, R2_REGION, R2_SERVICE);
+  const str = `AWS4-HMAC-SHA256\n${ts}\n${date}/${R2_REGION}/${R2_SERVICE}/aws4_request\n${canonicalHash}`;
+  const sig = hexBytes(await hmacSha256(skey, str));
+  return `https://${R2_HOST}/${R2_BUCKET}/${key}?${query}&X-Amz-Signature=${sig}`;
+}
+
 /* ================= 主入口 ================= */
 
 export default {
@@ -590,6 +643,18 @@ export default {
         });
         if (!res.ok) { const d = await res.json(); return json({ error: d.message || 'GitHub ' + res.status }); }
         return json({ ok: true, path: 'photos/' + name });
+      }
+
+      // 直传 R2 预签名 URL
+      if (body.action === 'presign') {
+        const type = body.type === 'image' ? 'image' : 'video';
+        const ext = type === 'image' ? 'jpg' : 'mp4';
+        const contentType = type === 'image' ? 'image/jpeg' : 'video/mp4';
+        const now = Date.now();
+        const rand = Math.random().toString(36).slice(2, 8);
+        const key = `media/${now}_${rand}.${ext}`;
+        const url = await r2Presign(env, 'PUT', key, contentType);
+        return json({ ok: true, key, url });
       }
 
       // 数据读写（只允许 data/ 目录）
