@@ -100,8 +100,15 @@
     background: var(--card);
     border-radius: 12px; padding: 14px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    position: relative;
   }
-  .post-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+  .post-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; position: relative; }
+  .post-more { background: none; border: none; color: var(--muted); font-size: 18px; padding: 0 6px; cursor: pointer; min-height: 24px; }
+  .post-menu { position: absolute; right: 0; top: 36px; background: #fff; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,.15); z-index: 20; min-width: 120px; display: none; }
+  .post-menu.open { display: block; }
+  .post-menu button { display: block; width: 100%; text-align: left; padding: 10px 14px; background: none; border: none; font-size: 14px; color: var(--text); cursor: pointer; }
+  .post-menu button:hover { background: #f1f5f9; }
+  .post-menu button.danger { color: var(--danger); }
   .post-user { font-weight: 600; color: var(--primary); }
   .post-time { font-size: 12px; color: var(--muted); }
   .post-note { margin-bottom: 10px; font-size: 15px; line-height: 1.5; }
@@ -400,17 +407,13 @@ function renderFeed() {
     const comments = post.comments || [];
     return `
       <div class="post" data-pid="${post.id}">
-        <div class="post-head">
-          <span class="post-user">${post.uploader}</span>
-          <span class="post-time">${fmtDate(post.createdAt)}</span>
-        </div>
+        ${post.uploader === currentUser ? `<div class="post-head"><div><span class="post-user">${post.uploader}</span><div class="post-time">${fmtDate(post.createdAt)}</div></div><button class="post-more" onclick="togglePostMenu('${post.id}', event)">⋯</button><div class="post-menu ${expanded['m_' + post.id] ? 'open' : ''}" id="pm-${post.id}"><button class="danger" onclick="deletePost('${post.id}', event)">删除</button></div></div>` : `<div class="post-head"><div><span class="post-user">${post.uploader}</span><div class="post-time">${fmtDate(post.createdAt)}</div></div></div>`}
         ${post.note ? `<div class="post-note">${post.note.replace(/\n/g, '<br>')}</div>` : ''}
         ${mediaGrid(post.media || [])}
         ${likes.length ? `<div class="post-likes">${likes.join('、')} 点了赞</div>` : ''}
         <div class="post-actions">
           <button class="${liked ? 'liked' : ''}" onclick="likePost('${post.id}', event)">❤ ${likes.length || '赞'}</button>
           <button onclick="togglePostComments('${post.id}', event)">💬 ${comments.length || '评论'}</button>
-          ${post.uploader === currentUser ? `<button onclick="deletePost('${post.id}', event)" style="color:var(--danger)">🗑 删除</button>` : ''}
         </div>
         <div class="post-comments ${open}" id="pc-${post.id}">
           ${comments.length ? comments.map(c => `<div class="pc"><b>${c.user}</b>：${c.text} <span style="color:#999;font-size:11px">${fmtDate(c.time)}</span></div>`).join('') : '<div class="pc" style="color:#999">暂无评论</div>'}
@@ -453,11 +456,20 @@ async function submitPostComment(pid) {
   if (await saveLog('add post comment')) { expanded['p_' + pid] = true; renderFeed(); }
 }
 
+function togglePostMenu(pid, e) {
+  if (e) e.stopPropagation();
+  const key = 'm_' + pid;
+  for (const k of Object.keys(expanded)) { if (k.startsWith('m_') && k !== key) delete expanded[k]; }
+  expanded[key] = !expanded[key];
+  renderFeed();
+}
+
 async function deletePost(pid, e) {
   if (e) e.stopPropagation();
   if (!confirm('确定删除这条动态？')) return;
   const idx = (log.posts || []).findIndex(x => x.id === pid);
   if (idx < 0) return;
+  expanded['m_' + pid] = false;
   log.posts.splice(idx, 1);
   if (await saveLog('delete post')) renderFeed();
 }
