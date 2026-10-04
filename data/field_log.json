@@ -4,6 +4,21 @@
   "production": [],
   "posts": [
     {
+      "id": "f_muu78odm_jiu9",
+      "note": "",
+      "uploader": "管理员",
+      "createdAt": "2026-10-04T19:13:47.626Z",
+      "media": [
+        {
+          "type": "video",
+          "r2Key": "media/1791141224653_v15p4b.mp4",
+          "thumbKey": "media/1791141223690_qxvh9l.jpg"
+        }
+      ],
+      "likes": [],
+      "comments": []
+    },
+    {
       "id": "f_muu73fvh_72pb",
       "note": "",
       "uploader": "管理员",
@@ -384,5 +399,5 @@
       "comments": []
     }
   ],
-  "updatedAt": "2026-10-04T19:09:43.326Z"
+  "updatedAt": "2026-10-04T19:13:47.627Z"
 }
