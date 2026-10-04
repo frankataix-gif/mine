@@ -321,6 +321,7 @@ const DATA_FILE = 'data/field_log.json';
 let log = { projects: [], tasks: [], production: [], posts: [], updatedAt: '' };
 let currentUser = 'unknown';
 let uploadQueue = [];
+let editingPostId = null;
 let expanded = {};
 
 function getCookie(name) {
@@ -498,16 +499,29 @@ function togglePostMenu(pid, e) {
   expanded[key] = m.classList.contains('open');
 }
 
-async function editPost(pid, e) {
+function editPost(pid, e) {
   if (e) { e.stopPropagation(); e.preventDefault(); }
   const post = (log.posts || []).find(x => x.id === pid);
   if (!post) return;
-  const note = prompt('编辑内容：', post.note || '');
-  if (note === null) return;
-  post.note = note.trim();
-  post.updatedAt = new Date().toISOString();
+  editingPostId = pid;
   expanded['m_' + pid] = false;
-  if (await saveLog('edit post')) renderFeed();
+  document.getElementById('uNote').value = post.note || '';
+  document.getElementById('vUrl').value = '';
+  uploadQueue = [];
+  (post.media || []).forEach(m => {
+    if (m.r2Key) {
+      if (m.type === 'video') uploadQueue.push({ isVideo: true, url: '/media?key=' + m.r2Key, thumbDataUrl: m.thumbKey ? '/media?key=' + m.thumbKey : '', existing: m });
+      else uploadQueue.push({ isVideo: false, dataUrl: '/media?key=' + m.r2Key, existing: m });
+    } else if (m.filename) {
+      uploadQueue.push({ isVideo: false, dataUrl: '/photos/' + m.filename, existing: m });
+    } else if (m.fileId) {
+      uploadQueue.push({ isVideo: m.type === 'tgVideo', url: '/tgvideo?fid=' + m.fileId, dataUrl: '/tgphoto?fid=' + m.fileId, existing: m });
+    } else if (m.url) {
+      document.getElementById('vUrl').value = m.url;
+    }
+  });
+  renderUploadGrid();
+  document.getElementById('publishModal').classList.add('show');
 }
 
 async function deletePost(pid, e) {
@@ -720,8 +734,16 @@ document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
 
 // 发布弹窗
 const modal = document.getElementById('publishModal');
-document.getElementById('openPublish').onclick = e => { if (e) e.preventDefault(); modal.classList.add('show'); };
-document.getElementById('closePublish').onclick = e => { if (e) e.preventDefault(); modal.classList.remove('show'); };
+document.getElementById('openPublish').onclick = e => {
+  if (e) e.preventDefault();
+  editingPostId = null;
+  document.getElementById('uNote').value = '';
+  document.getElementById('vUrl').value = '';
+  uploadQueue = [];
+  renderUploadGrid();
+  modal.classList.add('show');
+};
+document.getElementById('closePublish').onclick = e => { if (e) e.preventDefault(); editingPostId = null; uploadQueue = []; renderUploadGrid(); modal.classList.remove('show'); };
 modal.onclick = e => { if (e.target === modal) modal.classList.remove('show'); };
 
 // 设置弹窗
@@ -753,8 +775,8 @@ function renderUploadGrid() {
     const div = document.createElement('div');
     div.className = 'upload-slot';
     const media = item.isVideo
-      ? `<video class="upload-img" src="${item.url}" muted preload="metadata"></video>`
-      : `<img class="upload-img" src="${item.dataUrl}">`;
+      ? (item.thumbDataUrl ? `<img class="upload-img" src="${item.thumbDataUrl}">` : `<video class="upload-img" src="${item.url}" muted preload="metadata"></video>`)
+      : `<img class="upload-img" src="${item.dataUrl || item.thumbDataUrl}">`;
     div.innerHTML = `${media}<button type="button" class="upload-del" data-idx="${idx}">×</button>`;
     uPreviewGrid.appendChild(div);
   });
@@ -821,7 +843,7 @@ uFile.onchange = async () => {
   for (const f of take) {
     if (f.type.startsWith('video')) {
       const thumb = await createVideoThumb(f);
-      uploadQueue.push({ file: f, url: URL.createObjectURL(f), isVideo: true, thumbBlob: thumb });
+      uploadQueue.push({ file: f, url: URL.createObjectURL(f), isVideo: true, thumbBlob: thumb, thumbDataUrl: thumb ? URL.createObjectURL(thumb) : '' });
       renderUploadGrid();
     } else {
       const reader = new FileReader();
@@ -895,6 +917,7 @@ function requestWithProgress(url, send, onProgress, withCreds, contentType) {
 }
 
 async function uploadOne(item, onProgress) {
+  if (item.existing) return item.existing;
   let retries = 2;
   while (retries >= 0) {
     try {
@@ -930,7 +953,7 @@ async function uploadOne(item, onProgress) {
   throw new Error('上传失败');
 }
 
-async function backgroundUpload(queue, note, vUrl) {
+async function backgroundUpload(queue, note, vUrl, editingPostId) {
   const media = [];
   if (vUrl) media.push({ type: 'video', url: vUrl });
   const loaded = new Array(queue.length).fill(0);
@@ -959,19 +982,24 @@ async function backgroundUpload(queue, note, vUrl) {
       return r;
     })()));
     media.push(...parts);
-    const post = {
-      id: id(),
-      note,
-      uploader: currentUser,
-      createdAt: new Date().toISOString(),
-      media,
-      likes: [],
-      comments: []
-    };
-    log.posts.unshift(post);
-    await saveLog('add post');
+    if (editingPostId) {
+      const idx = (log.posts || []).findIndex(x => x.id === editingPostId);
+      if (idx >= 0) {
+        log.posts[idx].note = note;
+        log.posts[idx].media = media;
+        log.posts[idx].updatedAt = new Date().toISOString();
+      } else {
+        log.posts.unshift({ id: editingPostId, note, uploader: currentUser, createdAt: new Date().toISOString(), media, likes: [], comments: [] });
+      }
+      await saveLog('edit post');
+      showToast('已更新');
+    } else {
+      const post = { id: id(), note, uploader: currentUser, createdAt: new Date().toISOString(), media, likes: [], comments: [] };
+      log.posts.unshift(post);
+      await saveLog('add post');
+      showToast('发布成功');
+    }
     hideProgress();
-    showToast('发布成功');
   } catch (e) {
     const t = document.getElementById('upText');
     if (t) { t.textContent = '上传失败：' + e.message; t.style.color = 'var(--danger)'; }
@@ -994,7 +1022,9 @@ document.getElementById('uSubmit').onclick = () => {
   document.getElementById('vUrl').value = '';
   renderUploadGrid();
   modal.classList.remove('show');
-  backgroundUpload(queue, note, vUrl);
+  const eid = editingPostId;
+  editingPostId = null;
+  backgroundUpload(queue, note, vUrl, eid);
 };
 
 function goHome() { window.location.href = 'index.html'; }
