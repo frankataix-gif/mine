@@ -110,6 +110,18 @@
   .post-media.two { grid-template-columns: 1fr 1fr; }
   .post-media.multi { grid-template-columns: 1fr 1fr 1fr; }
   .post-media img { width: 100%; height: 180px; object-fit: cover; display: block; background: #111; }
+  .post-media video { width: 100%; height: 180px; object-fit: contain; display: block; background: #000; }
+  .post-actions { display: flex; border-top: 1px solid var(--border); margin-top: 10px; padding-top: 8px; }
+  .post-actions button { flex: 1; background: transparent; border: none; color: var(--muted); font-size: 13px; min-height: 32px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; }
+  .post-actions button.liked { color: var(--danger); font-weight: 600; }
+  .post-likes { font-size: 13px; color: var(--text); margin-top: 8px; padding: 0 2px; }
+  .post-comments { background: #f8fafc; border-radius: 8px; padding: 10px; margin-top: 10px; display: none; }
+  .post-comments.open { display: block; }
+  .pc { font-size: 13px; padding: 6px 0; border-bottom: 1px solid #e2e8f0; }
+  .pc:last-child { border-bottom: none; }
+  .pc b { color: var(--primary); }
+  .pc-input { display: flex; gap: 8px; margin-top: 8px; }
+  .pc-input input { flex: 1; border: 1px solid var(--border); border-radius: 20px; padding: 6px 12px; font-size: 13px; }
   .project { background: var(--card); border-radius: 12px; padding: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
   .project-head { display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
   .project-title { font-weight: 600; font-size: 1.05rem; }
@@ -261,8 +273,11 @@
       <div class="upload-slot upload-add" id="uAddBtn" onclick="document.getElementById('uFile').click()">+</div>
     </div>
     <input type="file" id="uFile" accept="image/*" multiple style="display:none">
+    <div class="field" style="margin-top:10px">
+      <input type="url" id="vUrl" placeholder="视频链接（可选，如 Telegram / YouTube / .mp4 链接）" style="border:none;background:transparent;padding:8px 2px;font-size:15px">
+    </div>
     <button class="btn" id="uSubmit" style="width:100%;min-height:46px;font-size:16px;margin-top:10px">发 布</button>
-    <p class="hint">照片会自动压缩，最多 9 张。</p>
+    <p class="hint">照片会自动压缩，最多 9 张。视频暂不支持本地上传，可贴外部链接。</p>
   </div>
 </div>
 
@@ -280,7 +295,7 @@
 
 <script>
 const DATA_FILE = 'data/field_log.json';
-let log = { projects: [], tasks: [], production: [], photos: [], updatedAt: '' };
+let log = { projects: [], tasks: [], production: [], posts: [], updatedAt: '' };
 let currentUser = 'unknown';
 let uploadQueue = [];
 let expanded = {};
@@ -316,11 +331,32 @@ function showToast(msg) {
   setTimeout(() => t.classList.add('hidden'), 2500);
 }
 
+function migrateFromPhotos() {
+  if (log.posts && log.posts.length) return;
+  log.posts = [];
+  const groups = {};
+  const photos = log.photos || [];
+  for (const p of photos) {
+    const key = (p.note || '') + '|' + p.createdAt + '|' + p.uploader;
+    if (!groups[key]) {
+      groups[key] = { note: p.note || '', uploader: p.uploader, createdAt: p.createdAt, media: [], id: id() };
+      log.posts.push(groups[key]);
+    }
+    groups[key].media.push({ type: 'image', filename: p.filename });
+  }
+  log.photos = [];
+}
+
 async function loadLog() {
   try {
     const r = await api('read', { path: DATA_FILE });
     if (r.content) log = JSON.parse(r.content);
-    else log = { projects: [], tasks: [], production: [], photos: [], updatedAt: new Date().toISOString() };
+    else log = { projects: [], tasks: [], production: [], posts: [], updatedAt: new Date().toISOString() };
+    if (!log.posts) log.posts = [];
+    if (!log.projects) log.projects = [];
+    if (!log.tasks) log.tasks = [];
+    if (!log.production) log.production = [];
+    migrateFromPhotos();
     renderFeed(); renderProjects(); renderProduction();
   } catch (e) {
     showToast('数据读取失败：' + e.message);
@@ -341,32 +377,87 @@ async function saveLog(message) {
 function id() { return 'f_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6); }
 function fmtDate(s) { return s ? new Date(s).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''; }
 
+function mediaGrid(media) {
+  const count = media.length;
+  const cls = count === 1 ? 'one' : count === 2 ? 'two' : 'multi';
+  return `<div class="post-media ${cls}">
+    ${media.map(m => m.type === 'video'
+      ? (m.url.includes('youtube') || m.url.includes('bilibili')
+        ? `<a href="${m.url}" target="_blank" style="display:flex;align-items:center;justify-content:center;height:180px;background:#000;color:#fff;font-size:14px">▶ 打开视频</a>`
+        : `<video controls src="${m.url}" preload="metadata"></video>`)
+      : `<img src="/photos/${m.filename}" loading="lazy" alt="">`).join('')}
+  </div>`;
+}
+
 function renderFeed() {
   const feed = document.getElementById('feed');
-  const posts = {};
-  const sorted = log.photos.slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  for (const p of sorted) {
-    const key = (p.note || '') + '|' + p.createdAt + '|' + p.uploader;
-    if (!posts[key]) posts[key] = { ...p, photos: [] };
-    posts[key].photos.push(p);
-  }
-  const list = Object.values(posts);
+  const list = (log.posts || []).slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   if (!list.length) { feed.innerHTML = '<div class="empty">还没有动态，点右下角 + 发布第一条</div>'; return; }
   feed.innerHTML = list.map(post => {
-    const cls = post.photos.length === 1 ? 'one' : post.photos.length === 2 ? 'two' : 'multi';
+    const open = expanded['p_' + post.id] ? 'open' : '';
+    const liked = (post.likes || []).includes(currentUser);
+    const likes = post.likes || [];
+    const comments = post.comments || [];
     return `
-      <div class="post">
+      <div class="post" data-pid="${post.id}">
         <div class="post-head">
           <span class="post-user">${post.uploader}</span>
           <span class="post-time">${fmtDate(post.createdAt)}</span>
         </div>
         ${post.note ? `<div class="post-note">${post.note.replace(/\n/g, '<br>')}</div>` : ''}
-        <div class="post-media ${cls}">
-          ${post.photos.map(p => `<img src="/photos/${p.filename}" loading="lazy" alt="">`).join('')}
+        ${mediaGrid(post.media || [])}
+        ${likes.length ? `<div class="post-likes">${likes.join('、')} 点了赞</div>` : ''}
+        <div class="post-actions">
+          <button class="${liked ? 'liked' : ''}" onclick="likePost('${post.id}', event)">❤ ${likes.length || '赞'}</button>
+          <button onclick="togglePostComments('${post.id}', event)">💬 ${comments.length || '评论'}</button>
+          <button onclick="sharePost('${post.id}', event)">➤ 分享</button>
+        </div>
+        <div class="post-comments ${open}" id="pc-${post.id}">
+          ${comments.length ? comments.map(c => `<div class="pc"><b>${c.user}</b>：${c.text} <span style="color:#999;font-size:11px">${fmtDate(c.time)}</span></div>`).join('') : '<div class="pc" style="color:#999">暂无评论</div>'}
+          <div class="pc-input">
+            <input type="text" id="pcc-${post.id}" placeholder="写评论…" onkeydown="if(event.key==='Enter')submitPostComment('${post.id}')">
+            <button class="btn" onclick="submitPostComment('${post.id}')">发送</button>
+          </div>
         </div>
       </div>
     `;
   }).join('');
+}
+
+async function likePost(pid, e) {
+  if (e) e.stopPropagation();
+  const p = (log.posts || []).find(x => x.id === pid);
+  if (!p) return;
+  if (!p.likes) p.likes = [];
+  const idx = p.likes.indexOf(currentUser);
+  if (idx >= 0) p.likes.splice(idx, 1);
+  else p.likes.push(currentUser);
+  if (await saveLog('like post')) renderFeed();
+}
+
+function togglePostComments(pid, e) {
+  if (e) e.stopPropagation();
+  expanded['p_' + pid] = !expanded['p_' + pid];
+  renderFeed();
+  if (expanded['p_' + pid]) setTimeout(() => { const el = document.getElementById('pcc-' + pid); if (el) el.focus(); }, 50);
+}
+
+async function submitPostComment(pid) {
+  const input = document.getElementById('pcc-' + pid);
+  const text = input.value.trim();
+  if (!text) return;
+  const p = (log.posts || []).find(x => x.id === pid);
+  if (!p) return;
+  if (!p.comments) p.comments = [];
+  p.comments.push({ user: currentUser, text, time: new Date().toISOString() });
+  if (await saveLog('add post comment')) { expanded['p_' + pid] = true; renderFeed(); }
+}
+
+async function sharePost(pid, e) {
+  if (e) e.stopPropagation();
+  const url = location.origin + '/field_album.html?post=' + pid;
+  try { await navigator.clipboard.writeText(url); showToast('链接已复制'); }
+  catch { showToast('复制失败：' + url); }
 }
 
 // 时间
@@ -646,20 +737,33 @@ async function dataUrlToB64(dataUrl) {
 
 document.getElementById('uSubmit').onclick = async () => {
   const btn = document.getElementById('uSubmit');
-  if (!uploadQueue.length) { showToast('请先选择照片'); return; }
-  btn.disabled = true; btn.textContent = '发送中...';
   const note = document.getElementById('uNote').value;
+  const vUrl = document.getElementById('vUrl').value.trim();
+  if (!uploadQueue.length && !vUrl) { showToast('请先选择照片或填写视频链接'); return; }
+  btn.disabled = true; btn.textContent = '发送中...';
   try {
+    const media = [];
+    if (vUrl) media.push({ type: 'video', url: vUrl });
     for (const item of uploadQueue) {
       const resized = await resizeImage(item.dataUrl);
       const b64 = await dataUrlToB64(resized);
       const filename = 'field_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6) + '.jpg';
       const up = await api('up_photo', { name: filename, b64 });
       if (up.error) throw new Error(up.error);
-      log.photos.unshift({ id: id(), filename, category: 'daily', projectId: '', taskId: '', note, uploader: currentUser, createdAt: new Date().toISOString() });
+      media.push({ type: 'image', filename });
     }
-    await saveLog('upload photos');
-    uploadQueue = []; document.getElementById('uNote').value = ''; renderUploadGrid();
+    const post = {
+      id: id(),
+      note,
+      uploader: currentUser,
+      createdAt: new Date().toISOString(),
+      media,
+      likes: [],
+      comments: []
+    };
+    log.posts.unshift(post);
+    await saveLog('add post');
+    uploadQueue = []; document.getElementById('uNote').value = ''; document.getElementById('vUrl').value = ''; renderUploadGrid();
     modal.classList.remove('show'); showToast('发布成功');
   } catch (e) { showToast('发布失败：' + e.message); }
   finally { btn.disabled = false; btn.textContent = '发 布'; }
