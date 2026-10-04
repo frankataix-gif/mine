@@ -78,10 +78,10 @@
   }
   .tabs-inner { display: flex; padding: 6px 4px; }
   .tab {
-    flex: 1; min-width: 56px; padding: 6px 2px;
-    border: none; background: transparent; font-size: 0.72rem;
+    flex: 1; min-width: 56px; padding: 10px 2px;
+    border: none; background: transparent; font-size: 0.9rem;
     color: var(--gray); cursor: pointer; white-space: nowrap;
-    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    display: flex; align-items: center; justify-content: center;
   }
   .tab-icon { font-size: 1.1rem; }
   .tab.active { color: var(--primary); font-weight: 700; }
@@ -269,11 +269,11 @@
 
 <nav class="tabs">
   <div class="tabs-inner">
-    <button type="button" class="tab active" data-tab="media" title="动态"><span class="tab-icon">📸</span><span>动态</span></button>
-    <button type="button" class="tab" data-tab="schedule" title="项目"><span class="tab-icon">📅</span><span>项目</span></button>
-    <button type="button" class="tab" data-tab="mine" title="钽铌生产"><span class="tab-icon">⛏️</span><span>生产</span></button>
-    <button type="button" class="tab" data-tab="licenses" title="矿证"><span class="tab-icon">📋</span><span>矿证</span></button>
-    <button type="button" class="tab" data-tab="logistics" title="物流"><span class="tab-icon">🚛</span><span>物流</span></button>
+    <button type="button" class="tab active" data-tab="media" title="动态"><span>动态</span></button>
+    <button type="button" class="tab" data-tab="schedule" title="任务"><span>任务</span></button>
+    <button type="button" class="tab" data-tab="mine" title="钽铌生产"><span>生产</span></button>
+    <button type="button" class="tab" data-tab="licenses" title="矿证"><span>矿证</span></button>
+    <button type="button" class="tab" data-tab="logistics" title="物流"><span>物流</span></button>
   </div>
 </nav>
 
