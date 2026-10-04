@@ -88,32 +88,6 @@
       "comments": []
     },
     {
-      "id": "f_muu1yy6f_echx",
-      "note": "",
-      "uploader": "unknown",
-      "createdAt": "2026-10-04T16:46:15.687Z",
-      "media": [
-        {
-          "type": "image",
-          "filename": "field_1791132366579_y7pc.jpg"
-        },
-        {
-          "type": "image",
-          "filename": "field_1791132368907_nxbe.jpg"
-        },
-        {
-          "type": "image",
-          "filename": "field_1791132371057_itjd.jpg"
-        },
-        {
-          "type": "image",
-          "filename": "field_1791132373391_ycdi.jpg"
-        }
-      ],
-      "likes": [],
-      "comments": []
-    },
-    {
       "id": "f_muu1yg0l_1w5p",
       "note": "",
       "uploader": "unknown",
@@ -180,5 +154,5 @@
       "comments": []
     }
   ],
-  "updatedAt": "2026-10-04T19:34:53.900Z"
+  "updatedAt": "2026-10-04T19:35:03.619Z"
 }
