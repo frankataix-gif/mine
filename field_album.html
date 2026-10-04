@@ -310,6 +310,10 @@
   </div>
 </div>
 
+<div id="imgModal" class="modal-mask" style="background:rgba(0,0,0,.92);align-items:center;justify-content:center">
+  <img id="imgView" src="" style="max-width:100vw;max-height:100vh;object-fit:contain" alt="">
+</div>
+
 <div id="toast" class="toast hidden"></div>
 
 <script>
@@ -406,15 +410,15 @@ function mediaGrid(media) {
         const poster = m.thumbKey ? `poster="/media?key=${m.thumbKey}"` : '';
         return `<video controls ${poster} src="/media?key=${m.r2Key}" preload="metadata"></video>`;
       }
-      return `<img src="/media?key=${m.r2Key}" loading="lazy" alt="">`;
+      return `<img src="/media?key=${m.r2Key}" loading="lazy" alt="" onclick="openImg('/media?key=${m.r2Key}')" style="cursor:pointer">`;
     }
     if (m.type === 'video') {
       if (m.url && (m.url.includes('youtube') || m.url.includes('bilibili'))) return `<a href="${m.url}" target="_blank" style="display:flex;align-items:center;justify-content:center;height:180px;background:#000;color:#fff;font-size:14px">▶ 打开视频</a>`;
       return `<video controls src="${m.url || ''}" preload="metadata"></video>`;
     }
     if (m.type === 'tgVideo') return `<video controls src="/tgvideo?fid=${m.fileId}" preload="metadata"></video>`;
-    if (m.type === 'tgPhoto') return `<img src="/tgphoto?fid=${m.fileId}" loading="lazy" alt="">`;
-    return `<img src="/photos/${m.filename}" loading="lazy" alt="">`;
+    if (m.type === 'tgPhoto') return `<img src="/tgphoto?fid=${m.fileId}" loading="lazy" alt="" onclick="openImg('/tgphoto?fid=${m.fileId}')" style="cursor:pointer">`;
+    return `<img src="/photos/${m.filename}" loading="lazy" alt="" onclick="openImg('/photos/${m.filename}')" style="cursor:pointer">`;
   }).join('')}
   </div>`;
 }
@@ -725,6 +729,17 @@ const setModal = document.getElementById('settingsModal');
 document.getElementById('openSet').onclick = e => { if (e) e.preventDefault(); setModal.classList.add('show'); };
 document.getElementById('closeSet').onclick = e => { if (e) e.preventDefault(); setModal.classList.remove('show'); };
 setModal.onclick = e => { if (e.target === setModal) setModal.classList.remove('show'); };
+
+// 图片放大查看
+const imgModal = document.getElementById('imgModal');
+const imgView = document.getElementById('imgView');
+function openImg(src) {
+  imgView.src = src;
+  imgView.style.transform = 'scale(1)';
+  imgModal.classList.add('show');
+}
+imgModal.onclick = () => { imgModal.classList.remove('show'); imgView.src = ''; };
+imgView.ondblclick = e => { if (e) e.stopPropagation(); imgView.style.transform = imgView.style.transform === 'scale(2)' ? 'scale(1)' : 'scale(2)'; };
 
 // 上传
 const uFile = document.getElementById('uFile');
