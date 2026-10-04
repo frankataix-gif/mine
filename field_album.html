@@ -46,12 +46,6 @@
   }
   .header-left { display: flex; align-items: center; gap: 10px; }
   .header h1 { font-size: 1.05rem; font-weight: 700; }
-  .homebtn {
-    width: 32px; height: 32px; border-radius: 8px;
-    background: rgba(255,255,255,0.15); color: #fff;
-    border: none; font-size: 16px; cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-  }
   .header-clocks {
     font-size: 0.7rem; color: rgba(255,255,255,0.85); margin-top: 2px;
     display: flex; gap: 10px; white-space: nowrap;
@@ -205,7 +199,6 @@
 
 <header class="header">
   <div class="header-left">
-    <button type="button" class="homebtn" onclick="goHome()" title="返回门户">⌂</button>
     <div>
       <h1>Ecobox 非洲钽铌生产</h1>
       <div class="header-clocks">
@@ -1139,8 +1132,6 @@ document.getElementById('uSubmit').onclick = () => {
   editingPostId = null;
   backgroundUpload(queue, note, vUrl, eid);
 };
-
-function goHome() { window.location.href = 'index.html'; }
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js?v=5').catch(() => {});
