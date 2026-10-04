@@ -456,9 +456,11 @@ async function handleUpload(request, env) {
   if (!file) return json({ error: 'no file' }, 400);
   const now = Date.now();
   const rand = Math.random().toString(36).slice(2, 8);
+  const isVideo = (file.type || '').startsWith('video/');
   const ext = (file.name || '').split('.').pop() || 'bin';
-  const key = `media/${now}_${rand}.${ext}`;
-  await env.MEDIA_BUCKET.put(key, file, { httpMetadata: { contentType: file.type || 'application/octet-stream' } });
+  const key = `media/${now}_${rand}.${isVideo ? 'mp4' : ext}`;
+  const contentType = isVideo ? 'video/mp4' : (file.type || 'application/octet-stream');
+  await env.MEDIA_BUCKET.put(key, file, { httpMetadata: { contentType } });
   return json({ ok: true, key });
 }
 

@@ -838,7 +838,8 @@ async function backgroundUpload(queue, note, vUrl) {
     hideProgress();
     showToast('发布成功');
   } catch (e) {
-    hideProgress();
+    const t = document.getElementById('upText');
+    if (t) { t.textContent = '上传失败：' + e.message; t.style.color = 'var(--danger)'; }
     showToast('发布失败：' + e.message);
   } finally {
     uploading = false;
