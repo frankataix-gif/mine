@@ -310,6 +310,10 @@
         <button type="button" class="btn" id="setNameSave" style="width:100%;margin-top:8px">保存</button>
       </div>
       <p class="hint" style="margin-top:8px">首次打开请先设置名字，别人会看到你的动态作者。</p>
+      <div style="margin-top:12px">
+        <p><strong>用户链接：</strong></p>
+        <div id="userLinks" style="margin-top:8px;font-size:14px"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -340,6 +344,13 @@ function parseUser() {
   const i = c.indexOf(':');
   return i > 0 ? c.slice(0, i) : c;
 }
+const USER_LINKS = [
+  { name: '小苏', label: '小苏' },
+  { name: '基督山伯爵', label: '基督山伯爵' },
+  { name: '玲姐', label: '玲姐' },
+  { name: '董事长', label: '董事长' },
+  { name: 'Frank', label: 'Frank（管理员）' }
+];
 const urlUser = new URLSearchParams(location.search).get('user') || new URLSearchParams(location.search).get('u') || new URLSearchParams(location.search).get('name');
 if (urlUser) { localStorage.setItem('uploader', urlUser); }
 currentUser = localStorage.getItem('uploader') || parseUser() || 'unknown';
@@ -769,6 +780,25 @@ document.getElementById('setNameSave').onclick = () => {
 if (currentUser === 'unknown') {
   setTimeout(() => { setModal.classList.add('show'); document.getElementById('setNameInput').focus(); }, 300);
 }
+
+// 用户链接
+const userLinksEl = document.getElementById('userLinks');
+function renderUserLinks() {
+  userLinksEl.innerHTML = USER_LINKS.map(u => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f1f5f9">
+      <span>${u.label}</span>
+      <button type="button" class="btn" style="padding:6px 12px;font-size:13px;background:#eff6ff;color:var(--primary)" onclick="copyUserLink('${u.name}')">复制链接</button>
+    </div>`).join('');
+}
+function copyUserLink(name) {
+  const url = location.origin + '/field_album.html?user=' + encodeURIComponent(name);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(() => showToast('链接已复制'));
+  } else {
+    prompt('复制链接：', url);
+  }
+}
+renderUserLinks();
 
 // 图片放大查看
 const imgModal = document.getElementById('imgModal');
