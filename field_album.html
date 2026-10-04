@@ -410,6 +410,7 @@ function renderFeed() {
         <div class="post-actions">
           <button class="${liked ? 'liked' : ''}" onclick="likePost('${post.id}', event)">❤ ${likes.length || '赞'}</button>
           <button onclick="togglePostComments('${post.id}', event)">💬 ${comments.length || '评论'}</button>
+          ${post.uploader === currentUser ? `<button onclick="deletePost('${post.id}', event)" style="color:var(--danger)">🗑 删除</button>` : ''}
         </div>
         <div class="post-comments ${open}" id="pc-${post.id}">
           ${comments.length ? comments.map(c => `<div class="pc"><b>${c.user}</b>：${c.text} <span style="color:#999;font-size:11px">${fmtDate(c.time)}</span></div>`).join('') : '<div class="pc" style="color:#999">暂无评论</div>'}
@@ -450,6 +451,15 @@ async function submitPostComment(pid) {
   if (!p.comments) p.comments = [];
   p.comments.push({ user: currentUser, text, time: new Date().toISOString() });
   if (await saveLog('add post comment')) { expanded['p_' + pid] = true; renderFeed(); }
+}
+
+async function deletePost(pid, e) {
+  if (e) e.stopPropagation();
+  if (!confirm('确定删除这条动态？')) return;
+  const idx = (log.posts || []).findIndex(x => x.id === pid);
+  if (idx < 0) return;
+  log.posts.splice(idx, 1);
+  if (await saveLog('delete post')) renderFeed();
 }
 
 // 时间
