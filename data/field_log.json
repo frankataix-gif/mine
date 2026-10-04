@@ -5,7 +5,7 @@
   "posts": [
     {
       "id": "f_muub6ijz_cvw1",
-      "note": "https://weixin.qq.com/sph/AcRigdP2mV\n\nhttps://weixin.qq.com/sph/AEwKzgdl1R\n\n三盘磁选机介绍",
+      "note": "三盘磁选机",
       "uploader": "管理员",
       "createdAt": "2026-10-04T21:04:05.231Z",
       "media": [
@@ -15,7 +15,8 @@
         }
       ],
       "likes": [],
-      "comments": []
+      "comments": [],
+      "updatedAt": "2026-10-04T21:14:06.014Z"
     },
     {
       "id": "f_muu8jmdn_h15k",
@@ -104,5 +105,5 @@
       "comments": []
     }
   ],
-  "updatedAt": "2026-10-04T21:08:19.800Z"
+  "updatedAt": "2026-10-04T21:14:06.014Z"
 }
