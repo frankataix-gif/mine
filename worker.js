@@ -831,6 +831,23 @@ export default {
         return json(await marketRefresh(env));
       }
 
+      // 本机脚本上传 Edge-TTS MP3 → 覆盖 market_daily.json 的 audio 字段
+      if (body.action === 'market_audio') {
+        if (!env.MEDIA_BUCKET) return json({ error: 'no bucket' });
+        const b64 = (body.audio || '').replace(/^data:[^,]*,/, '');
+        if (!b64) return json({ error: 'no audio' });
+        const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+        await env.MEDIA_BUCKET.put('market/daily.mp3', bytes, { httpMetadata: { contentType: 'audio/mpeg' } });
+        const path = 'data/market_daily.json';
+        const existing = await readFile(env, path);
+        if (existing && existing.content) {
+          const d = JSON.parse(existing.content);
+          d.audio = '/media?key=market/daily.mp3';
+          await writeFile(env, path, JSON.stringify(d, null, 2), 'market audio', existing.sha);
+        }
+        return json({ ok: true });
+      }
+
       // SMM 行情（本机脚本 POST 上来，存 data/smm_prices.json + 追加历史）
       if (body.action === 'market_smm') {
         const path = 'data/smm_prices.json';
