@@ -55,6 +55,18 @@
   .up-row { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
   .up-bar { height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; }
   .up-fill { height: 100%; width: 0%; background: var(--primary); border-radius: 3px; transition: width .2s ease; }
+  .userchip {
+    display: flex; align-items: center; gap: 6px;
+    background: rgba(255,255,255,0.15); border: none; border-radius: 16px;
+    padding: 4px 10px 4px 4px; color: #fff; cursor: pointer; max-width: 140px;
+  }
+  .userchip-avatar {
+    width: 24px; height: 24px; border-radius: 50%; flex: 0 0 24px;
+    background: rgba(255,255,255,0.92); color: var(--primary);
+    font-size: 13px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .userchip-name { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .setbtn {
     width: 32px; height: 32px; border-radius: 8px;
     background: rgba(255,255,255,0.15); color: #fff;
@@ -218,6 +230,10 @@
     </div>
   </div>
   <div class="header-right">
+    <button type="button" class="userchip" id="userChip" title="当前用户，点击打开设置">
+      <span class="userchip-avatar" id="ucAvatar">?</span>
+      <span class="userchip-name" id="ucName">未登录</span>
+    </button>
     <button type="button" class="setbtn" id="openSet" title="设置">⚙</button>
   </div>
 </header>
@@ -380,7 +396,14 @@ const USER_LINKS = [
 const urlUser = new URLSearchParams(location.search).get('user') || new URLSearchParams(location.search).get('u') || new URLSearchParams(location.search).get('name');
 if (urlUser) { localStorage.setItem('uploader', urlUser); }
 currentUser = localStorage.getItem('uploader') || parseUser() || 'unknown';
-document.getElementById('setUser').textContent = currentUser;
+function renderUserChip() {
+  const n = currentUser || 'unknown';
+  document.getElementById('setUser').textContent = n;
+  const uc = document.getElementById('ucName'); if (uc) uc.textContent = n === 'unknown' ? '未登录' : n;
+  const av = document.getElementById('ucAvatar'); if (av) av.textContent = (n === 'unknown' ? '?' : n.slice(0, 1));
+}
+renderUserChip();
+document.getElementById('userChip').onclick = e => { if (e) e.preventDefault(); document.getElementById('openSet').click(); };
 
 async function api(action, data) {
   const body = { action, ...data };
@@ -1065,7 +1088,7 @@ document.getElementById('setNameSave').onclick = () => {
   if (!name) { showToast('请输入名字'); return; }
   localStorage.setItem('uploader', name);
   currentUser = name;
-  document.getElementById('setUser').textContent = name;
+  renderUserChip();
   document.getElementById('setNameInput').value = '';
   renderUserLinks();
   showToast('名字已保存');
