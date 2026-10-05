@@ -56,9 +56,7 @@
           "r2Key": "media/1791147844261_vzooaa.jpg"
         }
       ],
-      "likes": [
-        "Frank"
-      ],
+      "likes": [],
       "comments": [],
       "updatedAt": "2026-10-05T01:17:38.802Z"
     },
@@ -149,7 +147,7 @@
       "comments": []
     }
   ],
-  "updatedAt": "2026-10-05T01:18:05.304Z",
+  "updatedAt": "2026-10-05T01:18:08.787Z",
   "users": [
     {
       "name": "Natalie"
