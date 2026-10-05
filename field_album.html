@@ -455,85 +455,32 @@ async function loadMarket() {
     el.innerHTML = '';
   }
 }
-// ---- SMM 行情表 + 计价参考 ----
-const SMM_WATCH = [
-  '钽矿（Ta≥30%）中国到岸价',
-  '五氧化二钽（Ta2O5≥99.5%）',
-  '五氧化二钽（Ta2O5≥99.99%）FOB',
-  '五氧化二铌99.5%',
-  '五氧化二铌99.99%FOB',
-  '铌铁60A',
-];
-function smmAvg(p) {
-  const m = (p.note || '').match(/均价\s*([\d.]+)/);
-  if (m) return parseFloat(m[1]);
-  const parts = (p.value || '').split('~').map(parseFloat);
-  return parts.length === 2 && parts.every(x => !isNaN(x)) ? (parts[0] + parts[1]) / 2 : parseFloat(parts[0]);
-}
+// ---- SMM 行情：只显示钽铌矿到岸价（美元/磅 + 人民币折算 + 报关含税）----
 function renderSmmPrices(prices) {
   if (!prices || !prices.length) return '';
-  const rows = [];
-  for (const key of SMM_WATCH) {
-    const p = prices.find(x => (x.name || '') === key || (x.name || '').includes(key));
-    if (p) rows.push(p);
-  }
-  if (!rows.length) return '';
-  // 计价换算（汇率按约 7.1 估算）
-  const find = k => prices.find(x => (x.name || '').includes(k));
-  const taOre = find('钽矿'), taOx = find('Ta2O5≥99.5%）'), taFOB = find('Ta2O5≥99.99%）FOB');
-  const nbOx = find('五氧化二铌99.5%'), nbFOB = find('五氧化二铌99.99%FOB');
-  const R = 7.1; // USD/CNY 约估
-  const calc = [];
-  if (taOre) {
-    const oreKg = smmAvg(taOre) * 2.20462; // 美元/磅 → 美元/kg Ta2O5
-    calc.push(`钽矿含 Ta2O5 价 ≈ <b>${oreKg.toFixed(0)}</b> 美元/千克`);
-    if (taOx) {
-      const ox = smmAvg(taOx) / R;
-      calc.push(`氧化钽99.5%出厂 ≈ ${ox.toFixed(0)} 美元/kg（矿价倍数 <b>${(ox / oreKg).toFixed(2)}</b>）`);
-    }
-    if (taFOB) {
-      const fob = smmAvg(taFOB);
-      calc.push(`氧化钽99.99% FOB ≈ ${fob.toFixed(0)} 美元/kg（FOB溢价 ${((fob / oreKg - 1) * 100).toFixed(0)}%）`);
-    }
-    // 我方产品：Ta2O5≈10%, Nb2O5≈9%
-    const taVal = oreKg * 100 / 10000;
-    calc.push(`我方矿 Ta2O5≈10%/Nb2O5≈9%：每吨 Ta 含量 100kg ≈ <b>${taVal.toFixed(1)}万美元</b>（含量全值）`);
-    if (nbFOB) calc.push(`每吨 Nb2O5 含量 90kg × FOB ${smmAvg(nbFOB).toFixed(0)} ≈ <b>${(smmAvg(nbFOB) * 90 / 10000).toFixed(2)}万美元</b>`);
-    else if (nbOx) calc.push(`每吨 Nb2O5 含量 90kg × 出厂 ${(smmAvg(nbOx) / R).toFixed(0)} ≈ <b>${(smmAvg(nbOx) / R * 90 / 10000).toFixed(2)}万美元</b>`);
-  }
-  return `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
-    <div style="font-size:12px;color:var(--text2);margin-bottom:4px">SMM 行情折算（人民币/千克，汇率≈7.1）</div>
-    ${rows.map(p => `<div style="display:flex;justify-content:space-between;font-size:13px;padding:2px 0">
-      <span>${p.name}</span>
-      <span><b>${yuanKgRange(p)}</b></span>
-    </div>`).join('')}
-    ${calc.length ? `<div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);font-size:12px;color:var(--text2)">
-      <div style="margin-bottom:3px">计价参考（约估）</div>
-      ${calc.map(c => `<div style="padding:1px 0">· ${c}</div>`).join('')}
-    </div>` : ''}
-    <div style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);font-size:12px;color:var(--text2)">
-      <div style="margin-bottom:3px">原始报价（SMM ${(prices[0].note || '').match(/SMM\s*(\S+)/)?.[1] || ''}）</div>
-      ${prices.map(p => `<div style="display:flex;justify-content:space-between;padding:1px 0">
-        <span>${p.name}</span><span>${p.value} ${p.unit}</span>
-      </div>`).join('')}
-    </div>
-  </div>`;
-}
-// 把各品种报价统一折算成 元/千克 区间文本
-function yuanKgRange(p) {
-  const R = 7.1;
+  const p = prices.find(x => (x.name || '').includes('钽矿'));
+  if (!p) return '';
+  const R = 7.1;                    // USD/CNY 约估
+  const VAT = 1.13;                 // 进口增值税 13%（钽铌矿砂关税 0%）
   const parts = (p.value || '').split('~').map(parseFloat);
   const lo = parts[0], hi = parts.length > 1 ? parts[1] : parts[0];
-  if (isNaN(lo)) return p.value + ' ' + (p.unit || '');
-  const fmt = x => x >= 1000 ? Math.round(x).toLocaleString('en') : (x >= 100 ? x.toFixed(0) : x.toFixed(1));
-  const u = p.unit || '';
-  let k = 1;
-  if (/美元\/磅/.test(u)) k = 2.20462 * R;      // 美元/磅 → 元/千克
-  else if (/美元\/千克/.test(u)) k = R;          // 美元/千克 → 元/千克
-  else if (/元\/吨/.test(u)) k = 0.001;          // 元/吨 → 元/千克
-  else if (/元\/千克/.test(u)) k = 1;
-  else return p.value + ' ' + u;                 // 其他单位不换算
-  return `≈${fmt(lo * k)}~${fmt(hi * k)} 元/千克`;
+  if (isNaN(lo)) return '';
+  const K = 2.20462 * R;            // 美元/磅 → 元/千克
+  const fmt = x => Math.round(x).toLocaleString('en');
+  const date = (p.note || '').match(/SMM\s*(\S+)/)?.[1] || '';
+  return `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+    <div style="font-size:12px;color:var(--text2);margin-bottom:4px">SMM 钽铌矿（Ta₂O₅≥30% / Nb₂O₅≈10%）中国到岸价${date ? ' · ' + date : ''}</div>
+    <div style="display:flex;justify-content:space-between;font-size:14px;padding:3px 0">
+      <span>到岸价</span><span><b>${p.value}</b> ${p.unit}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:14px;padding:3px 0">
+      <span>折合人民币</span><span><b>≈${fmt(lo * K)}~${fmt(hi * K)}</b> 元/千克</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:14px;padding:3px 0">
+      <span>报关含税价</span><span style="color:var(--primary)"><b>≈${fmt(lo * K * VAT)}~${fmt(hi * K * VAT)}</b> 元/千克</span>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-top:4px">按汇率 7.1、关税 0%、增值税 13% 估算</div>
+  </div>`;
 }
 let marketSpoken = '', marketAudio = '', marketPlayer = null;
 function playMarket() {
