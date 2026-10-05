@@ -57,7 +57,13 @@
         }
       ],
       "likes": [],
-      "comments": [],
+      "comments": [
+        {
+          "user": "Frank",
+          "text": "评论",
+          "time": "2026-10-05T01:18:36.894Z"
+        }
+      ],
       "updatedAt": "2026-10-05T01:17:38.802Z"
     },
     {
@@ -147,7 +153,7 @@
       "comments": []
     }
   ],
-  "updatedAt": "2026-10-05T01:18:08.787Z",
+  "updatedAt": "2026-10-05T01:18:36.894Z",
   "users": [
     {
       "name": "Natalie"
