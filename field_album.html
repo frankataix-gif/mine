@@ -225,7 +225,8 @@
       <h1>Ecobox 非洲钽铌生产</h1>
       <div class="header-clocks">
         <span id="clockLusaka">卢萨卡 --:--</span>
-        <span id="clockChina">中国 --:--</span>
+        <span id="clockChina">杭州 --:--</span>
+        <span id="clockVan">温哥华 --:--</span>
       </div>
     </div>
   </div>
@@ -1063,7 +1064,8 @@ function updateClocks() {
   const now = new Date();
   const opts = { hour: '2-digit', minute: '2-digit', hour12: false };
   document.getElementById('clockLusaka').textContent = '卢萨卡 ' + now.toLocaleTimeString('zh-CN', { ...opts, timeZone: 'Africa/Lusaka' });
-  document.getElementById('clockChina').textContent = '中国 ' + now.toLocaleTimeString('zh-CN', { ...opts, timeZone: 'Asia/Shanghai' });
+  document.getElementById('clockChina').textContent = '杭州 ' + now.toLocaleTimeString('zh-CN', { ...opts, timeZone: 'Asia/Shanghai' });
+  const elVan = document.getElementById('clockVan'); if (elVan) elVan.textContent = '温哥华 ' + now.toLocaleTimeString('zh-CN', { ...opts, timeZone: 'America/Vancouver' });
 }
 setInterval(updateClocks, 1000); updateClocks();
 
