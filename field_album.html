@@ -293,7 +293,7 @@
   </section>
 
   <section class="tab-content" id="tab-licenses">
-    <div class="card"><h2>矿证</h2><p class="empty" style="padding:20px 0">建设中：待接入矿业部门台账</p></div>
+    <div class="card"><h2>矿证台账<span class="hint" style="font-weight:400;margin-left:8px;font-size:12px">（仅 Active）</span></h2><div id="licList"><p class="empty" style="padding:20px 0">加载中…</p></div></div>
   </section>
 
   <section class="tab-content" id="tab-apps">
@@ -1070,6 +1070,55 @@ document.getElementById('pSubmit').onclick = async () => {
   } finally { btn.disabled = false; btn.textContent = '保存产能记录'; }
 };
 
+// ---- 矿证台账（代理 franksync 巡检结果，只看 Active）----
+const LIC_TYPE = {
+  'Small Scale Exploration Licence': 'SEL 小规模勘探',
+  'Small Scale Mining Licence': 'SML 小规模采矿',
+  'Large Scale Exploration Licence': 'LEL 大规模勘探',
+  'Large Scale Mining Licence': 'LML 大规模采矿',
+  'Prospecting Permit': 'PP 探矿许可',
+};
+async function loadLicenses() {
+  const el = document.getElementById('licList');
+  try {
+    const res = await fetch('https://franksync.frankataix.workers.dev/', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'read', path: 'frank_data/cadastre_status.json' })
+    });
+    const r = await res.json();
+    if (!r || !r.content) { el.innerHTML = '<p class="empty" style="padding:20px 0">暂无数据</p>'; return; }
+    const d = JSON.parse(r.content);
+    // 按公司分组收 Active 证
+    const groups = [];
+    for (const a of (d.accounts || [])) {
+      for (const co of (a.companies || [])) {
+        const act = (co.licenses || []).filter(l => (l.status || '').trim() === 'Active');
+        if (act.length) groups.push({ name: co.name || '未命名', licenses: act });
+      }
+    }
+    if (!groups.length) { el.innerHTML = '<p class="empty" style="padding:20px 0">暂无 Active 矿证</p>'; return; }
+    const total = groups.reduce((s, g) => s + g.licenses.length, 0);
+    el.innerHTML = `
+      <div class="hint" style="margin-bottom:8px">共 ${total} 张 Active · 更新于 ${(d.checkedAt || '').slice(0, 10)}</div>
+      ${groups.map(g => `
+        <div style="font-size:13px;font-weight:600;margin:10px 0 4px">${esc(g.name)}</div>
+        ${g.licenses.map(l => {
+          const num = (l.code || '').split('-')[0];
+          const ty = LIC_TYPE[l.type] || (l.type || '');
+          const exp = l.expiry || '';
+          const expSoon = exp && (() => { const m = exp.match(/(\d+)\/(\d+)\/(\d+)/); return m && (new Date(+m[3], +m[2] - 1, +m[1]) - Date.now()) < 180 * 864e5; })();
+          return `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:14px">
+            <span style="font-weight:600">${esc(num)}</span>
+            <span style="color:var(--muted);font-size:12px;flex:1">${esc(ty)}</span>
+            <span style="font-size:12px;${expSoon ? 'color:var(--danger);font-weight:600' : 'color:var(--muted)'}">${exp ? '至 ' + esc(exp) : ''}</span>
+          </div>`;
+        }).join('')}
+      `).join('')}`;
+  } catch (e) {
+    el.innerHTML = '<p class="empty" style="padding:20px 0">加载失败</p>';
+  }
+}
+
 function updateClocks() {
   const now = new Date();
   const opts = { hour: '2-digit', minute: '2-digit', hour12: false };
@@ -1087,6 +1136,7 @@ document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + tab));
   document.getElementById('openPublish').style.display = tab === 'media' ? 'flex' : 'none';
+  if (tab === 'licenses') loadLicenses();
 });
 
 // 发布弹窗
