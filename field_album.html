@@ -142,11 +142,12 @@
   .post-media.multi { grid-template-columns: 1fr 1fr 1fr; }
   .post-media img { width: 100%; height: 180px; object-fit: cover; display: block; background: #111; }
   .post-media.two img, .post-media.multi img, .post-media.four img { height: auto; aspect-ratio: 1; }
-  .post-media video { width: 100%; height: 180px; object-fit: contain; display: block; background: #000; cursor: pointer; }
+  .post-media video { width: 100%; height: 180px; object-fit: cover; display: block; background: #000; cursor: pointer; }
+  .post-media.one video { height: auto; max-height: 80vw; }
   .vwrap { position: relative; display: block; }
   .vwrap::after { content: '▶'; position: absolute; left: 8px; bottom: 8px; width: 24px; height: 24px; border-radius: 50%; background: rgba(0,0,0,.55); color: #fff; font-size: 11px; display: flex; align-items: center; justify-content: center; pointer-events: none; }
   .vwrap:has(video[controls])::after { display: none; }
-  .post-media.two video, .post-media.multi video, .post-media.four video { height: auto; aspect-ratio: 1; }
+  .post-media.two video, .post-media.multi video, .post-media.four video { height: auto; aspect-ratio: 1; object-fit: cover; }
   .post-actions { display: flex; border-top: 1px solid var(--border); margin-top: 10px; padding-top: 8px; }
   .post-actions button { flex: 1; background: transparent; border: none; color: var(--muted); font-size: 13px; min-height: 32px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; }
   .post-actions button.liked { color: var(--danger); font-weight: 600; }
