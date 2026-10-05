@@ -46,21 +46,6 @@
   "production": [],
   "posts": [
     {
-      "id": "f_muuv99u3_4zpx",
-      "note": "",
-      "uploader": "Frank",
-      "createdAt": "2026-10-05T06:26:06.219Z",
-      "media": [
-        {
-          "type": "video",
-          "r2Key": "media/1791181562581_8esgv8.mp4",
-          "thumbKey": "media/1791181561671_91i599.jpg"
-        }
-      ],
-      "likes": [],
-      "comments": []
-    },
-    {
       "id": "f_muub6ijz_cvw1",
       "note": "三盘磁选机\n专门处理分选钽铌矿中的钛铁等杂质，对提纯有很大帮助！",
       "uploader": "管理员",
@@ -157,7 +142,7 @@
       "updatedAt": "2026-10-05T06:07:51.823Z"
     }
   ],
-  "updatedAt": "2026-10-05T06:26:06.219Z",
+  "updatedAt": "2026-10-05T06:26:22.112Z",
   "users": [
     {
       "name": "Natalie"
