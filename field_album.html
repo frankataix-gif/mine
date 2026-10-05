@@ -305,11 +305,8 @@
       <div class="upload-slot upload-add" id="uAddBtn" onclick="document.getElementById('uFile').click()">+</div>
     </div>
     <input type="file" id="uFile" accept="image/*,video/mp4,video/quicktime,video/x-m4v,video/*" multiple style="display:none">
-    <div class="field" style="margin-top:10px">
-      <input type="url" id="vUrl" placeholder="视频链接（可选，如 Telegram / YouTube / .mp4 链接）" style="border:none;background:transparent;padding:8px 2px;font-size:15px">
-    </div>
     <button type="button" class="btn" id="uSubmit" style="width:100%;min-height:46px;font-size:16px;margin-top:10px">发 布</button>
-    <p class="hint">照片会自动压缩，最多 9 张。视频直接上传到 R2。也支持贴外部视频链接。</p>
+    <p class="hint">照片会自动压缩，最多 9 张。视频直接上传，自动生成封面。</p>
   </div>
 </div>
 
@@ -342,6 +339,8 @@
 </div>
 
 <div id="toast" class="toast hidden"></div>
+<div id="syncBar" style="position:fixed;top:calc(env(safe-area-inset-top,0px) + 10px);left:50%;transform:translateX(-50%);background:#0f172a;color:#fff;padding:6px 14px;border-radius:16px;font-size:12px;z-index:400;display:none;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(0,0,0,.25)"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#f59e0b;animation:syncPulse 1s infinite"></span>同步中…</div>
+<style>@keyframes syncPulse { 0%,100%{opacity:.4} 50%{opacity:1} }</style>
 
 <script>
 const DATA_FILE = 'data/field_log.json';
@@ -520,15 +519,22 @@ async function refreshMarket() {
   if (r && r.ok) { showToast('已更新'); loadMarket(); }
   else showToast('失败：' + ((r && r.error) || '未知'));
 }
+// ---- 全局同步状态：写操作进行中显示顶部提示条，并挡住二次点击 ----
+let syncCount = 0;
+function syncStart() { syncCount++; document.getElementById('syncBar').style.display = 'flex'; }
+function syncEnd() { if (--syncCount <= 0) { syncCount = 0; document.getElementById('syncBar').style.display = 'none'; } }
+function syncBusy() { if (syncCount > 0) { showToast('正在同步，请稍候…'); return true; } return false; }
+
 async function saveLog(message) {
   log.updatedAt = new Date().toISOString();
+  syncStart();
   try {
     const r = await api('save', { path: DATA_FILE, content: JSON.stringify(log, null, 2), message: message || 'Update field log' });
     if (r.error) throw new Error(r.error);
     renderFeed(); return true;
   } catch (e) {
     showToast('保存失败：' + e.message); return false;
-  }
+  } finally { syncEnd(); }
 }
 
 function copyWxLink(u, e) {
@@ -610,6 +616,7 @@ function renderFeed() {
 }
 
 async function likePost(pid, e) {
+  if (syncBusy()) return;
   if (e) { e.stopPropagation(); e.preventDefault(); }
   const p = (log.posts || []).find(x => x.id === pid);
   if (!p) return;
@@ -628,6 +635,7 @@ function togglePostComments(pid, e) {
 }
 
 async function submitPostComment(pid) {
+  if (syncBusy()) return;
   const input = document.getElementById('pcc-' + pid);
   const text = input.value.trim();
   if (!text) return;
@@ -656,7 +664,6 @@ function editPost(pid, e) {
   editingPostId = pid;
   expanded['m_' + pid] = false;
   document.getElementById('uNote').value = post.note || '';
-  document.getElementById('vUrl').value = '';
   uploadQueue = [];
   (post.media || []).forEach(m => {
     if (m.r2Key) {
@@ -666,8 +673,6 @@ function editPost(pid, e) {
       uploadQueue.push({ isVideo: false, dataUrl: '/photos/' + m.filename, existing: m });
     } else if (m.fileId) {
       uploadQueue.push({ isVideo: m.type === 'tgVideo', url: '/tgvideo?fid=' + m.fileId, dataUrl: '/tgphoto?fid=' + m.fileId, existing: m });
-    } else if (m.url) {
-      document.getElementById('vUrl').value = m.url;
     }
   });
   renderUploadGrid();
@@ -675,6 +680,7 @@ function editPost(pid, e) {
 }
 
 async function deletePost(pid, e) {
+  if (syncBusy()) return;
   if (e) { e.stopPropagation(); e.preventDefault(); }
   if (!confirm('确定删除这条动态？')) return;
   const idx = (log.posts || []).findIndex(x => x.id === pid);
@@ -739,6 +745,7 @@ function toggleProject(pid) {
 }
 
 async function addProject() {
+  if (syncBusy()) return;
   const name = prompt('项目名称：');
   if (!name) return;
   const desc = prompt('项目说明（可选）：') || '';
@@ -754,6 +761,7 @@ async function addProject() {
 }
 
 async function addTask(pid, e) {
+  if (syncBusy()) return;
   if (e) { e.stopPropagation(); e.preventDefault(); }
   const name = prompt('任务名称：');
   if (!name) return;
@@ -778,6 +786,7 @@ async function addTask(pid, e) {
 function addSubTask(pid, e) { if (e) e.stopPropagation(); addTask(pid); }
 
 async function toggleTask(tid, e) {
+  if (syncBusy()) return;
   if (e) { e.stopPropagation(); e.preventDefault(); }
   const t = log.tasks.find(x => x.id === tid);
   if (!t) return;
@@ -794,6 +803,7 @@ function addComment(tid, e) {
 }
 
 async function submitComment(tid) {
+  if (syncBusy()) return;
   const input = document.getElementById('cm-' + tid);
   const text = input.value.trim();
   if (!text) return;
@@ -830,6 +840,7 @@ function renderProduction() {
 document.getElementById('pDate').valueAsDate = new Date();
 
 document.getElementById('pSubmit').onclick = async () => {
+  if (syncBusy()) return;
   const btn = document.getElementById('pSubmit');
   btn.disabled = true; btn.textContent = '保存中...';
   try {
@@ -888,7 +899,6 @@ document.getElementById('openPublish').onclick = e => {
   if (e) e.preventDefault();
   editingPostId = null;
   document.getElementById('uNote').value = '';
-  document.getElementById('vUrl').value = '';
   uploadQueue = [];
   renderUploadGrid();
   modal.classList.add('show');
@@ -955,6 +965,7 @@ function renderUserLinks() {
       </div>`).join('');
 }
 document.getElementById('newUserSave').onclick = async () => {
+  if (syncBusy()) return;
   const name = document.getElementById('newUserInput').value.trim();
   if (!name) { showToast('请输入名字'); return; }
   if (!log.users) log.users = [];
@@ -968,6 +979,7 @@ document.getElementById('newUserSave').onclick = async () => {
   }
 };
 async function delUser(name) {
+  if (syncBusy()) return;
   if (!confirm('删除用户 ' + name + '？')) return;
   log.users = (log.users || []).filter(u => u.name !== name);
   if (await saveLog('del user')) renderUserLinks();
@@ -1248,9 +1260,8 @@ async function uploadOne(item, onProgress) {
   throw new Error('上传失败');
 }
 
-async function backgroundUpload(queue, note, vUrl, editingPostId) {
+async function backgroundUpload(queue, note, _vUrl, editingPostId) {
   const media = [];
-  if (vUrl) media.push({ type: 'video', url: vUrl });
   const loaded = new Array(queue.length).fill(0);
   const total = new Array(queue.length).fill(0);
   let completed = 0;
@@ -1305,21 +1316,20 @@ async function backgroundUpload(queue, note, vUrl, editingPostId) {
 }
 
 document.getElementById('uSubmit').onclick = () => {
+  if (syncBusy()) return;
   if (uploading) { showToast('正在上传中，请稍候'); return; }
   const note = document.getElementById('uNote').value;
-  const vUrl = document.getElementById('vUrl').value.trim();
-  if (!uploadQueue.length && !vUrl) { showToast('请先选择照片或填写视频链接'); return; }
+  if (!uploadQueue.length) { showToast('请先选择照片或视频'); return; }
   uploading = true;
   const queue = uploadQueue.slice();
   queue.forEach(i => { if (i.url && i.isVideo) URL.revokeObjectURL(i.url); });
   uploadQueue = [];
   document.getElementById('uNote').value = '';
-  document.getElementById('vUrl').value = '';
   renderUploadGrid();
   modal.classList.remove('show');
   const eid = editingPostId;
   editingPostId = null;
-  backgroundUpload(queue, note, vUrl, eid);
+  backgroundUpload(queue, note, '', eid);
 };
 
 if ('serviceWorker' in navigator) {
@@ -1334,7 +1344,7 @@ async function checkVersion() {
     const seen = localStorage.getItem('appVersion');
     if (v && seen && String(v) !== String(seen)) {
       localStorage.setItem('appVersion', v);
-      if (!uploading) location.reload();
+      if (!uploading && syncCount <= 0) location.reload();
       return;
     }
     if (v) localStorage.setItem('appVersion', v);
