@@ -131,6 +131,7 @@
   .fb-comment { font-size: 13.5px; padding: 3px 0; line-height: 1.5; word-break: break-word; }
   .fb-comment b { color: var(--primary); font-weight: 600; }
   .fb-comment .fb-time { color: #94a3b8; font-size: 11px; margin-left: 6px; }
+  .fb-op { background: none; border: none; color: var(--primary); font-size: 11px; padding: 0 2px 0 5px; cursor: pointer; }
   .pc-input { display: none; gap: 8px; margin-top: 8px; padding-top: 8px; border-top: 1px solid #e2e8f0; }
   .pc-input.open { display: flex; }
   .pc-input input { flex: 1; border: 1px solid var(--border); border-radius: 20px; padding: 7px 14px; font-size: 14px; background: #fff; }
@@ -603,7 +604,7 @@ function renderFeed() {
         </div>
         ${showFb ? `<div class="post-feedback">
           ${likes.length ? `<div class="fb-likes" ${comments.length ? 'style="border-bottom:1px solid #e2e8f0;padding-bottom:6px;margin-bottom:4px"' : ''}>❤ ${likes.map(esc).join('、')}</div>` : ''}
-          ${comments.map(c => `<div class="fb-comment"><b>${esc(c.user)}</b>：${esc(c.text)}<span class="fb-time">${fmtDate(c.time)}</span></div>`).join('')}
+          ${comments.map((c, ci) => `<div class="fb-comment"><b>${esc(c.user)}</b>：${esc(c.text)}<span class="fb-time">${fmtDate(c.time)}</span>${(c.user === currentUser || isAdmin()) ? `<button type="button" class="fb-op" onclick="editPostComment('${post.id}',${ci},event)">改</button><button type="button" class="fb-op" onclick="delPostComment('${post.id}',${ci},event)">删</button>` : ''}</div>`).join('')}
           <div class="pc-input ${open}">
             <input type="text" id="pcc-${post.id}" placeholder="写评论…" onkeydown="if(event.key==='Enter')submitPostComment('${post.id}')">
             <button type="button" class="btn" onclick="submitPostComment('${post.id}')">发送</button>
@@ -634,6 +635,26 @@ function togglePostComments(pid, e) {
   if (expanded['p_' + pid]) setTimeout(() => { const inp = document.getElementById('pcc-' + pid); if (inp) inp.focus(); }, 60);
 }
 
+let editingComment = null; // {pid, ci}
+function editPostComment(pid, ci, e) {
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  const p = (log.posts || []).find(x => x.id === pid);
+  const c = p && p.comments && p.comments[ci];
+  if (!c) return;
+  editingComment = { pid, ci };
+  expanded['p_' + pid] = true;
+  renderFeed();
+  setTimeout(() => { const inp = document.getElementById('pcc-' + pid); if (inp) { inp.value = c.text; inp.focus(); } }, 60);
+}
+async function delPostComment(pid, ci, e) {
+  if (syncBusy()) return;
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  if (!confirm('删除这条评论？')) return;
+  const p = (log.posts || []).find(x => x.id === pid);
+  if (!p || !p.comments || !p.comments[ci]) return;
+  p.comments.splice(ci, 1);
+  if (await saveLog('delete post comment')) renderFeed();
+}
 async function submitPostComment(pid) {
   if (syncBusy()) return;
   const input = document.getElementById('pcc-' + pid);
@@ -642,8 +663,14 @@ async function submitPostComment(pid) {
   const p = (log.posts || []).find(x => x.id === pid);
   if (!p) return;
   if (!p.comments) p.comments = [];
-  p.comments.push({ user: currentUser, text, time: new Date().toISOString() });
-  if (await saveLog('add post comment')) { expanded['p_' + pid] = true; renderFeed(); }
+  if (editingComment && editingComment.pid === pid && p.comments[editingComment.ci]) {
+    p.comments[editingComment.ci].text = text;
+    p.comments[editingComment.ci].editedAt = new Date().toISOString();
+  } else {
+    p.comments.push({ user: currentUser, text, time: new Date().toISOString() });
+  }
+  editingComment = null;
+  if (await saveLog('save post comment')) { expanded['p_' + pid] = true; renderFeed(); }
 }
 
 function togglePostMenu(pid, e) {
@@ -701,29 +728,34 @@ function renderProjects() {
       <div class="project">
         <div class="project-head" onclick="toggleProject('${pr.id}')">
           <div>
-            <div class="project-title">${pr.name}</div>
-            <div class="project-meta">创建人：${pr.createdBy || 'unknown'} · ${fmtDate(pr.createdAt)} · ${tasks.length} 个任务</div>
+            <div class="project-title">${esc(pr.name)}</div>
+            <div class="project-meta">创建人：${esc(pr.createdBy || 'unknown')} · ${fmtDate(pr.createdAt)} · ${tasks.length} 个任务</div>
           </div>
-          <div style="font-size:18px;color:var(--muted)">${open ? '▾' : '▸'}</div>
+          <div style="display:flex;align-items:center;gap:6px">
+            ${(pr.createdBy === currentUser || isAdmin()) ? `<button type="button" class="fb-op" style="font-size:14px" onclick="deleteProject('${pr.id}',event)" title="删除项目">🗑</button>` : ''}
+            <span style="font-size:18px;color:var(--muted)">${open ? '▾' : '▸'}</span>
+          </div>
         </div>
         <div class="project-body ${open}" id="pb-${pr.id}">
           ${tasks.length ? tasks.map(t => {
             const comments = t.comments || [];
             const cOpen = expanded['c_' + t.id] ? 'open' : '';
+            const ownT = t.createdBy === currentUser || isAdmin();
             return `
               <div class="task">
                 <div class="task-head">
                   <div class="task-status ${t.status === 'done' ? 'done' : ''}" onclick="toggleTask('${t.id}', event)"></div>
-                  <div class="task-title ${t.status === 'done' ? 'done' : ''}">${t.name}</div>
+                  <div class="task-title ${t.status === 'done' ? 'done' : ''}">${esc(t.name)}</div>
                 </div>
-                <div class="task-meta">创建人：${t.createdBy || 'unknown'} · 执行人：${t.assignee || '未指定'}</div>
-                ${t.description ? `<div class="task-meta">${t.description}</div>` : ''}
+                <div class="task-meta">创建人：${esc(t.createdBy || 'unknown')} · 执行人：${esc(t.assignee || '未指定')}</div>
+                ${t.description ? `<div class="task-meta">${esc(t.description)}</div>` : ''}
                 <div class="task-actions">
                   <button type="button" class="btn" onclick="addComment('${t.id}', event)" style="background:#e5e7eb;color:#374151">留言 (${comments.length})</button>
                   <button type="button" class="btn" onclick="addSubTask('${pr.id}', event)">+ 子任务</button>
+                  ${ownT ? `<button type="button" class="btn" onclick="editTask('${t.id}', event)" style="background:#e5e7eb;color:#374151">编辑</button><button type="button" class="btn" onclick="deleteTask('${t.id}', event)" style="background:#fee2e2;color:var(--danger)">删</button>` : ''}
                 </div>
                 <div class="comments ${cOpen}" id="cc-${t.id}">
-                  ${comments.length ? comments.map(c => `<div class="comment"><b>${esc(c.user)}</b>：${esc(c.text)} <span style="color:#999;font-size:11px">${fmtDate(c.time)}</span></div>`).join('') : '<div class="comment" style="color:#999">暂无留言</div>'}
+                  ${comments.length ? comments.map((c, ci) => `<div class="comment"><b>${esc(c.user)}</b>：${esc(c.text)} <span style="color:#999;font-size:11px">${fmtDate(c.time)}</span>${(c.user === currentUser || isAdmin()) ? `<button type="button" class="fb-op" onclick="editTaskComment('${t.id}',${ci},event)">改</button><button type="button" class="fb-op" onclick="delTaskComment('${t.id}',${ci},event)">删</button>` : ''}</div>`).join('') : '<div class="comment" style="color:#999">暂无留言</div>'}
                   <div class="comment-input">
                     <input type="text" id="cm-${t.id}" placeholder="写留言…" onkeydown="if(event.key==='Enter')submitComment('${t.id}')">
                     <button type="button" class="btn" onclick="submitComment('${t.id}')">发送</button>
@@ -802,6 +834,59 @@ function addComment(tid, e) {
   if (expanded['c_' + tid]) setTimeout(() => document.getElementById('cm-' + tid).focus(), 50);
 }
 
+async function deleteProject(pid, e) {
+  if (syncBusy()) return;
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  if (!confirm('删除这个项目及其所有任务？')) return;
+  log.projects = (log.projects || []).filter(x => x.id !== pid);
+  log.tasks = (log.tasks || []).filter(x => x.projectId !== pid);
+  if (await saveLog('delete project')) renderProjects();
+}
+
+async function editTask(tid, e) {
+  if (syncBusy()) return;
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  const t = log.tasks.find(x => x.id === tid);
+  if (!t) return;
+  const name = prompt('任务名称：', t.name); if (name === null || !name.trim()) return;
+  const assignee = prompt('执行人：', t.assignee || ''); if (assignee === null) return;
+  const desc = prompt('任务说明：', t.description || ''); if (desc === null) return;
+  t.name = name.trim(); t.assignee = assignee; t.description = desc;
+  t.updatedAt = new Date().toISOString();
+  if (await saveLog('edit task')) renderProjects();
+}
+
+async function deleteTask(tid, e) {
+  if (syncBusy()) return;
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  if (!confirm('删除这个任务？')) return;
+  const i = (log.tasks || []).findIndex(x => x.id === tid);
+  if (i < 0) return;
+  log.tasks.splice(i, 1);
+  if (await saveLog('delete task')) renderProjects();
+}
+
+let editingTaskComment = null; // {tid, ci}
+function editTaskComment(tid, ci, e) {
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  const t = log.tasks.find(x => x.id === tid);
+  const c = t && t.comments && t.comments[ci];
+  if (!c) return;
+  editingTaskComment = { tid, ci };
+  expanded['c_' + tid] = true;
+  renderProjects();
+  setTimeout(() => { const inp = document.getElementById('cm-' + tid); if (inp) { inp.value = c.text; inp.focus(); } }, 60);
+}
+async function delTaskComment(tid, ci, e) {
+  if (syncBusy()) return;
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  if (!confirm('删除这条留言？')) return;
+  const t = log.tasks.find(x => x.id === tid);
+  if (!t || !t.comments || !t.comments[ci]) return;
+  t.comments.splice(ci, 1);
+  if (await saveLog('delete task comment')) renderProjects();
+}
+
 async function submitComment(tid) {
   if (syncBusy()) return;
   const input = document.getElementById('cm-' + tid);
@@ -810,9 +895,15 @@ async function submitComment(tid) {
   const t = log.tasks.find(x => x.id === tid);
   if (!t) return;
   if (!t.comments) t.comments = [];
-  t.comments.push({ user: currentUser, text, time: new Date().toISOString() });
+  if (editingTaskComment && editingTaskComment.tid === tid && t.comments[editingTaskComment.ci]) {
+    t.comments[editingTaskComment.ci].text = text;
+    t.comments[editingTaskComment.ci].editedAt = new Date().toISOString();
+  } else {
+    t.comments.push({ user: currentUser, text, time: new Date().toISOString() });
+  }
+  editingTaskComment = null;
   t.updatedAt = new Date().toISOString();
-  if (await saveLog('add comment')) { renderProjects(); expanded['c_' + tid] = true; }
+  if (await saveLog('save comment')) { renderProjects(); expanded['c_' + tid] = true; }
 }
 
 function renderProduction() {
@@ -822,7 +913,7 @@ function renderProduction() {
     <div class="prod-card">
       <div class="prod-head">
         <span class="prod-title">${p.date} · ${p.shift}</span>
-        <span style="font-size:12px;color:var(--muted)">记录人：${p.recorder}</span>
+        <span style="font-size:12px;color:var(--muted)">记录人：${esc(p.recorder)}${(p.recorder === currentUser || isAdmin()) ? `<button type="button" class="fb-op" style="font-size:13px" onclick="editProd('${p.id}')">编辑</button><button type="button" class="fb-op" style="font-size:13px" onclick="delProd('${p.id}')">删</button>` : ''}</span>
       </div>
       <div class="prod-grid">
         <div class="prod-item"><div class="k">入选矿石</div><div class="v">${p.input || '0'}</div><div class="k">吨</div></div>
@@ -838,6 +929,33 @@ function renderProduction() {
 }
 
 document.getElementById('pDate').valueAsDate = new Date();
+
+let editingProdId = null;
+function editProd(pid) {
+  if (syncBusy()) return;
+  const p = (log.production || []).find(x => x.id === pid);
+  if (!p) return;
+  editingProdId = pid;
+  document.getElementById('pDate').value = p.date;
+  document.getElementById('pShift').value = p.shift;
+  document.getElementById('pInput').value = p.input || '';
+  document.getElementById('pRuntime').value = p.runtime || '';
+  document.getElementById('pCon').value = p.concentrate || '';
+  document.getElementById('pTa').value = p.ta || '';
+  document.getElementById('pNb').value = p.nb || '';
+  document.getElementById('pSn').value = p.sn || '';
+  document.getElementById('pNote').value = p.note || '';
+  document.getElementById('pSubmit').textContent = '保存修改';
+  window.scrollTo(0, 0);
+}
+async function delProd(pid) {
+  if (syncBusy()) return;
+  if (!confirm('删除这条产能记录？')) return;
+  const i = (log.production || []).findIndex(x => x.id === pid);
+  if (i < 0) return;
+  log.production.splice(i, 1);
+  if (await saveLog('delete production')) renderProduction();
+}
 
 document.getElementById('pSubmit').onclick = async () => {
   if (syncBusy()) return;
@@ -860,8 +978,15 @@ document.getElementById('pSubmit').onclick = async () => {
     };
     if (!rec.date) { showToast('请选择日期'); return; }
     if (!log.production) log.production = [];
-    log.production.unshift(rec);
-    if (await saveLog('add production')) {
+    if (editingProdId) {
+      const old = log.production.find(x => x.id === editingProdId);
+      if (old) Object.assign(old, rec, { id: old.id, createdAt: old.createdAt });
+      editingProdId = null;
+      document.getElementById('pSubmit').textContent = '保存产能记录';
+    } else {
+      log.production.unshift(rec);
+    }
+    if (await saveLog('save production')) {
       document.getElementById('pInput').value = '';
       document.getElementById('pRuntime').value = '';
       document.getElementById('pCon').value = '';
@@ -1352,6 +1477,20 @@ async function checkVersion() {
 }
 checkVersion();
 setInterval(checkVersion, 60000);
+
+// 下拉刷新：顶部下拉 >90px 重新拉数据
+let pullStartY = null;
+document.addEventListener('touchstart', e => {
+  if ((window.scrollY || document.documentElement.scrollTop || 0) <= 0 && !e.target.closest('.modal-mask, #imgModal')) pullStartY = e.touches[0].clientY;
+  else pullStartY = null;
+}, { passive: true });
+document.addEventListener('touchend', async e => {
+  if (pullStartY != null && e.changedTouches[0].clientY - pullStartY > 90 && !uploading && syncCount <= 0) {
+    showToast('刷新中…');
+    await loadLog(); loadMarket();
+  }
+  pullStartY = null;
+}, { passive: true });
 
 loadLog();
 </script>
