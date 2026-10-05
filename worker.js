@@ -573,7 +573,11 @@ async function marketRefresh(env) {
       const arts = [];
       const rssUrls = [
         'https://www.bing.com/news/search?q=' + encodeURIComponent('钽 铌 钽铌矿 价格') + '&format=rss&setlang=zh-CN',
-        'https://www.bing.com/news/search?q=' + encodeURIComponent('tantalum niobium coltan mining price') + '&format=rss&setlang=en-US'
+        'https://www.bing.com/news/search?q=' + encodeURIComponent('钽铌矿 刚果 卢旺达 非洲 供应') + '&format=rss&setlang=zh-CN',
+        'https://www.bing.com/news/search?q=' + encodeURIComponent('东方钽业 铌铁 钽电容 需求') + '&format=rss&setlang=zh-CN',
+        'https://www.bing.com/news/search?q=' + encodeURIComponent('tantalum niobium coltan mining price') + '&format=rss&setlang=en-US',
+        'https://www.bing.com/news/search?q=' + encodeURIComponent('coltan tantalum DRC Rwanda Congo mining export') + '&format=rss&setlang=en-US',
+        'https://www.bing.com/news/search?q=' + encodeURIComponent('tantalum capacitor demand semiconductor supply') + '&format=rss&setlang=en-US'
       ];
       for (const ru of rssUrls) {
         try {
@@ -594,18 +598,19 @@ async function marketRefresh(env) {
       parsed = { prices: [], news: arts.slice(0, 6).map(a => ({ title: a.title, summary: a.desc || a.src, impact: '中性', url: a.url })), advice: '' };
       // AI 把素材整理成一段播报稿（纯文本，不要 JSON）
       if (env.AI && arts.length) {
-        const list = arts.map((a, i) => `${i + 1}. ${a.title} — ${a.desc}（${a.src}）`).join('\n');
+        const list = arts.slice(0, 24).map((a, i) => `${i + 1}. ${a.title} — ${a.desc}（${a.src}）`).join('\n');
         const smmText = smmRows && smmRows.length ? '\n今日上海有色网(SMM)实时行情：' + smmRows.map(p => `${p.name} ${p.value}${p.unit}（${p.note}）`).join('；') + '。\n' : '';
         const today = new Date(Date.now() + 8 * 3600e3);
         const dateStr = `${today.getUTCMonth() + 1}月${today.getUTCDate()}日`;
-        const aiPrompt = `你是行业新闻播音员。根据以下钽铌（tantalum/niobium/coltan）实时行情和新闻素材，写一段今日行业播报稿。
+        const aiPrompt = `你是行业新闻播音员。根据以下钽铌（tantalum/niobium/coltan）实时行情和最新新闻素材，写一段今日行业播报稿。
 要求：
 - 开头："各位好，今天是${dateStr}，为您播报钽铌行业动态。"
-- 先报今日行情（钽矿到岸价、五氧化二钽、五氧化二铌、铌铁等真实价格），再讲新闻
-- 挑出与钽铌矿业、价格、供给最相关的3-6条，口语化连贯地讲出来，不要逐条念标题，要归纳成新闻语言
+- 先报今日行情（钽矿到岸价、五氧化二钽、五氧化二铌、铌铁等真实价格）
+- 再讲新闻，分三个层面归纳：上游矿山供应（重点非洲：刚果金、卢旺达、尼日利亚等矿区的停复产、出口、政策）、下游冶炼生产（东方钽业等国内厂商动态）、行业需求（电子、半导体、AI、高温合金等对钽铌的拉动）
+- 只采用最新的素材，过期旧闻忽略；不要逐条念标题，要归纳成连贯的新闻语言
 - 英文素材翻成中文
 - 结尾加一句对非洲钽铌精矿生产商的操作建议
-- 总长250-350字，可直接朗读，不要任何标题、列表符号或多余说明
+- 总长300-400字，可直接朗读，不要任何标题、列表符号或多余说明
 ${smmText}新闻素材：
 ${list}`;
         const MODELS = ['@cf/meta/llama-4-scout-17b-16e-instruct', '@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b', '@cf/meta/llama-3.2-3b-instruct'];
