@@ -531,6 +531,19 @@ async function saveLog(message) {
   }
 }
 
+function copyWxLink(u, e) {
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  const done = () => showToast('已复制，打开微信粘贴即可观看');
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(u).then(done).catch(() => fallbackCopy(u, done));
+  else fallbackCopy(u, done);
+}
+function fallbackCopy(u, done) {
+  const t = document.createElement('textarea');
+  t.value = u; t.style.position = 'fixed'; t.style.opacity = '0';
+  document.body.appendChild(t); t.select();
+  try { document.execCommand('copy'); done(); } catch (e) { showToast('复制失败，长按链接手动复制'); }
+  t.remove();
+}
 function id() { return 'f_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6); }
 function fmtDate(s) { return s ? new Date(s).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''; }
 function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
@@ -548,7 +561,11 @@ function mediaGrid(media) {
       return `<img src="/media?key=${m.r2Key}" loading="lazy" alt="" onclick="openImg('/media?key=${m.r2Key}')" style="cursor:pointer">`;
     }
     if (m.type === 'video') {
-      if (m.url && /youtube|bilibili|weixin|channels|qq\.com|tiktok|douyin|instagram|facebook|x\.com|twitter/.test(m.url)) return `<a href="${m.url}" target="_blank" style="display:flex;align-items:center;justify-content:center;height:180px;background:#000;color:#fff;font-size:14px">▶ 打开视频</a>`;
+      if (m.url && /weixin|channels|qq\.com/.test(m.url)) return `<div style="height:180px;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px">
+        <div style="color:#fff;font-size:14px">微信视频号（需微信内打开）</div>
+        <button type="button" class="btn" style="background:#07c160;color:#fff;font-size:13px" onclick="copyWxLink('${m.url.replace(/'/g, '')}', event)">📋 复制链接，到微信里打开</button>
+      </div>`;
+      if (m.url && /youtube|bilibili|tiktok|douyin|instagram|facebook|x\.com|twitter/.test(m.url)) return `<a href="${m.url}" target="_blank" style="display:flex;align-items:center;justify-content:center;height:180px;background:#000;color:#fff;font-size:14px">▶ 打开视频</a>`;
       return `<video controls src="${m.url || ''}" preload="metadata"></video>`;
     }
     if (m.type === 'tgVideo') return `<video controls src="/tgvideo?fid=${m.fileId}" preload="metadata"></video>`;
