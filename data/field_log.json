@@ -177,7 +177,9 @@
           "r2Key": "media/1791143416310_7r95sl.jpg"
         }
       ],
-      "likes": [],
+      "likes": [
+        "Natalie"
+      ],
       "comments": [],
       "updatedAt": "2026-10-04T21:08:19.800Z"
     },
@@ -236,7 +238,7 @@
       "updatedAt": "2026-10-05T06:07:51.823Z"
     }
   ],
-  "updatedAt": "2026-10-05T18:21:05.768Z",
+  "updatedAt": "2026-10-05T18:21:10.928Z",
   "users": [
     {
       "name": "Natalie"
