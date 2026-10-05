@@ -874,6 +874,15 @@ export default {
       const path = body.path || DATA_FILE;
       if (!path.startsWith(DATA_PREFIX)) return json({ error: 'forbidden path' }, 403);
 
+      // 轻量元数据：只回 sha/size，不下载内容（前端用它判断缓存是否过期）
+      if (body.action === 'stat') {
+        const res = await ghApi(env, path);
+        if (res.status === 404) return json({ exists: false });
+        if (!res.ok) return json({ error: 'github ' + res.status });
+        const d = await res.json();
+        return json({ sha: d.sha, size: d.size });
+      }
+
       if (body.action === 'read') {
         const f = await readFile(env, path);
         return json({ content: f ? f.content : null });
