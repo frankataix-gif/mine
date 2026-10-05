@@ -643,6 +643,25 @@ ${list}`;
       parsed.spoken = '钽铌市场简报。' + n.map((x, i) => `第${i + 1}条，${x.title}。`).join('') +
         (parsed.advice ? '操作建议：' + parsed.advice : '');
     }
+    // 语音播报：MeloTTS 生成真人感 MP3 → 存 R2，前端 <audio> 播放
+    if (parsed.spoken && env.MEDIA_BUCKET) {
+      try {
+        const audio = await env.AI.run('@cf/myshell-ai/melotts', { prompt: parsed.spoken, lang: 'zh' });
+        let buf = null;
+        if (audio instanceof Response) buf = await audio.arrayBuffer();
+        else if (audio instanceof ArrayBuffer || audio instanceof Uint8Array) buf = audio;
+        else if (audio && typeof audio.audio === 'string') {
+          // base64 返回
+          const b64 = audio.audio.replace(/^data:[^,]*,/, '');
+          buf = Uint8Array.from(atob(b64), c => c.charCodeAt(0)).buffer;
+        } else if (audio && audio.audio && audio.audio instanceof ArrayBuffer) buf = audio.audio;
+        else parsed.audioError = 'unknown resp: ' + (typeof audio) + ' ' + JSON.stringify(audio).slice(0, 120);
+        if (buf && (buf.byteLength || buf.length) > 2000) {
+          await env.MEDIA_BUCKET.put('market/daily.wav', buf, { httpMetadata: { contentType: 'audio/wav' } });
+          parsed.audio = '/media?key=market/daily.wav';
+        } else if (!parsed.audioError) parsed.audioError = 'empty audio';
+      } catch (e) { parsed.audioError = String(e).slice(0, 200); }
+    }
     parsed.updatedAt = new Date().toISOString();
     const path = 'data/market_daily.json';
     const existing = await readFile(env, path);

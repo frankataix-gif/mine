@@ -440,11 +440,12 @@ async function loadMarket() {
     }
     const d = JSON.parse(r.content);
     marketSpoken = d.spoken || '';
+    marketAudio = d.audio || '';
     el.innerHTML = `<div class="card" style="padding:12px 16px">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <strong>📈 钽铌市场日报</strong>
         <span style="display:flex;gap:8px;align-items:center">
-          ${marketSpoken ? '<button type="button" class="btn" id="marketPlay" style="padding:4px 12px;font-size:13px;background:var(--primary-light);color:var(--primary)" onclick="playMarket()">🔊 播放</button>' : ''}
+          ${(marketAudio || marketSpoken) ? '<button type="button" class="btn" id="marketPlay" style="padding:4px 12px;font-size:13px;background:var(--primary-light);color:var(--primary)" onclick="playMarket()">🔊 播放</button>' : ''}
           <span class="hint">${fmtDate(d.updatedAt)}</span>
         </span>
       </div>
@@ -534,9 +535,23 @@ function yuanKgRange(p) {
   else return p.value + ' ' + u;                 // 其他单位不换算
   return `≈${fmt(lo * k)}~${fmt(hi * k)} 元/千克`;
 }
-let marketSpoken = '';
+let marketSpoken = '', marketAudio = '', marketPlayer = null;
 function playMarket() {
   const btn = document.getElementById('marketPlay');
+  // AI 生成的真人感音频（服务端 MeloTTS）
+  if (marketAudio) {
+    if (marketPlayer && !marketPlayer.paused) {
+      marketPlayer.pause(); marketPlayer.currentTime = 0;
+      if (btn) btn.textContent = '🔊 播放'; return;
+    }
+    if (marketPlayer) marketPlayer.pause();
+    marketPlayer = new Audio(marketAudio);
+    marketPlayer.onended = marketPlayer.onerror = () => { const b = document.getElementById('marketPlay'); if (b) b.textContent = '🔊 播放'; };
+    marketPlayer.play().catch(() => { marketAudio = ''; playMarket(); });
+    if (btn) btn.textContent = '⏹ 停止';
+    return;
+  }
+  // 兜底：浏览器自带 TTS
   if (!('speechSynthesis' in window) || !marketSpoken) { showToast('本机不支持语音播放'); return; }
   if (speechSynthesis.speaking) { speechSynthesis.cancel(); if (btn) btn.textContent = '🔊 播放'; return; }
   const u = new SpeechSynthesisUtterance(marketSpoken);
