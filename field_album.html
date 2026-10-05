@@ -1091,6 +1091,7 @@ document.getElementById('setNameSave').onclick = () => {
   renderUserChip();
   document.getElementById('setNameInput').value = '';
   renderUserLinks();
+  renderFeed(); renderProjects(); renderProduction();
   showToast('名字已保存');
 };
 if (currentUser === 'unknown') {
