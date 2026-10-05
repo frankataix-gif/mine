@@ -174,7 +174,8 @@
   .task { border-top: 1px solid var(--border); padding: 12px 0; }
   .task:first-child { border-top: none; padding-top: 0; }
   .task-head { display: flex; align-items: center; gap: 10px; }
-  .task-status { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--border); flex: 0 0 18px; cursor: pointer; }
+  .task-status { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--border); flex: 0 0 22px; cursor: pointer; }
+  .task-status.done::after { content: '✓'; color: #fff; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; line-height: 1; height: 100%; }
   .task-status.done { background: var(--success); border-color: var(--success); }
   .task-title { flex: 1; font-size: 0.95rem; }
   .task-title.done { text-decoration: line-through; color: var(--muted); }
@@ -261,6 +262,16 @@
   </section>
 
   <section class="tab-content" id="tab-schedule">
+    <div id="myTaskBox"></div>
+    <div class="card">
+      <h2>待办事项</h2>
+      <div style="display:flex;gap:8px;margin-bottom:6px">
+        <input type="text" id="todoInput" placeholder="轻量事项：今天发工资、办签证…" style="flex:1">
+        <button type="button" class="btn" id="addTodoBtn" style="min-height:44px;white-space:nowrap">+ 添加</button>
+      </div>
+      <div id="todoList"></div>
+    </div>
+    <div style="font-size:14px;font-weight:600;color:var(--muted);margin:14px 4px 6px">📂 项目</div>
     <div id="projectList" class="feed"></div>
     <button type="button" class="btn" id="addProjectBtn" style="width:100%;min-height:46px;font-size:15px;margin-top:10px">+ 新建项目</button>
   </section>
@@ -373,6 +384,22 @@
   <img id="imgView" src="" style="max-width:100vw;max-height:100vh;object-fit:contain;transition:transform .15s ease-out" alt="">
 </div>
 
+<div id="taskModal" class="modal-mask">
+  <div class="modal">
+    <div class="modal-head"><h3 id="tmTitle">任务</h3><button type="button" class="btn" id="tmCancel" style="background:#e5e7eb;color:#374151">取消</button></div>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:10px">
+      <input type="text" id="tmName" placeholder="标题 *" style="width:100%;padding:11px 12px;border:1px solid var(--border);border-radius:8px;font-size:15px;box-sizing:border-box">
+      <input type="text" id="tmAssignee" list="peopleList" placeholder="指派给（可空，填名字）" style="width:100%;padding:11px 12px;border:1px solid var(--border);border-radius:8px;font-size:15px;box-sizing:border-box">
+      <datalist id="peopleList"></datalist>
+      <div><label style="font-size:12px;color:var(--muted)">截止日期（可空）</label><input type="date" id="tmDue" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:15px;box-sizing:border-box"></div>
+      <textarea id="tmDesc" rows="2" placeholder="说明（可选）" style="width:100%;padding:11px 12px;border:1px solid var(--border);border-radius:8px;font-size:15px;resize:none;box-sizing:border-box"></textarea>
+      <button type="button" class="btn" id="tmSave" style="width:100%;min-height:46px">保存</button>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="attFile" multiple style="display:none">
+
 <div id="toast" class="toast hidden"></div>
 <div id="syncBar" style="position:fixed;top:calc(env(safe-area-inset-top,0px) + 10px);left:50%;transform:translateX(-50%);background:#0f172a;color:#fff;padding:6px 14px;border-radius:16px;font-size:12px;z-index:400;display:none;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(0,0,0,.25)"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#f59e0b;animation:syncPulse 1s infinite"></span>同步中…</div>
 <style>@keyframes syncPulse { 0%,100%{opacity:.4} 50%{opacity:1} }</style>
@@ -459,7 +486,7 @@ async function loadLog() {
     if (!log.production) log.production = [];
     if (!log.users) log.users = [];
     migrateFromPhotos();
-    renderFeed(); renderProjects(); renderProduction();
+    renderFeed(); renderSchedule(); renderProduction();
     renderUserLinks();
     loadMarket();
   } catch (e) {
@@ -788,18 +815,192 @@ async function deletePost(pid, e) {
 }
 
 // 时间
+function renderSchedule() {
+  renderMyItems(); renderTodos(); renderProjects();
+}
+
+const _today = () => new Date().toISOString().slice(0, 10);
+function dueChip(due, done) {
+  if (!due) return '';
+  if (done) return `<span class="due-chip">至${due.slice(5)}</span>`;
+  if (due < _today()) return `<span class="due-chip overdue">逾期 ${due.slice(5)}</span>`;
+  if (due === _today()) return `<span class="due-chip today">今天截止</span>`;
+  return `<span class="due-chip">至${due.slice(5)}</span>`;
+}
+function assignChip(a) { return a ? `<span class="assign-chip">@${esc(a)}</span>` : ''; }
+function fileChips(files) {
+  if (!files || !files.length) return '';
+  return `<div class="file-row">${files.map(f => {
+    const u = f.url;
+    if (f.kind === 'image') return `<img class="file-img" src="${u}" onclick="openImg(this.src);event.stopPropagation()">`;
+    const icon = f.kind === 'video' ? '▶' : (f.kind === 'pdf' ? '📄' : '📎');
+    return `<a class="file-chip" href="${u}" target="_blank" onclick="event.stopPropagation()">${icon} ${esc(f.name || '附件')}</a>`;
+  }).join('')}</div>`;
+}
+function commentHtml(c, key, menuEdit, menuDel) {
+  const own = c.user === currentUser || isAdmin();
+  return `<div class="comment"><b>${esc(c.user)}</b>：${esc(c.text)}${fileChips(c.files)} <span style="color:#999;font-size:11px">${fmtDate(c.time)}${c.editedAt ? ' ·改' : ''}</span>${own ? `<span class="fb-wrap"><button type="button" class="fb-dots" onclick="toggleMiniMenu('${key}',event)">⋮</button><div class="fb-menu" id="${key}"><button type="button" onclick="${menuEdit}">编辑</button><button type="button" class="danger" onclick="${menuDel}">删除</button></div></span>` : ''}</div>`;
+}
+function stagedRow(key) {
+  const fs = stagedFiles[key] || [];
+  if (!fs.length) return '';
+  return `<div class="file-row">${fs.map((f, fi) => `<span class="file-chip">📎 ${esc(f.name)} <b style="cursor:pointer" onclick="unstageFile('${key}',${fi});event.stopPropagation()">×</b></span>`).join('')}</div>`;
+}
+
+// ---- 派给我的 ----
+function renderMyItems() {
+  const el = document.getElementById('myTaskBox');
+  if (!el) return;
+  const mine = [];
+  for (const t of (log.tasks || [])) {
+    if (t.assignee === currentUser && t.status !== 'done') {
+      const pr = (log.projects || []).find(p => p.id === t.projectId);
+      mine.push({ kind: 'task', id: t.id, title: t.name, due: t.due, from: pr ? pr.name : '', by: t.createdBy });
+    }
+  }
+  for (const d of (log.todos || [])) {
+    if (d.assignee === currentUser && !d.done) mine.push({ kind: 'todo', id: d.id, title: d.title, due: d.due, by: d.createdBy });
+  }
+  if (!mine.length) { el.innerHTML = ''; return; }
+  mine.sort((a, b) => (a.due || '9999') < (b.due || '9999') ? -1 : 1);
+  el.innerHTML = `<div class="card" style="background:linear-gradient(135deg,#eff6ff,#f0f9ff);border:1px solid #bfdbfe">
+    <div style="font-weight:700;color:var(--primary);font-size:15px;margin-bottom:4px">📌 派给我的（${mine.length}）</div>
+    ${mine.map(m => `<div class="my-item" onclick="jumpToItem('${m.kind}','${m.id}')">
+      <span style="font-size:12px;color:var(--muted)">${m.kind === 'task' ? '任务' : '待办'}</span>
+      <span style="flex:1;font-weight:600">${esc(m.title)}</span>
+      ${m.from ? `<span style="font-size:12px;color:var(--muted)">${esc(m.from)}</span>` : ''}
+      ${dueChip(m.due)}
+    </div>`).join('')}
+  </div>`;
+}
+function jumpToItem(kind, id) {
+  if (kind === 'task') {
+    const t = log.tasks.find(x => x.id === id);
+    if (t) { expanded[t.projectId] = true; expanded['c_' + id] = true; renderSchedule(); }
+  } else {
+    expanded['td_' + id] = true; renderSchedule();
+  }
+  setTimeout(() => {
+    const el = document.getElementById(kind === 'task' ? 'cc-' + id : 'tdrow-' + id) || null;
+    const box = el ? el.closest('.task,.todo') : null;
+    if (box) box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 80);
+}
+
+// ---- 待办事项 ----
+function renderTodos() {
+  const el = document.getElementById('todoList');
+  const list = (log.todos || []).slice().sort((a, b) => (a.done - b.done) || ((a.due || '9999') < (b.due || '9999') ? -1 : 1));
+  if (!list.length) { el.innerHTML = '<div class="empty" style="padding:8px 0">暂无待办</div>'; return; }
+  el.innerHTML = list.map(d => {
+    const mine = d.assignee === currentUser && !d.done;
+    const own = d.createdBy === currentUser || d.assignee === currentUser || isAdmin();
+    const open = expanded['td_' + d.id];
+    const comments = d.comments || [];
+    const skey = 'td_' + d.id;
+    return `<div class="todo ${d.done ? 'done' : ''} ${mine ? 'mine' : ''}" id="tdrow-${d.id}">
+      <div class="task-head" onclick="toggleTodoDetail('${d.id}')">
+        <div class="task-status ${d.done ? 'done' : ''}" onclick="toggleTodo('${d.id}',event)"></div>
+        <div class="task-title ${d.done ? 'done' : ''}">${esc(d.title)}</div>
+        ${assignChip(d.assignee)}${dueChip(d.due, d.done)}
+        ${own ? `<span class="fb-wrap"><button type="button" class="fb-dots" onclick="toggleMiniMenu('tdo-${d.id}',event)">⋮</button><div class="fb-menu" id="tdo-${d.id}"><button type="button" onclick="editTodo('${d.id}',event)">编辑</button><button type="button" class="danger" onclick="delTodo('${d.id}',event)">删除</button></div></span>` : ''}
+      </div>
+      <div class="task-meta">${esc(d.createdBy || '')} · ${fmtDate(d.createdAt)}${comments.length ? ' · 💬' + comments.length : ''}${(d.files || []).length ? ' · 📎' + d.files.length : ''}
+        <button type="button" class="fb-dots" style="width:22px;height:22px;font-size:13px" title="传附件" onclick="pickAttach('attodo:${d.id}',event)">📎</button></div>
+      ${fileChips(d.files)}
+      ${open ? `<div class="comments open">
+        ${comments.length ? comments.map((c, ci) => commentHtml(c, `tdcmo-${d.id}-${ci}`, `editTodoComment('${d.id}',${ci},event)`, `delTodoComment('${d.id}',${ci},event)`)).join('') : '<div class="comment" style="color:#999">暂无留言</div>'}
+        ${stagedRow(skey)}
+        <div class="comment-input">
+          <input type="text" id="tdc-${d.id}" placeholder="写留言…" onkeydown="if(event.key==='Enter')submitTodoComment('${d.id}')">
+          <button type="button" class="fb-dots" style="border-radius:8px;width:34px" title="留言带附件" onclick="pickAttach('${skey}',event)">📎</button>
+          <button type="button" class="btn" onclick="submitTodoComment('${d.id}')">发送</button>
+        </div>
+      </div>` : ''}
+    </div>`;
+  }).join('');
+}
+function toggleTodoDetail(id) {
+  expanded['td_' + id] = !expanded['td_' + id];
+  renderSchedule();
+}
+async function toggleTodo(id, e) {
+  if (syncBusy()) return;
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  const d = (log.todos || []).find(x => x.id === id); if (!d) return;
+  d.done = !d.done; d.doneAt = d.done ? new Date().toISOString() : '';
+  if (await saveLog('toggle todo')) renderSchedule();
+}
+function addTodoQuick() {
+  const inp = document.getElementById('todoInput');
+  const title = inp.value.trim();
+  if (!title) { showToast('先写事项内容'); return; }
+  inp.value = '';
+  openTaskModal({ mode: 'todo', title });
+}
+function editTodo(id, e) {
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  const d = (log.todos || []).find(x => x.id === id); if (!d) return;
+  openTaskModal({ mode: 'todo', id, title: d.title, assignee: d.assignee, due: d.due, desc: d.desc });
+}
+async function delTodo(id, e) {
+  if (syncBusy()) return;
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  if (!confirm('删除这条待办？')) return;
+  log.todos = (log.todos || []).filter(x => x.id !== id);
+  if (await saveLog('delete todo')) renderSchedule();
+}
+let editingTodoComment = null;
+function editTodoComment(id, ci, e) {
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  const d = (log.todos || []).find(x => x.id === id);
+  const c = d && d.comments && d.comments[ci]; if (!c) return;
+  editingTodoComment = { id, ci };
+  expanded['td_' + id] = true; renderSchedule();
+  setTimeout(() => { const inp = document.getElementById('tdc-' + id); if (inp) { inp.value = c.text; inp.focus(); } }, 60);
+}
+async function delTodoComment(id, ci, e) {
+  if (syncBusy()) return;
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  if (!confirm('删除这条留言？')) return;
+  const d = (log.todos || []).find(x => x.id === id);
+  if (!d || !d.comments || !d.comments[ci]) return;
+  d.comments.splice(ci, 1);
+  if (await saveLog('delete todo comment')) renderSchedule();
+}
+async function submitTodoComment(id) {
+  if (syncBusy()) return;
+  const input = document.getElementById('tdc-' + id);
+  const text = input.value.trim();
+  const key = 'td_' + id;
+  const fs = stagedFiles[key] || [];
+  if (!text && !fs.length) return;
+  const d = (log.todos || []).find(x => x.id === id); if (!d) return;
+  if (!d.comments) d.comments = [];
+  if (editingTodoComment && editingTodoComment.id === id && d.comments[editingTodoComment.ci]) {
+    d.comments[editingTodoComment.ci].text = text;
+    d.comments[editingTodoComment.ci].editedAt = new Date().toISOString();
+  } else {
+    d.comments.push({ user: currentUser, text, time: new Date().toISOString(), files: fs.length ? fs : undefined });
+  }
+  editingTodoComment = null; stagedFiles[key] = [];
+  if (await saveLog('save todo comment')) { expanded['td_' + id] = true; renderSchedule(); }
+}
+
+// ---- 项目 / 任务 ----
 function renderProjects() {
   const list = document.getElementById('projectList');
   if (!log.projects.length) { list.innerHTML = '<div class="empty">还没有项目，点下方 + 新建</div>'; return; }
   list.innerHTML = log.projects.slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).map(pr => {
     const tasks = log.tasks.filter(t => t.projectId === pr.id).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     const open = expanded[pr.id] ? 'open' : '';
+    const undone = tasks.filter(t => t.status !== 'done').length;
     return `
       <div class="project">
         <div class="project-head" onclick="toggleProject('${pr.id}')">
           <div>
             <div class="project-title">${esc(pr.name)}</div>
-            <div class="project-meta">创建人：${esc(pr.createdBy || 'unknown')} · ${fmtDate(pr.createdAt)} · ${tasks.length} 个任务</div>
+            <div class="project-meta">创建人：${esc(pr.createdBy || 'unknown')} · ${fmtDate(pr.createdAt)} · ${tasks.length} 任务${undone ? ` · <b style="color:var(--primary)">${undone} 未完成</b>` : ''}</div>
           </div>
           <div style="display:flex;align-items:center;gap:6px">
             ${(pr.createdBy === currentUser || isAdmin()) ? `<button type="button" class="fb-op" style="font-size:14px" onclick="deleteProject('${pr.id}',event)" title="删除项目">🗑</button>` : ''}
@@ -807,27 +1008,34 @@ function renderProjects() {
           </div>
         </div>
         <div class="project-body ${open}" id="pb-${pr.id}">
+          ${pr.description ? `<div class="task-meta" style="margin-bottom:8px">${esc(pr.description)}</div>` : ''}
           ${tasks.length ? tasks.map(t => {
             const comments = t.comments || [];
             const cOpen = expanded['c_' + t.id] ? 'open' : '';
-            const ownT = t.createdBy === currentUser || isAdmin();
+            const ownT = t.createdBy === currentUser || t.assignee === currentUser || isAdmin();
+            const mine = t.assignee === currentUser && t.status !== 'done';
+            const skey = 'tk_' + t.id;
             return `
-              <div class="task">
+              <div class="task ${mine ? 'mine' : ''}">
                 <div class="task-head">
                   <div class="task-status ${t.status === 'done' ? 'done' : ''}" onclick="toggleTask('${t.id}', event)"></div>
                   <div class="task-title ${t.status === 'done' ? 'done' : ''}">${esc(t.name)}</div>
                   ${ownT ? `<span class="fb-wrap"><button type="button" class="fb-dots" onclick="toggleMiniMenu('tko-${t.id}',event)">⋮</button><div class="fb-menu" id="tko-${t.id}"><button type="button" onclick="editTask('${t.id}',event)">编辑</button><button type="button" class="danger" onclick="deleteTask('${t.id}',event)">删除</button></div></span>` : ''}
                 </div>
-                <div class="task-meta">创建人：${esc(t.createdBy || 'unknown')} · 执行人：${esc(t.assignee || '未指定')}</div>
+                <div class="task-meta">创建人：${esc(t.createdBy || 'unknown')}${t.assignee ? ` · <b style="color:${mine ? 'var(--primary)' : 'inherit'}">@${esc(t.assignee)}</b>` : ''} ${dueChip(t.due, t.status === 'done')}</div>
                 ${t.description ? `<div class="task-meta">${esc(t.description)}</div>` : ''}
+                ${fileChips(t.files)}
                 <div class="task-actions">
                   <button type="button" class="btn" onclick="addComment('${t.id}', event)" style="background:#e5e7eb;color:#374151">留言 (${comments.length})</button>
+                  <button type="button" class="btn" title="上传附件" onclick="pickAttach('att:${t.id}',event)" style="background:#e5e7eb;color:#374151">📎 附件${(t.files || []).length ? ' ' + t.files.length : ''}</button>
                   <button type="button" class="btn" onclick="addSubTask('${pr.id}', event)">+ 子任务</button>
                 </div>
                 <div class="comments ${cOpen}" id="cc-${t.id}">
-                  ${comments.length ? comments.map((c, ci) => `<div class="comment"><b>${esc(c.user)}</b>：${esc(c.text)} <span style="color:#999;font-size:11px">${fmtDate(c.time)}</span>${(c.user === currentUser || isAdmin()) ? `<span class="fb-wrap"><button type="button" class="fb-dots" onclick="toggleMiniMenu('tcmo-${t.id}-${ci}',event)">⋮</button><div class="fb-menu" id="tcmo-${t.id}-${ci}"><button type="button" onclick="editTaskComment('${t.id}',${ci},event)">编辑</button><button type="button" class="danger" onclick="delTaskComment('${t.id}',${ci},event)">删除</button></div></span>` : ''}</div>`).join('') : '<div class="comment" style="color:#999">暂无留言</div>'}
+                  ${comments.length ? comments.map((c, ci) => commentHtml(c, `tcmo-${t.id}-${ci}`, `editTaskComment('${t.id}',${ci},event)`, `delTaskComment('${t.id}',${ci},event)`)).join('') : '<div class="comment" style="color:#999">暂无留言</div>'}
+                  ${stagedRow(skey)}
                   <div class="comment-input">
                     <input type="text" id="cm-${t.id}" placeholder="写留言…" onkeydown="if(event.key==='Enter')submitComment('${t.id}')">
+                    <button type="button" class="fb-dots" style="border-radius:8px;width:34px" title="留言带附件" onclick="pickAttach('${skey}',event)">📎</button>
                     <button type="button" class="btn" onclick="submitComment('${t.id}')">发送</button>
                   </div>
                 </div>
@@ -843,7 +1051,7 @@ function renderProjects() {
 
 function toggleProject(pid) {
   expanded[pid] = !expanded[pid];
-  renderProjects();
+  renderSchedule();
 }
 
 async function addProject() {
@@ -859,33 +1067,40 @@ async function addProject() {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   });
-  if (await saveLog('add project')) renderProjects();
+  if (await saveLog('add project')) renderSchedule();
 }
 
-async function addTask(pid, e) {
-  if (syncBusy()) return;
+// ---- 任务/待办表单弹窗 ----
+let tmCtx = null;
+function openTaskModal(ctx) {
+  tmCtx = ctx;
+  document.getElementById('tmTitle').textContent = ctx.mode === 'todo' ? (ctx.id ? '编辑待办' : '新待办') : (ctx.id ? '编辑任务' : '新任务');
+  document.getElementById('tmName').value = ctx.title || ctx.name || '';
+  document.getElementById('tmAssignee').value = ctx.assignee || '';
+  document.getElementById('tmDue').value = ctx.due || '';
+  document.getElementById('tmDesc').value = ctx.description || ctx.desc || '';
+  document.getElementById('tmDesc').style.display = ctx.mode === 'todo' ? 'none' : 'block';
+  const names = new Set(USER_LINKS.map(u => u.name));
+  (log.tasks || []).forEach(t => { if (t.assignee) names.add(t.assignee); if (t.createdBy) names.add(t.createdBy); });
+  (log.todos || []).forEach(d => { if (d.assignee) names.add(d.assignee); });
+  (log.posts || []).forEach(p => p.uploader && names.add(p.uploader));
+  names.delete('unknown');
+  document.getElementById('peopleList').innerHTML = [...names].map(n => `<option value="${esc(n)}">`).join('');
+  document.getElementById('taskModal').classList.add('show');
+  setTimeout(() => document.getElementById('tmName').focus(), 60);
+}
+function closeTaskModal() { document.getElementById('taskModal').classList.remove('show'); tmCtx = null; }
+
+function addTask(pid, e) {
   if (e) { e.stopPropagation(); e.preventDefault(); }
-  const name = prompt('任务名称：');
-  if (!name) return;
-  const assignee = prompt('执行人：') || '';
-  const desc = prompt('任务说明（可选）：') || '';
-  log.tasks.unshift({
-    id: id(),
-    projectId: pid,
-    name,
-    description: desc,
-    assignee,
-    createdBy: currentUser,
-    status: 'pending',
-    comments: [],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  });
-  expanded[pid] = true;
-  if (await saveLog('add task')) renderProjects();
+  openTaskModal({ mode: 'task', projectId: pid });
 }
-
 function addSubTask(pid, e) { if (e) e.stopPropagation(); addTask(pid); }
+function editTask(tid, e) {
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  const t = log.tasks.find(x => x.id === tid); if (!t) return;
+  openTaskModal({ mode: 'task', id: tid, name: t.name, assignee: t.assignee, due: t.due, description: t.description });
+}
 
 async function toggleTask(tid, e) {
   if (syncBusy()) return;
@@ -894,14 +1109,14 @@ async function toggleTask(tid, e) {
   if (!t) return;
   t.status = t.status === 'done' ? 'pending' : 'done';
   t.updatedAt = new Date().toISOString();
-  if (await saveLog('update task')) renderProjects();
+  if (await saveLog('update task')) renderSchedule();
 }
 
 function addComment(tid, e) {
   if (e) { e.stopPropagation(); e.preventDefault(); }
   expanded['c_' + tid] = !expanded['c_' + tid];
-  renderProjects();
-  if (expanded['c_' + tid]) setTimeout(() => document.getElementById('cm-' + tid).focus(), 50);
+  renderSchedule();
+  if (expanded['c_' + tid]) setTimeout(() => { const i = document.getElementById('cm-' + tid); if (i) i.focus(); }, 50);
 }
 
 async function deleteProject(pid, e) {
@@ -910,20 +1125,7 @@ async function deleteProject(pid, e) {
   if (!confirm('删除这个项目及其所有任务？')) return;
   log.projects = (log.projects || []).filter(x => x.id !== pid);
   log.tasks = (log.tasks || []).filter(x => x.projectId !== pid);
-  if (await saveLog('delete project')) renderProjects();
-}
-
-async function editTask(tid, e) {
-  if (syncBusy()) return;
-  if (e) { e.stopPropagation(); e.preventDefault(); }
-  const t = log.tasks.find(x => x.id === tid);
-  if (!t) return;
-  const name = prompt('任务名称：', t.name); if (name === null || !name.trim()) return;
-  const assignee = prompt('执行人：', t.assignee || ''); if (assignee === null) return;
-  const desc = prompt('任务说明：', t.description || ''); if (desc === null) return;
-  t.name = name.trim(); t.assignee = assignee; t.description = desc;
-  t.updatedAt = new Date().toISOString();
-  if (await saveLog('edit task')) renderProjects();
+  if (await saveLog('delete project')) renderSchedule();
 }
 
 async function deleteTask(tid, e) {
@@ -933,7 +1135,7 @@ async function deleteTask(tid, e) {
   const i = (log.tasks || []).findIndex(x => x.id === tid);
   if (i < 0) return;
   log.tasks.splice(i, 1);
-  if (await saveLog('delete task')) renderProjects();
+  if (await saveLog('delete task')) renderSchedule();
 }
 
 let editingTaskComment = null; // {tid, ci}
@@ -944,7 +1146,7 @@ function editTaskComment(tid, ci, e) {
   if (!c) return;
   editingTaskComment = { tid, ci };
   expanded['c_' + tid] = true;
-  renderProjects();
+  renderSchedule();
   setTimeout(() => { const inp = document.getElementById('cm-' + tid); if (inp) { inp.value = c.text; inp.focus(); } }, 60);
 }
 async function delTaskComment(tid, ci, e) {
@@ -954,14 +1156,16 @@ async function delTaskComment(tid, ci, e) {
   const t = log.tasks.find(x => x.id === tid);
   if (!t || !t.comments || !t.comments[ci]) return;
   t.comments.splice(ci, 1);
-  if (await saveLog('delete task comment')) renderProjects();
+  if (await saveLog('delete task comment')) renderSchedule();
 }
 
 async function submitComment(tid) {
   if (syncBusy()) return;
   const input = document.getElementById('cm-' + tid);
   const text = input.value.trim();
-  if (!text) return;
+  const key = 'tk_' + tid;
+  const fs = stagedFiles[key] || [];
+  if (!text && !fs.length) return;
   const t = log.tasks.find(x => x.id === tid);
   if (!t) return;
   if (!t.comments) t.comments = [];
@@ -969,12 +1173,64 @@ async function submitComment(tid) {
     t.comments[editingTaskComment.ci].text = text;
     t.comments[editingTaskComment.ci].editedAt = new Date().toISOString();
   } else {
-    t.comments.push({ user: currentUser, text, time: new Date().toISOString() });
+    t.comments.push({ user: currentUser, text, time: new Date().toISOString(), files: fs.length ? fs : undefined });
   }
-  editingTaskComment = null;
+  editingTaskComment = null; stagedFiles[key] = [];
   t.updatedAt = new Date().toISOString();
-  if (await saveLog('save comment')) { renderProjects(); expanded['c_' + tid] = true; }
+  if (await saveLog('save comment')) { renderSchedule(); expanded['c_' + tid] = true; }
 }
+
+// ---- 附件上传（任务/待办/留言）----
+let stagedFiles = {};   // key -> [{name,url,kind}]
+let attTarget = null;   // 'att:<tid>' 任务附件 | 'attodo:<id>' 待办附件 | 其他 key 挂到留言暂存
+
+function pickAttach(target, e) {
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  if (syncBusy()) return;
+  attTarget = target;
+  const inp = document.getElementById('attFile');
+  inp.value = '';
+  inp.click();
+}
+function unstageFile(key, fi) {
+  (stagedFiles[key] || []).splice(fi, 1);
+  renderSchedule();
+}
+async function uploadAttachment(file) {
+  const ext = (file.name.split('.').pop() || 'bin').toLowerCase();
+  const kind = file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : ext === 'pdf' ? 'pdf' : 'file';
+  const presign = await api('presign', { type: 'file', ext, contentType: file.type || 'application/octet-stream' });
+  if (!presign || !presign.url) throw new Error('presign 失败');
+  await requestWithProgress(presign.url, file, () => {}, false, file.type || 'application/octet-stream');
+  return { name: file.name, url: '/media?key=' + presign.key, kind };
+}
+document.getElementById('attFile').onchange = async e => {
+  const files = [...e.target.files];
+  if (!files.length || !attTarget) return;
+  const target = attTarget; attTarget = null;
+  showToast('上传附件中…');
+  try {
+    for (const f of files) {
+      const a = await uploadAttachment(f);
+      if (target.startsWith('att:')) {
+        const t = log.tasks.find(x => x.id === target.slice(4));
+        if (t) { if (!t.files) t.files = []; t.files.push(a); }
+      } else if (target.startsWith('attodo:')) {
+        const d = (log.todos || []).find(x => x.id === target.slice(7));
+        if (d) { if (!d.files) d.files = []; d.files.push(a); }
+      } else {
+        if (!stagedFiles[target]) stagedFiles[target] = [];
+        stagedFiles[target].push(a);
+      }
+    }
+    if (target.startsWith('att')) {
+      if (await saveLog('attach file')) showToast('附件已上传');
+    }
+    renderSchedule();
+  } catch (err) {
+    showToast('附件上传失败：' + (err.message || ''));
+  }
+};
 
 function renderProduction() {
   const list = document.getElementById('productionList');
@@ -1129,6 +1385,38 @@ function updateClocks() {
 setInterval(updateClocks, 1000); updateClocks();
 
 document.getElementById('addProjectBtn').onclick = addProject;
+document.getElementById('addTodoBtn').onclick = addTodoQuick;
+document.getElementById('todoInput').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); addTodoQuick(); } };
+document.getElementById('tmCancel').onclick = () => closeTaskModal();
+document.getElementById('taskModal').onclick = e => { if (e.target.id === 'taskModal') closeTaskModal(); };
+document.getElementById('tmSave').onclick = async () => {
+  if (syncBusy() || !tmCtx) return;
+  const name = document.getElementById('tmName').value.trim();
+  if (!name) { showToast('标题必填'); return; }
+  const assignee = document.getElementById('tmAssignee').value.trim();
+  const due = document.getElementById('tmDue').value;
+  const desc = document.getElementById('tmDesc').value.trim();
+  const ctx = tmCtx;
+  closeTaskModal();
+  if (ctx.mode === 'todo') {
+    if (ctx.id) {
+      const d = (log.todos || []).find(x => x.id === ctx.id);
+      if (d) { d.title = name; d.assignee = assignee; d.due = due; d.desc = desc; }
+    } else {
+      if (!log.todos) log.todos = [];
+      log.todos.unshift({ id: id(), title: name, assignee, due, desc, done: false, createdBy: currentUser, createdAt: new Date().toISOString(), comments: [], files: [] });
+    }
+  } else {
+    if (ctx.id) {
+      const t = log.tasks.find(x => x.id === ctx.id);
+      if (t) { t.name = name; t.assignee = assignee; t.due = due; t.description = desc; t.updatedAt = new Date().toISOString(); }
+    } else {
+      log.tasks.unshift({ id: id(), projectId: ctx.projectId, name, description: desc, assignee, due, createdBy: currentUser, status: 'pending', comments: [], files: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+      expanded[ctx.projectId] = true;
+    }
+  }
+  if (await saveLog('save ' + ctx.mode)) renderSchedule();
+};
 
 // tab 切换
 document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
@@ -1165,7 +1453,7 @@ document.getElementById('setNameSave').onclick = () => {
   renderUserChip();
   document.getElementById('setNameInput').value = '';
   renderUserLinks();
-  renderFeed(); renderProjects(); renderProduction();
+  renderFeed(); renderSchedule(); renderProduction();
   showToast('名字已保存');
 };
 if (currentUser === 'unknown') {

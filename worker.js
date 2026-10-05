@@ -816,12 +816,14 @@ export default {
 
       // 直传 R2 预签名 URL
       if (body.action === 'presign') {
-        const type = body.type === 'image' ? 'image' : 'video';
-        const ext = type === 'image' ? 'jpg' : 'mp4';
-        const contentType = type === 'image' ? 'image/jpeg' : 'video/mp4';
+        const type = body.type === 'image' ? 'image' : (body.type === 'file' ? 'file' : 'video');
+        const ext = type === 'image' ? 'jpg' : type === 'video' ? 'mp4'
+          : String(body.ext || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8) || 'bin';
+        const contentType = type === 'file' ? String(body.contentType || 'application/octet-stream')
+          : type === 'image' ? 'image/jpeg' : 'video/mp4';
         const now = Date.now();
         const rand = Math.random().toString(36).slice(2, 8);
-        const key = `media/${now}_${rand}.${ext}`;
+        const key = `${type === 'file' ? 'files' : 'media'}/${now}_${rand}.${ext}`;
         const url = await r2Presign(env, 'PUT', key, contentType);
         return json({ ok: true, key, url });
       }
