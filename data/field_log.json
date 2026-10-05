@@ -46,6 +46,26 @@
   "production": [],
   "posts": [
     {
+      "id": "f_muvlbxhe_xpj1",
+      "note": "",
+      "uploader": "Frank",
+      "createdAt": "2026-10-05T18:36:00.194Z",
+      "media": [
+        {
+          "type": "video",
+          "r2Key": "media/1791225304432_1akgiv.mp4",
+          "thumbKey": "media/1791225303456_ro1n6a.jpg"
+        },
+        {
+          "type": "video",
+          "r2Key": "media/1791225304460_s9g0y3.mp4",
+          "thumbKey": "media/1791225303459_pa2y88.jpg"
+        }
+      ],
+      "likes": [],
+      "comments": []
+    },
+    {
       "id": "f_muvkd3nq_4em5",
       "note": "今日工作",
       "uploader": "Frank",
@@ -105,11 +125,6 @@
           "user": "unknown",
           "text": "👍",
           "time": "2026-10-05T18:18:18.334Z"
-        },
-        {
-          "user": "Natalie",
-          "text": "棒",
-          "time": "2026-10-05T18:19:11.026Z"
         }
       ]
     },
@@ -132,9 +147,7 @@
           "r2Key": "media/1791187532434_8s6wu5.jpg"
         }
       ],
-      "likes": [
-        "Natalie"
-      ],
+      "likes": [],
       "comments": []
     },
     {
@@ -148,9 +161,7 @@
           "r2Key": "media/1791147844261_vzooaa.jpg"
         }
       ],
-      "likes": [
-        "Natalie"
-      ],
+      "likes": [],
       "comments": [],
       "updatedAt": "2026-10-05T01:17:38.802Z"
     },
@@ -177,9 +188,7 @@
           "r2Key": "media/1791143416310_7r95sl.jpg"
         }
       ],
-      "likes": [
-        "Natalie"
-      ],
+      "likes": [],
       "comments": [],
       "updatedAt": "2026-10-04T21:08:19.800Z"
     },
@@ -238,7 +247,7 @@
       "updatedAt": "2026-10-05T06:07:51.823Z"
     }
   ],
-  "updatedAt": "2026-10-05T18:21:10.928Z",
+  "updatedAt": "2026-10-05T18:36:00.194Z",
   "users": [
     {
       "name": "Natalie"
