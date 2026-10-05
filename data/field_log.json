@@ -148,7 +148,9 @@
           "r2Key": "media/1791147844261_vzooaa.jpg"
         }
       ],
-      "likes": [],
+      "likes": [
+        "Natalie"
+      ],
       "comments": [],
       "updatedAt": "2026-10-05T01:17:38.802Z"
     },
@@ -234,7 +236,7 @@
       "updatedAt": "2026-10-05T06:07:51.823Z"
     }
   ],
-  "updatedAt": "2026-10-05T18:20:57.581Z",
+  "updatedAt": "2026-10-05T18:21:05.768Z",
   "users": [
     {
       "name": "Natalie"
