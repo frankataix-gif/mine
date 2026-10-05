@@ -474,15 +474,17 @@ async function loadMarket() {
     const d = JSON.parse(r.content);
     marketSpoken = d.spoken || '';
     marketAudio = d.audio || '';
+    const open = localStorage.getItem('marketOpen') === '1';
     el.innerHTML = `<div class="card" style="padding:12px 16px">
-      <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="toggleMarketBody()">
         <strong>📈 钽铌市场日报</strong>
         <span style="display:flex;gap:8px;align-items:center">
-          ${(marketAudio || marketSpoken) ? '<button type="button" class="btn" id="marketPlay" style="padding:4px 12px;font-size:13px;background:var(--primary-light);color:var(--primary)" onclick="playMarket()">🔊 播放</button>' : ''}
+          ${(marketAudio || marketSpoken) ? '<button type="button" class="btn" id="marketPlay" style="padding:4px 12px;font-size:13px;background:var(--primary-light);color:var(--primary)" onclick="playMarket(event)">🔊 播放</button>' : ''}
           <span class="hint">${fmtDate(d.updatedAt)}</span>
+          <span id="marketArrow" style="font-size:14px;color:var(--muted)">${open ? '▾' : '▸'}</span>
         </span>
       </div>
-      ${renderSmmPrices(d.prices)}
+      <div id="marketBody" style="display:${open ? 'block' : 'none'}">${renderSmmPrices(d.prices)}</div>
     </div>`;
   } catch (e) {
     el.innerHTML = '';
@@ -517,7 +519,17 @@ function renderSmmPrices(prices) {
   </div>`;
 }
 let marketSpoken = '', marketAudio = '', marketPlayer = null;
-function playMarket() {
+function toggleMarketBody() {
+  const b = document.getElementById('marketBody');
+  const arrow = document.getElementById('marketArrow');
+  if (!b) return;
+  const open = b.style.display === 'none';
+  b.style.display = open ? 'block' : 'none';
+  if (arrow) arrow.textContent = open ? '▾' : '▸';
+  localStorage.setItem('marketOpen', open ? '1' : '0');
+}
+function playMarket(e) {
+  if (e) e.stopPropagation();
   const btn = document.getElementById('marketPlay');
   // AI 生成的真人感音频（服务端 MeloTTS）
   if (marketAudio) {
