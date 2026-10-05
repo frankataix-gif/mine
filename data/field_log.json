@@ -132,7 +132,9 @@
           "r2Key": "media/1791187532434_8s6wu5.jpg"
         }
       ],
-      "likes": [],
+      "likes": [
+        "Natalie"
+      ],
       "comments": []
     },
     {
@@ -232,7 +234,7 @@
       "updatedAt": "2026-10-05T06:07:51.823Z"
     }
   ],
-  "updatedAt": "2026-10-05T18:19:11.027Z",
+  "updatedAt": "2026-10-05T18:20:57.581Z",
   "users": [
     {
       "name": "Natalie"
