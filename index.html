@@ -187,6 +187,9 @@ async function openApp(card) {
     ldCancel.style.display = 'none';
   }
 }
+// 把 ?user= 参数透传给各个应用卡片（转发的专属链接落地页是门户，不能让身份丢失）
+const _u = new URLSearchParams(location.search).get('user') || new URLSearchParams(location.search).get('u') || new URLSearchParams(location.search).get('name');
+if (_u) document.querySelectorAll('.app-card').forEach(c => { const h = c.getAttribute('href') || ''; if (h && !h.includes('user=')) c.setAttribute('href', h + (h.includes('?') ? '&' : '?') + 'user=' + encodeURIComponent(_u)); });
 document.querySelectorAll('.app-card').forEach(c => c.addEventListener('click', e => { e.preventDefault(); openApp(c); }));
 window.addEventListener('popstate', () => location.reload());
 

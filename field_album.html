@@ -142,7 +142,10 @@
   .post-media.multi { grid-template-columns: 1fr 1fr 1fr; }
   .post-media img { width: 100%; height: 180px; object-fit: cover; display: block; background: #111; }
   .post-media.two img, .post-media.multi img, .post-media.four img { height: auto; aspect-ratio: 1; }
-  .post-media video { width: 100%; height: 180px; object-fit: contain; display: block; background: #000; }
+  .post-media video { width: 100%; height: 180px; object-fit: contain; display: block; background: #000; cursor: pointer; }
+  .vwrap { position: relative; display: block; }
+  .vwrap::after { content: '▶'; position: absolute; left: 8px; bottom: 8px; width: 24px; height: 24px; border-radius: 50%; background: rgba(0,0,0,.55); color: #fff; font-size: 11px; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+  .vwrap:has(video[controls])::after { display: none; }
   .post-media.two video, .post-media.multi video, .post-media.four video { height: auto; aspect-ratio: 1; }
   .post-actions { display: flex; border-top: 1px solid var(--border); margin-top: 10px; padding-top: 8px; }
   .post-actions button { flex: 1; background: transparent; border: none; color: var(--muted); font-size: 13px; min-height: 32px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; }
@@ -618,6 +621,12 @@ async function saveLog(message) {
   } finally { syncEnd(); }
 }
 
+function vTap(v, e) {
+  if (v.paused) { v.play(); return; }
+  const r = v.getBoundingClientRect();
+  if (e.clientY - r.top < r.height - 48) v.pause();
+}
+
 function copyWxLink(u, e) {
   if (e) { e.stopPropagation(); e.preventDefault(); }
   const done = () => showToast('已复制，打开微信粘贴即可观看');
@@ -643,7 +652,7 @@ function mediaGrid(media) {
     if (m.r2Key) {
       if (m.type === 'video') {
         const poster = m.thumbKey ? `poster="/media?key=${m.thumbKey}"` : '';
-        return `<video controls ${poster} src="/media?key=${m.r2Key}" preload="metadata"></video>`;
+        return `<span class="vwrap"><video ${poster} src="/media?key=${m.r2Key}" preload="metadata" playsinline onclick="vTap(this,event)" onplay="this.setAttribute('controls','')" onpause="this.removeAttribute('controls')"></video></span>`;
       }
       return `<img src="/media?key=${m.r2Key}" loading="lazy" alt="" onclick="openImg('/media?key=${m.r2Key}')" style="cursor:pointer">`;
     }
@@ -653,9 +662,9 @@ function mediaGrid(media) {
         <button type="button" class="btn" style="background:#07c160;color:#fff;font-size:13px" onclick="copyWxLink('${m.url.replace(/'/g, '')}', event)">📋 复制链接，到微信里打开</button>
       </div>`;
       if (m.url && /youtube|bilibili|tiktok|douyin|instagram|facebook|x\.com|twitter/.test(m.url)) return `<a href="${m.url}" target="_blank" style="display:flex;align-items:center;justify-content:center;height:180px;background:#000;color:#fff;font-size:14px">▶ 打开视频</a>`;
-      return `<video controls src="${m.url || ''}" preload="metadata"></video>`;
+      return `<span class="vwrap"><video src="${m.url || ''}" preload="metadata" playsinline onclick="vTap(this,event)" onplay="this.setAttribute('controls','')" onpause="this.removeAttribute('controls')"></video></span>`;
     }
-    if (m.type === 'tgVideo') return `<video controls src="/tgvideo?fid=${m.fileId}" preload="metadata"></video>`;
+    if (m.type === 'tgVideo') return `<span class="vwrap"><video src="/tgvideo?fid=${m.fileId}" preload="metadata" playsinline onclick="vTap(this,event)" onplay="this.setAttribute('controls','')" onpause="this.removeAttribute('controls')"></video></span>`;
     if (m.type === 'tgPhoto') return `<img src="/tgphoto?fid=${m.fileId}" loading="lazy" alt="" onclick="openImg('/tgphoto?fid=${m.fileId}')" style="cursor:pointer">`;
     return `<img src="/photos/${m.filename}" loading="lazy" alt="" onclick="openImg('/photos/${m.filename}')" style="cursor:pointer">`;
   }).join('')}
