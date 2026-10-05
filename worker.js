@@ -807,11 +807,23 @@ export default {
         return json(await marketRefresh(env));
       }
 
-      // SMM 行情（本机脚本 POST 上来，存 data/smm_prices.json）
+      // SMM 行情（本机脚本 POST 上来，存 data/smm_prices.json + 追加历史）
       if (body.action === 'market_smm') {
         const path = 'data/smm_prices.json';
         const existing = await readFile(env, path);
         const wr = await writeFile(env, path, JSON.stringify({ fetchedAt: new Date().toISOString(), prices: body.prices || [] }, null, 2), 'smm prices', existing && existing.sha);
+        try {
+          const hp = 'data/smm_history.json';
+          const hf = await readFile(env, hp);
+          let hist = [];
+          try { hist = hf && hf.content ? JSON.parse(hf.content) : []; } catch (e) {}
+          if (!Array.isArray(hist)) hist = [];
+          const day = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
+          hist = hist.filter(r => r.date !== day);
+          hist.push({ date: day, prices: body.prices || [] });
+          if (hist.length > 500) hist = hist.slice(-500);
+          await writeFile(env, hp, JSON.stringify(hist, null, 1), 'smm history', hf && hf.sha);
+        } catch (e) {}
         return json(wr.ok ? { ok: true } : { error: wr.error || 'save failed' });
       }
 
