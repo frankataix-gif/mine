@@ -116,7 +116,7 @@
     position: relative;
   }
   .post-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; position: relative; }
-  .post-more { background: none; border: none; color: var(--muted); font-size: 18px; padding: 0 6px; cursor: pointer; min-height: 24px; }
+  .post-more { background: #f1f5f9; border: none; color: var(--text); font-size: 20px; font-weight: 700; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; line-height: 1; }
   .post-menu { position: absolute; right: 0; top: 36px; background: #fff; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,.15); z-index: 20; min-width: 120px; display: none; }
   .post-menu.open { display: block; }
   .post-menu button { display: block; width: 100%; text-align: left; padding: 10px 14px; background: none; border: none; font-size: 14px; color: var(--text); cursor: pointer; }
@@ -144,7 +144,7 @@
   .fb-comment b { color: var(--primary); font-weight: 600; }
   .fb-comment .fb-time { color: #94a3b8; font-size: 11px; margin-left: 6px; }
   .fb-op { background: none; border: none; color: var(--primary); font-size: 11px; padding: 0 2px 0 5px; cursor: pointer; }
-  .fb-dots { background: none; border: none; color: #94a3b8; font-size: 15px; padding: 0 4px; cursor: pointer; vertical-align: middle; line-height: 1; }
+  .fb-dots { background: #e8edf3; border: none; color: #475569; font-size: 16px; font-weight: 700; width: 24px; height: 24px; border-radius: 50%; cursor: pointer; vertical-align: middle; line-height: 1; padding: 0; }
   .fb-menu { position: absolute; right: 0; top: 100%; background: #fff; border-radius: 8px; box-shadow: 0 4px 14px rgba(0,0,0,.18); z-index: 30; min-width: 92px; display: none; overflow: hidden; }
   .fb-menu.open { display: block; }
   .fb-menu button { display: block; width: 100%; text-align: left; padding: 9px 14px; background: none; border: none; font-size: 13px; color: var(--text); cursor: pointer; }
@@ -481,7 +481,7 @@ async function loadMarket() {
         <span style="display:flex;gap:8px;align-items:center">
           ${(marketAudio || marketSpoken) ? '<button type="button" class="btn" id="marketPlay" style="padding:4px 12px;font-size:13px;background:var(--primary-light);color:var(--primary)" onclick="playMarket(event)">🔊 播放</button>' : ''}
           <span class="hint">${fmtDate(d.updatedAt)}</span>
-          <span id="marketArrow" style="font-size:14px;color:var(--muted)">${open ? '▾' : '▸'}</span>
+          <span id="marketArrow" style="font-size:20px;font-weight:700;color:var(--primary)">${open ? '▾' : '▸'}</span>
         </span>
       </div>
       <div id="marketBody" style="display:${open ? 'block' : 'none'}">${renderSmmPrices(d.prices)}</div>
