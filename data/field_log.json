@@ -113,13 +113,7 @@
       "likes": [
         "unknown"
       ],
-      "comments": [
-        {
-          "user": "unknown",
-          "text": "hi",
-          "time": "2026-10-04T19:45:46.730Z"
-        }
-      ]
+      "comments": []
     },
     {
       "id": "f_muu8anpa_1hl2",
@@ -148,7 +142,7 @@
       "updatedAt": "2026-10-05T06:07:51.823Z"
     }
   ],
-  "updatedAt": "2026-10-05T06:07:51.824Z",
+  "updatedAt": "2026-10-05T06:19:15.716Z",
   "users": [
     {
       "name": "Natalie"
