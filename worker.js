@@ -470,9 +470,30 @@ async function serveMedia(request, env) {
   const key = url.searchParams.get('key');
   if (!key) return new Response('no key', { status: 400 });
   if (!canAccess(request, env, 'field') && !canAccess(request, env, 'mine')) return new Response('unauthorized', { status: 401, headers: CORS });
+  const ct = { 'Content-Type': '', 'Cache-Control': 'public, max-age=3600', 'Accept-Ranges': 'bytes' };
+  // Range 支持：iOS Safari 播视频强制要求 206 分段响应
+  const rangeHdr = request.headers.get('Range');
+  if (rangeHdr) {
+    const head = await env.MEDIA_BUCKET.head(key);
+    if (!head) return new Response('not found', { status: 404 });
+    const size = head.size;
+    const m = rangeHdr.match(/bytes=(\d*)-(\d*)/);
+    if (m && (m[1] !== '' || m[2] !== '')) {
+      const start = m[1] === '' ? Math.max(0, size - (+m[2])) : +m[1];
+      const end = m[2] === '' || (+m[2]) >= size ? size - 1 : Math.min(+m[2], size - 1);
+      if (start >= size || start > end) return new Response('range not satisfiable', { status: 416, headers: { ...CORS, 'Content-Range': `bytes */${size}` } });
+      const obj = await env.MEDIA_BUCKET.get(key, { range: { offset: start, length: end - start + 1 } });
+      if (!obj) return new Response('not found', { status: 404 });
+      ct['Content-Type'] = obj.httpMetadata.contentType || 'application/octet-stream';
+      ct['Content-Range'] = `bytes ${start}-${end}/${size}`;
+      ct['Content-Length'] = String(end - start + 1);
+      return new Response(obj.body, { status: 206, headers: ct });
+    }
+  }
   const obj = await env.MEDIA_BUCKET.get(key);
   if (!obj) return new Response('not found', { status: 404 });
-  return new Response(obj.body, { headers: { 'Content-Type': obj.httpMetadata.contentType || 'application/octet-stream', 'Cache-Control': 'public, max-age=3600' } });
+  ct['Content-Type'] = obj.httpMetadata.contentType || 'application/octet-stream';
+  return new Response(obj.body, { headers: ct });
 }
 
 /* ================= R2 直传签名 ================= */
