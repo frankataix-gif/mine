@@ -602,7 +602,7 @@ function renderFeed() {
     const showFb = likes.length || comments.length || open;
     return `
       <div class="post" data-pid="${post.id}">
-        ${(post.uploader === currentUser || isAdmin() || currentUser === 'unknown') ? `<div class="post-head"><div><span class="post-user">${esc(post.uploader)}</span><div class="post-time">${fmtDate(post.createdAt)}</div></div><button type="button" class="post-more" onclick="togglePostMenu('${post.id}', event)">⋯</button><div class="post-menu ${expanded['m_' + post.id] ? 'open' : ''}" id="pm-${post.id}"><button type="button" onclick="editPost('${post.id}', event)">编辑</button><button type="button" class="danger" onclick="deletePost('${post.id}', event)">删除</button></div></div>` : `<div class="post-head"><div><span class="post-user">${esc(post.uploader)}</span><div class="post-time">${fmtDate(post.createdAt)}</div></div></div>`}
+        ${(post.uploader === currentUser || isAdmin() || currentUser === 'unknown') ? `<div class="post-head"><div><span class="post-user">${esc(post.uploader)}</span><div class="post-time">${fmtDate(post.createdAt)}</div></div><button type="button" class="post-more" onclick="togglePostMenu('${post.id}', event)">⋮</button><div class="post-menu ${expanded['m_' + post.id] ? 'open' : ''}" id="pm-${post.id}"><button type="button" onclick="editPost('${post.id}', event)">编辑</button><button type="button" class="danger" onclick="deletePost('${post.id}', event)">删除</button></div></div>` : `<div class="post-head"><div><span class="post-user">${esc(post.uploader)}</span><div class="post-time">${fmtDate(post.createdAt)}</div></div></div>`}
         ${post.note ? `<div class="post-note">${esc(post.note).replace(/\n/g, '<br>')}</div>` : ''}
         ${mediaGrid(post.media || [])}
         <div class="post-actions">
@@ -611,7 +611,7 @@ function renderFeed() {
         </div>
         ${showFb ? `<div class="post-feedback">
           ${likes.length ? `<div class="fb-likes" ${comments.length ? 'style="border-bottom:1px solid #e2e8f0;padding-bottom:6px;margin-bottom:4px"' : ''}>❤ ${likes.map(esc).join('、')}</div>` : ''}
-          ${comments.map((c, ci) => `<div class="fb-comment"><b>${esc(c.user)}</b>：${esc(c.text)}<span class="fb-time">${fmtDate(c.time)}</span>${(c.user === currentUser || isAdmin()) ? `<span class="fb-wrap"><button type="button" class="fb-dots" onclick="toggleMiniMenu('cmo-${post.id}-${ci}',event)">⋯</button><div class="fb-menu" id="cmo-${post.id}-${ci}"><button type="button" onclick="editPostComment('${post.id}',${ci},event)">编辑</button><button type="button" class="danger" onclick="delPostComment('${post.id}',${ci},event)">删除</button></div></span>` : ''}</div>`).join('')}
+          ${comments.map((c, ci) => `<div class="fb-comment"><b>${esc(c.user)}</b>：${esc(c.text)}<span class="fb-time">${fmtDate(c.time)}</span>${(c.user === currentUser || isAdmin()) ? `<span class="fb-wrap"><button type="button" class="fb-dots" onclick="toggleMiniMenu('cmo-${post.id}-${ci}',event)">⋮</button><div class="fb-menu" id="cmo-${post.id}-${ci}"><button type="button" onclick="editPostComment('${post.id}',${ci},event)">编辑</button><button type="button" class="danger" onclick="delPostComment('${post.id}',${ci},event)">删除</button></div></span>` : ''}</div>`).join('')}
           <div class="pc-input ${open}">
             <input type="text" id="pcc-${post.id}" placeholder="写评论…" onkeydown="if(event.key==='Enter')submitPostComment('${post.id}')">
             <button type="button" class="btn" onclick="submitPostComment('${post.id}')">发送</button>
@@ -770,7 +770,7 @@ function renderProjects() {
                 <div class="task-head">
                   <div class="task-status ${t.status === 'done' ? 'done' : ''}" onclick="toggleTask('${t.id}', event)"></div>
                   <div class="task-title ${t.status === 'done' ? 'done' : ''}">${esc(t.name)}</div>
-                  ${ownT ? `<span class="fb-wrap"><button type="button" class="fb-dots" onclick="toggleMiniMenu('tko-${t.id}',event)">⋯</button><div class="fb-menu" id="tko-${t.id}"><button type="button" onclick="editTask('${t.id}',event)">编辑</button><button type="button" class="danger" onclick="deleteTask('${t.id}',event)">删除</button></div></span>` : ''}
+                  ${ownT ? `<span class="fb-wrap"><button type="button" class="fb-dots" onclick="toggleMiniMenu('tko-${t.id}',event)">⋮</button><div class="fb-menu" id="tko-${t.id}"><button type="button" onclick="editTask('${t.id}',event)">编辑</button><button type="button" class="danger" onclick="deleteTask('${t.id}',event)">删除</button></div></span>` : ''}
                 </div>
                 <div class="task-meta">创建人：${esc(t.createdBy || 'unknown')} · 执行人：${esc(t.assignee || '未指定')}</div>
                 ${t.description ? `<div class="task-meta">${esc(t.description)}</div>` : ''}
@@ -779,7 +779,7 @@ function renderProjects() {
                   <button type="button" class="btn" onclick="addSubTask('${pr.id}', event)">+ 子任务</button>
                 </div>
                 <div class="comments ${cOpen}" id="cc-${t.id}">
-                  ${comments.length ? comments.map((c, ci) => `<div class="comment"><b>${esc(c.user)}</b>：${esc(c.text)} <span style="color:#999;font-size:11px">${fmtDate(c.time)}</span>${(c.user === currentUser || isAdmin()) ? `<span class="fb-wrap"><button type="button" class="fb-dots" onclick="toggleMiniMenu('tcmo-${t.id}-${ci}',event)">⋯</button><div class="fb-menu" id="tcmo-${t.id}-${ci}"><button type="button" onclick="editTaskComment('${t.id}',${ci},event)">编辑</button><button type="button" class="danger" onclick="delTaskComment('${t.id}',${ci},event)">删除</button></div></span>` : ''}</div>`).join('') : '<div class="comment" style="color:#999">暂无留言</div>'}
+                  ${comments.length ? comments.map((c, ci) => `<div class="comment"><b>${esc(c.user)}</b>：${esc(c.text)} <span style="color:#999;font-size:11px">${fmtDate(c.time)}</span>${(c.user === currentUser || isAdmin()) ? `<span class="fb-wrap"><button type="button" class="fb-dots" onclick="toggleMiniMenu('tcmo-${t.id}-${ci}',event)">⋮</button><div class="fb-menu" id="tcmo-${t.id}-${ci}"><button type="button" onclick="editTaskComment('${t.id}',${ci},event)">编辑</button><button type="button" class="danger" onclick="delTaskComment('${t.id}',${ci},event)">删除</button></div></span>` : ''}</div>`).join('') : '<div class="comment" style="color:#999">暂无留言</div>'}
                   <div class="comment-input">
                     <input type="text" id="cm-${t.id}" placeholder="写留言…" onkeydown="if(event.key==='Enter')submitComment('${t.id}')">
                     <button type="button" class="btn" onclick="submitComment('${t.id}')">发送</button>
@@ -937,7 +937,7 @@ function renderProduction() {
     <div class="prod-card">
       <div class="prod-head">
         <span class="prod-title">${p.date} · ${p.shift}</span>
-        <span style="font-size:12px;color:var(--muted)">记录人：${esc(p.recorder)}${(p.recorder === currentUser || isAdmin()) ? `<span class="fb-wrap"><button type="button" class="fb-dots" onclick="toggleMiniMenu('pdo-${p.id}',event)">⋯</button><div class="fb-menu" id="pdo-${p.id}"><button type="button" onclick="editProd('${p.id}')">编辑</button><button type="button" class="danger" onclick="delProd('${p.id}')">删除</button></div></span>` : ''}</span>
+        <span style="font-size:12px;color:var(--muted)">记录人：${esc(p.recorder)}${(p.recorder === currentUser || isAdmin()) ? `<span class="fb-wrap"><button type="button" class="fb-dots" onclick="toggleMiniMenu('pdo-${p.id}',event)">⋮</button><div class="fb-menu" id="pdo-${p.id}"><button type="button" onclick="editProd('${p.id}')">编辑</button><button type="button" class="danger" onclick="delProd('${p.id}')">删除</button></div></span>` : ''}</span>
       </div>
       <div class="prod-grid">
         <div class="prod-item"><div class="k">入选矿石</div><div class="v">${p.input || '0'}</div><div class="k">吨</div></div>
