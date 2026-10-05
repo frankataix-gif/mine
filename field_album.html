@@ -88,9 +88,19 @@
     border: none; background: transparent; font-size: 0.9rem;
     color: var(--gray); cursor: pointer; white-space: nowrap;
     display: flex; align-items: center; justify-content: center;
+    position: relative; border-radius: 10px;
   }
   .tab-icon { font-size: 1.1rem; }
-  .tab.active { color: var(--primary); font-weight: 700; }
+  .tab.active {
+    color: var(--primary); font-weight: 700;
+    background: var(--primary-light, #eff6ff);
+  }
+  .tab.active::after {
+    content: ''; position: absolute; bottom: 3px; left: 50%;
+    transform: translateX(-50%);
+    width: 22px; height: 3px; border-radius: 2px;
+    background: var(--primary);
+  }
 
   /* 内容区 */
   .tab-content { display: none; padding: 12px; padding-bottom: 80px; max-width: 760px; margin: 0 auto; }
