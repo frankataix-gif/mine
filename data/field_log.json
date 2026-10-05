@@ -46,6 +46,28 @@
   "production": [],
   "posts": [
     {
+      "id": "f_muuyt68g_27y9",
+      "note": "这个点是在我们矿区正南部7-8公里，也是具有潜力的范围！露头发现钽铁矿颗粒，0.08%钽含量，以及风化的水晶，地质构造和我们矿区一样！\n之所以取这个点也是因为验证地质报告，整个钽铌矿范围！\n这个矿证是下一步明年准备去拿！",
+      "uploader": "Frank",
+      "createdAt": "2026-10-05T08:05:33.520Z",
+      "media": [
+        {
+          "type": "image",
+          "r2Key": "media/1791187532435_th9mfs.jpg"
+        },
+        {
+          "type": "image",
+          "r2Key": "media/1791187532435_f29xus.jpg"
+        },
+        {
+          "type": "image",
+          "r2Key": "media/1791187532434_8s6wu5.jpg"
+        }
+      ],
+      "likes": [],
+      "comments": []
+    },
+    {
       "id": "f_muub6ijz_cvw1",
       "note": "三盘磁选机\n专门处理分选钽铌矿中的钛铁等杂质，对提纯有很大帮助！",
       "uploader": "管理员",
@@ -142,7 +164,7 @@
       "updatedAt": "2026-10-05T06:07:51.823Z"
     }
   ],
-  "updatedAt": "2026-10-05T06:26:22.112Z",
+  "updatedAt": "2026-10-05T08:05:33.520Z",
   "users": [
     {
       "name": "Natalie"
