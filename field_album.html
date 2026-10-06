@@ -622,10 +622,21 @@ async function saveLog(message) {
   } finally { syncEnd(); }
 }
 
-function vTap(v, e) {
-  if (v.paused) { v.play(); return; }
-  const r = v.getBoundingClientRect();
-  if (e.clientY - r.top < r.height - 48) v.pause();
+function openVideo(src) {
+  const m = document.getElementById('vModal');
+  const v = document.getElementById('vView');
+  const ld = document.getElementById('vLoading');
+  if (!src) return;
+  ld.style.display = 'block';
+  v.oncanplay = () => { ld.style.display = 'none'; v.play().catch(() => {}); };
+  v.onerror = () => { ld.textContent = '视频加载失败'; };
+  v.src = src;
+  m.classList.add('show');
+}
+function closeVideo() {
+  const v = document.getElementById('vView');
+  v.pause(); v.removeAttribute('src'); v.load();
+  document.getElementById('vModal').classList.remove('show');
 }
 
 function copyWxLink(u, e) {
@@ -653,7 +664,7 @@ function mediaGrid(media) {
     if (m.r2Key) {
       if (m.type === 'video') {
         const poster = m.thumbKey ? `poster="/media?key=${m.thumbKey}"` : '';
-        return `<span class="vwrap"><video ${poster} src="/media?key=${m.r2Key}" preload="metadata" playsinline onclick="vTap(this,event)" onplay="this.setAttribute('controls','')" onpause="this.removeAttribute('controls')"></video></span>`;
+        return `<span class="vwrap"><video ${poster} src="/media?key=${m.r2Key}" preload="metadata" playsinline onclick="openVideo(this.src)"></video></span>`;
       }
       return `<img src="/media?key=${m.r2Key}" loading="lazy" alt="" onclick="openImg('/media?key=${m.r2Key}')" style="cursor:pointer">`;
     }
@@ -663,9 +674,9 @@ function mediaGrid(media) {
         <button type="button" class="btn" style="background:#07c160;color:#fff;font-size:13px" onclick="copyWxLink('${m.url.replace(/'/g, '')}', event)">📋 复制链接，到微信里打开</button>
       </div>`;
       if (m.url && /youtube|bilibili|tiktok|douyin|instagram|facebook|x\.com|twitter/.test(m.url)) return `<a href="${m.url}" target="_blank" style="display:flex;align-items:center;justify-content:center;height:180px;background:#000;color:#fff;font-size:14px">▶ 打开视频</a>`;
-      return `<span class="vwrap"><video src="${m.url || ''}" preload="metadata" playsinline onclick="vTap(this,event)" onplay="this.setAttribute('controls','')" onpause="this.removeAttribute('controls')"></video></span>`;
+      return `<span class="vwrap"><video src="${m.url || ''}" preload="metadata" playsinline onclick="openVideo(this.src)"></video></span>`;
     }
-    if (m.type === 'tgVideo') return `<span class="vwrap"><video src="/tgvideo?fid=${m.fileId}" preload="metadata" playsinline onclick="vTap(this,event)" onplay="this.setAttribute('controls','')" onpause="this.removeAttribute('controls')"></video></span>`;
+    if (m.type === 'tgVideo') return `<span class="vwrap"><video src="/tgvideo?fid=${m.fileId}" preload="metadata" playsinline onclick="openVideo(this.src)"></video></span>`;
     if (m.type === 'tgPhoto') return `<img src="/tgphoto?fid=${m.fileId}" loading="lazy" alt="" onclick="openImg('/tgphoto?fid=${m.fileId}')" style="cursor:pointer">`;
     return `<img src="/photos/${m.filename}" loading="lazy" alt="" onclick="openImg('/photos/${m.filename}')" style="cursor:pointer">`;
   }).join('')}
