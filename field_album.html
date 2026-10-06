@@ -26,6 +26,7 @@
     --muted: #64748b;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { overscroll-behavior-y: none; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
     background: var(--light);
@@ -80,6 +81,7 @@
     border-top: 1px solid var(--border);
     position: fixed; bottom: 0; left: 0; right: 0;
     z-index: 100;
+    transform: translateZ(0);
     padding-bottom: env(safe-area-inset-bottom, 0);
   }
   .tabs-inner { display: flex; padding: 6px 4px; }
@@ -309,7 +311,7 @@
   </section>
 
   <section class="tab-content" id="tab-licenses">
-    <div class="card"><h2>矿证台账<span class="hint" style="font-weight:400;margin-left:8px;font-size:12px">（仅 Active）</span></h2><div id="licList"><p class="empty" style="padding:20px 0">加载中…</p></div></div>
+    <div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0">矿证台账<span class="hint" style="font-weight:400;margin-left:8px;font-size:12px">（仅 Active）</span></h2><button type="button" class="btn" style="padding:4px 12px;font-size:13px;background:var(--primary-light);color:var(--primary)" onclick="loadLicenses(true)">🔄 刷新</button></div><div id="licList"><p class="empty" style="padding:20px 0">加载中…</p></div></div>
   </section>
 
   <section class="tab-content" id="tab-apps">
@@ -485,21 +487,41 @@ function migrateFromPhotos() {
   log.photos = [];
 }
 
+function applyLog() {
+  if (!log.posts) log.posts = [];
+  if (!log.projects) log.projects = [];
+  if (!log.tasks) log.tasks = [];
+  if (!log.todos) log.todos = [];
+  if (!log.production) log.production = [];
+  if (!log.users) log.users = [];
+  migrateFromPhotos();
+  renderFeed(); renderSchedule(); renderProduction();
+  renderUserLinks();
+}
+
 async function loadLog() {
+  const cached = localStorage.getItem('log_cache');
+  const cachedSha = localStorage.getItem('log_sha') || '';
+  let fromCache = false;
+  if (cached) {
+    try { log = JSON.parse(cached); applyLog(); fromCache = true; } catch (e) {}
+  }
   try {
+    const st = await api('stat', { path: DATA_FILE });
+    const remoteSha = (st && st.sha) || '';
+    if (fromCache && remoteSha && remoteSha === cachedSha) { loadMarket(); return; }
     const r = await api('read', { path: DATA_FILE });
-    if (r.content) log = JSON.parse(r.content);
-    else log = { projects: [], tasks: [], production: [], posts: [], updatedAt: new Date().toISOString() };
-    if (!log.posts) log.posts = [];
-    if (!log.projects) log.projects = [];
-    if (!log.tasks) log.tasks = [];
-    if (!log.production) log.production = [];
-    if (!log.users) log.users = [];
-    migrateFromPhotos();
-    renderFeed(); renderSchedule(); renderProduction();
-    renderUserLinks();
+    if (r.content) {
+      log = JSON.parse(r.content);
+      localStorage.setItem('log_cache', r.content);
+      localStorage.setItem('log_sha', remoteSha || cachedSha);
+    } else if (!fromCache) {
+      log = { projects: [], tasks: [], todos: [], production: [], posts: [], updatedAt: new Date().toISOString() };
+    }
+    applyLog();
     loadMarket();
   } catch (e) {
+    if (fromCache) { loadMarket(); return; }
     showToast('数据读取失败：' + e.message);
   }
 }
@@ -553,7 +575,8 @@ function renderSmmPrices(prices) {
   const date = (p.note || '').match(/SMM\s*(\S+)/)?.[1] || '';
   return `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
     <div style="font-size:12px;color:var(--text2);margin-bottom:4px">SMM 中国到岸价${date ? ' · ' + date : ''}</div>
-    <div style="font-size:14px;font-weight:600;padding:2px 0">钽铌精矿（Ta₂O₅ 30% + Nb₂O₅ 10%）</div>
+    <div style="font-size:14px;font-weight:600;padding:2px 0">钽铌精矿（五氧化二钽 30% + 五氧化二铌 10%）</div>
+    <div style="font-size:12px;color:var(--danger);padding:2px 0 6px">⚠ 注意：此报价仅针对 30%钽 + 10%铌 的标准精矿，其他品位需按含量另行折算</div>
     <div style="display:flex;justify-content:space-between;font-size:14px;padding:3px 0">
       <span>到岸价</span><span><b>${p.value}</b> ${p.unit}</span>
     </div>
@@ -622,6 +645,10 @@ async function saveLog(message) {
   try {
     const r = await api('save', { path: DATA_FILE, content: JSON.stringify(log, null, 2), message: message || 'Update field log' });
     if (r.error) throw new Error(r.error);
+    try {
+      localStorage.setItem('log_cache', JSON.stringify(log));
+      if (r.content && r.content.sha) localStorage.setItem('log_sha', r.content.sha);
+    } catch (e) {}
     renderFeed(); return true;
   } catch (e) {
     showToast('保存失败：' + e.message); return false;
@@ -1927,6 +1954,26 @@ async function checkVersion() {
 }
 checkVersion();
 setInterval(checkVersion, 60000);
+
+// 静默检测远端数据更新：90 秒一次 sha 比对，变了才下载
+setInterval(async () => {
+  if (syncCount > 0) return;
+  if (document.querySelector('input:focus, textarea:focus')) return;
+  if (document.querySelector('.modal-mask.show')) return;
+  try {
+    const st = await api('stat', { path: DATA_FILE });
+    if (st && st.sha && st.sha !== (localStorage.getItem('log_sha') || '')) {
+      const r = await api('read', { path: DATA_FILE });
+      if (r.content) {
+        log = JSON.parse(r.content);
+        localStorage.setItem('log_cache', r.content);
+        localStorage.setItem('log_sha', st.sha);
+        applyLog();
+        showToast('内容已更新');
+      }
+    }
+  } catch (e) {}
+}, 90000);
 
 // 下拉刷新：顶部下拉 >90px 重新拉数据
 let pullStartY = null;
