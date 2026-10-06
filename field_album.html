@@ -388,6 +388,11 @@
   <button type="button" id="imgClose" style="position:absolute;top:14px;right:16px;z-index:5;background:rgba(255,255,255,.15);border:none;color:#fff;font-size:22px;width:38px;height:38px;border-radius:50%;line-height:1">×</button>
   <img id="imgView" src="" style="max-width:100vw;max-height:100vh;object-fit:contain;transition:transform .15s ease-out" alt="">
 </div>
+<div id="vModal" class="modal-mask" style="background:rgba(0,0,0,.96);align-items:center;justify-content:center">
+  <button type="button" id="vClose" style="position:absolute;top:14px;right:16px;z-index:5;background:rgba(255,255,255,.15);border:none;color:#fff;font-size:22px;width:38px;height:38px;border-radius:50%;line-height:1">×</button>
+  <video id="vView" controls playsinline preload="auto" style="max-width:100vw;max-height:100vh;object-fit:contain"></video>
+  <div id="vLoading" style="position:absolute;color:#fff;font-size:14px;display:none">加载中…</div>
+</div>
 
 <div id="taskModal" class="modal-mask">
   <div class="modal">
@@ -1567,6 +1572,8 @@ function openImg(src) {
 }
 const closeImg = () => { imgModal.classList.remove('show'); imgView.src = ''; ivReset(); };
 document.getElementById('imgClose').onclick = e => { e.stopPropagation(); closeImg(); };
+document.getElementById('vClose').onclick = e => { e.stopPropagation(); closeVideo(); };
+document.getElementById('vModal').onclick = e => { if (e.target.id === 'vModal') closeVideo(); };
 
 (function initImgViewer() {
   let pinchD = 0, pinchS = 1, panX = 0, panY = 0, panning = false;
