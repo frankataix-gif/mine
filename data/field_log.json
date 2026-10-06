@@ -46,6 +46,61 @@
   "production": [],
   "posts": [
     {
+      "id": "f_mux9c9a0_iqvh",
+      "note": "这是赞比亚南方省，我们自己矿区内其中黑人在挖的矿坑，这样个矿区内，像这样的矿点已经发现有5个！\n",
+      "uploader": "Frank",
+      "createdAt": "2026-10-06T22:35:52.440Z",
+      "media": [
+        {
+          "type": "video",
+          "r2Key": "media/1791326018511_pet6td.mp4",
+          "thumbKey": "media/1791326017421_mme63e.jpg"
+        },
+        {
+          "type": "video",
+          "r2Key": "media/1791326018431_3ve3fn.mp4",
+          "thumbKey": "media/1791326017420_pm5nrc.jpg"
+        },
+        {
+          "type": "video",
+          "r2Key": "media/1791326019767_s1qzwq.mp4",
+          "thumbKey": "media/1791326017424_0myilw.jpg"
+        },
+        {
+          "type": "video",
+          "r2Key": "media/1791326018503_a8o0fd.mp4",
+          "thumbKey": "media/1791326017419_kvgdit.jpg"
+        },
+        {
+          "type": "video",
+          "r2Key": "media/1791326019189_8j4xmi.mp4",
+          "thumbKey": "media/1791326017422_zz9bk4.jpg"
+        },
+        {
+          "type": "video",
+          "r2Key": "media/1791326018548_l2u4w6.mp4",
+          "thumbKey": "media/1791326017423_0ayngl.jpg"
+        },
+        {
+          "type": "video",
+          "r2Key": "media/1791326018676_1g1uph.mp4",
+          "thumbKey": "media/1791326017424_e8e4gu.jpg"
+        },
+        {
+          "type": "video",
+          "r2Key": "media/1791326018676_39ldlq.mp4",
+          "thumbKey": "media/1791326017423_s4xxgx.jpg"
+        },
+        {
+          "type": "video",
+          "r2Key": "media/1791326019294_mctucy.mp4",
+          "thumbKey": "media/1791326017423_yopqeh.jpg"
+        }
+      ],
+      "likes": [],
+      "comments": []
+    },
+    {
       "id": "f_mux8m2i6_i2ci",
       "note": "现场生产相关视频！\n明天开始正常摇床日生产，会记录一日的产能统计！同时安装打沙机！",
       "uploader": "Frank",
@@ -293,7 +348,7 @@
       "updatedAt": "2026-10-05T06:07:51.823Z"
     }
   ],
-  "updatedAt": "2026-10-06T22:28:14.199Z",
+  "updatedAt": "2026-10-06T22:35:52.440Z",
   "users": [
     {
       "name": "Natalie"
