@@ -1633,7 +1633,7 @@ function openImg(src) {
 const closeImg = () => { imgModal.classList.remove('show'); imgView.src = ''; ivReset(); };
 document.getElementById('imgClose').onclick = e => { e.stopPropagation(); closeImg(); };
 document.getElementById('vClose').onclick = e => { e.stopPropagation(); closeVideo(); };
-document.getElementById('vModal').onclick = e => { if (e.target.id === 'vModal') closeVideo(); };
+// 视频弹层不点背景关闭（横屏上下黑边易误触），只能 × 或 Esc 关
 // 左右滑动切换同帖视频（不退出播放器）
 let vSwipeX = null, vSwipeY = null;
 document.getElementById('vModal').addEventListener('touchstart', e => { vSwipeX = e.touches[0].clientX; vSwipeY = e.touches[0].clientY; }, { passive: true });
