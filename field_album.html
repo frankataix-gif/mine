@@ -1930,6 +1930,8 @@ async function backgroundUpload(queue, note, _vUrl, editingPostId) {
     count.textContent = completed + '/' + queue.length;
     text.textContent = '上传中 ' + pct + '%';
     text.style.color = 'var(--muted)';
+    const sb = document.getElementById('uSubmit');
+    if (sb) sb.textContent = '上传中 ' + pct + '%（' + completed + '/' + queue.length + '）';
   }
   render();
   try {
@@ -1958,12 +1960,20 @@ async function backgroundUpload(queue, note, _vUrl, editingPostId) {
       showToast('发布成功');
     }
     hideProgress();
+    document.getElementById('uNote').value = '';
+    renderUploadGrid();
+    document.getElementById('publishModal').classList.remove('show');
   } catch (e) {
     const t = document.getElementById('upText');
     if (t) { t.textContent = '上传失败：' + e.message; t.style.color = 'var(--danger)'; }
+    const sb = document.getElementById('uSubmit');
+    if (sb) sb.textContent = '上传失败，点击重试';
     showToast('发布失败：' + e.message);
   } finally {
     uploading = false;
+    const sb = document.getElementById('uSubmit');
+    if (sb) { sb.disabled = false; sb.style.opacity = '1'; }
+    if (sb && !sb.textContent.includes('失败')) sb.textContent = '发 布';
   }
 }
 
@@ -1973,12 +1983,13 @@ document.getElementById('uSubmit').onclick = () => {
   const note = document.getElementById('uNote').value;
   if (!uploadQueue.length) { showToast('请先选择照片或视频'); return; }
   uploading = true;
+  const sb = document.getElementById('uSubmit');
+  sb.disabled = true;
+  sb.style.opacity = '0.7';
+  sb.textContent = '上传中 0%';
   const queue = uploadQueue.slice();
   queue.forEach(i => { if (i.url && i.isVideo) URL.revokeObjectURL(i.url); });
   uploadQueue = [];
-  document.getElementById('uNote').value = '';
-  renderUploadGrid();
-  modal.classList.remove('show');
   const eid = editingPostId;
   editingPostId = null;
   backgroundUpload(queue, note, '', eid);
