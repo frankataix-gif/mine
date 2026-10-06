@@ -627,11 +627,13 @@ function openVideo(src) {
   const v = document.getElementById('vView');
   const ld = document.getElementById('vLoading');
   if (!src) return;
-  ld.style.display = 'block';
-  v.oncanplay = () => { ld.style.display = 'none'; v.play().catch(() => {}); };
+  v.oncanplay = () => { ld.style.display = 'none'; };
   v.onerror = () => { ld.textContent = '视频加载失败'; };
   v.src = src;
   m.classList.add('show');
+  ld.style.display = 'block';
+  const pr = v.play();
+  if (pr && pr.catch) pr.catch(() => { ld.style.display = 'none'; });
 }
 function closeVideo() {
   const v = document.getElementById('vView');
