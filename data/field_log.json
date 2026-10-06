@@ -63,11 +63,6 @@
         },
         {
           "type": "video",
-          "r2Key": "media/1791326019767_s1qzwq.mp4",
-          "thumbKey": "media/1791326017424_0myilw.jpg"
-        },
-        {
-          "type": "video",
           "r2Key": "media/1791326018503_a8o0fd.mp4",
           "thumbKey": "media/1791326017419_kvgdit.jpg"
         },
@@ -98,7 +93,8 @@
         }
       ],
       "likes": [],
-      "comments": []
+      "comments": [],
+      "updatedAt": "2026-10-06T22:36:51.356Z"
     },
     {
       "id": "f_mux8m2i6_i2ci",
@@ -348,7 +344,7 @@
       "updatedAt": "2026-10-05T06:07:51.823Z"
     }
   ],
-  "updatedAt": "2026-10-06T22:35:52.440Z",
+  "updatedAt": "2026-10-06T22:36:51.356Z",
   "users": [
     {
       "name": "Natalie"
