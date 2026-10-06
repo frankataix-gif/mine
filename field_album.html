@@ -394,6 +394,7 @@
   <button type="button" id="vClose" style="position:absolute;top:14px;right:16px;z-index:5;background:rgba(255,255,255,.15);border:none;color:#fff;font-size:22px;width:38px;height:38px;border-radius:50%;line-height:1">×</button>
   <video id="vView" controls playsinline preload="auto" style="max-width:100vw;max-height:100vh;object-fit:contain"></video>
   <div id="vLoading" style="position:absolute;color:#fff;font-size:14px;display:none">加载中…</div>
+  <div id="vIdx" style="position:absolute;top:16px;left:16px;color:rgba(255,255,255,.8);font-size:13px;display:none"></div>
 </div>
 
 <div id="taskModal" class="modal-mask">
@@ -655,6 +656,26 @@ async function saveLog(message) {
   } finally { syncEnd(); }
 }
 
+let videoLists = {};
+let vListKey = '', vIdx = 0;
+function openVideoIn(k, i) {
+  vListKey = k; vIdx = i;
+  openVideo((videoLists[k] || [])[i]);
+  updVIdx();
+}
+function updVIdx() {
+  const n = (videoLists[vListKey] || []).length;
+  const el = document.getElementById('vIdx');
+  if (el) { el.style.display = n > 1 ? 'block' : 'none'; el.textContent = (vIdx + 1) + ' / ' + n; }
+}
+function vGo(d) {
+  const l = videoLists[vListKey] || [];
+  const ni = vIdx + d;
+  if (ni < 0 || ni >= l.length) return;
+  vIdx = ni;
+  openVideo(l[vIdx]);
+  updVIdx();
+}
 function openVideo(src) {
   const m = document.getElementById('vModal');
   const v = document.getElementById('vView');
@@ -691,15 +712,26 @@ function id() { return 'f_' + Date.now().toString(36) + '_' + Math.random().toSt
 function fmtDate(s) { return s ? new Date(s).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''; }
 function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
-function mediaGrid(media) {
+function mediaGrid(media, pid) {
   const count = media.length;
   const cls = count === 1 ? 'one' : count === 2 ? 'two' : count === 4 ? 'four' : 'multi';
+  // 本帖可播放视频清单（供播放器左右滑动切换）
+  const vids = [];
+  const vListKey = pid || ('_m' + Math.random().toString(36).slice(2));
+  media.forEach(m => {
+    if (m.type === 'video' && m.r2Key) vids.push('/media?key=' + m.r2Key);
+    else if (m.type === 'tgVideo') vids.push('/tgvideo?fid=' + m.fileId);
+    else if (m.type === 'video' && m.url && !/weixin|channels|qq\.com/.test(m.url)) vids.push(m.url);
+  });
+  videoLists[vListKey] = vids;
+  let vi = 0;
+  const vopen = () => `onclick="openVideoIn('${vListKey}', ${vi++})"`;
   return `<div class="post-media ${cls}">
     ${media.map(m => {
     if (m.r2Key) {
       if (m.type === 'video') {
         const poster = m.thumbKey ? `poster="/media?key=${m.thumbKey}"` : '';
-        return `<span class="vwrap" onclick="openVideo(this.querySelector('video').src)"><video ${poster} src="/media?key=${m.r2Key}" preload="metadata" playsinline muted></video></span>`;
+        return `<span class="vwrap" ${vopen()}><video ${poster} src="/media?key=${m.r2Key}" preload="metadata" playsinline muted></video></span>`;
       }
       return `<img src="/media?key=${m.r2Key}" loading="lazy" alt="" onclick="openImg('/media?key=${m.r2Key}')" style="cursor:pointer">`;
     }
@@ -709,9 +741,9 @@ function mediaGrid(media) {
         <button type="button" class="btn" style="background:#07c160;color:#fff;font-size:13px" onclick="copyWxLink('${m.url.replace(/'/g, '')}', event)">📋 复制链接，到微信里打开</button>
       </div>`;
       if (m.url && /youtube|bilibili|tiktok|douyin|instagram|facebook|x\.com|twitter/.test(m.url)) return `<a href="${m.url}" target="_blank" style="display:flex;align-items:center;justify-content:center;height:180px;background:#000;color:#fff;font-size:14px">▶ 打开视频</a>`;
-      return `<span class="vwrap" onclick="openVideo(this.querySelector('video').src)"><video src="${m.url || ''}" preload="metadata" playsinline muted></video></span>`;
+      return `<span class="vwrap" ${vopen()}><video src="${m.url || ''}" preload="metadata" playsinline muted></video></span>`;
     }
-    if (m.type === 'tgVideo') return `<span class="vwrap" onclick="openVideo(this.querySelector('video').src)"><video src="/tgvideo?fid=${m.fileId}" preload="metadata" playsinline muted></video></span>`;
+    if (m.type === 'tgVideo') return `<span class="vwrap" ${vopen()}><video src="/tgvideo?fid=${m.fileId}" preload="metadata" playsinline muted></video></span>`;
     if (m.type === 'tgPhoto') return `<img src="/tgphoto?fid=${m.fileId}" loading="lazy" alt="" onclick="openImg('/tgphoto?fid=${m.fileId}')" style="cursor:pointer">`;
     return `<img src="/photos/${m.filename}" loading="lazy" alt="" onclick="openImg('/photos/${m.filename}')" style="cursor:pointer">`;
   }).join('')}
@@ -719,6 +751,7 @@ function mediaGrid(media) {
 }
 
 function renderFeed() {
+  videoLists = {};
   const feed = document.getElementById('feed');
   const y = window.scrollY || document.documentElement.scrollTop || 0;
   const list = (log.posts || []).slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -733,7 +766,7 @@ function renderFeed() {
       <div class="post" data-pid="${post.id}">
         ${(post.uploader === currentUser || isAdmin() || currentUser === 'unknown') ? `<div class="post-head"><div><span class="post-user">${esc(post.uploader)}</span><div class="post-time">${fmtDate(post.createdAt)}</div></div><button type="button" class="post-more" onclick="togglePostMenu('${post.id}', event)">⋮</button><div class="post-menu ${expanded['m_' + post.id] ? 'open' : ''}" id="pm-${post.id}"><button type="button" onclick="editPost('${post.id}', event)">编辑</button><button type="button" class="danger" onclick="deletePost('${post.id}', event)">删除</button></div></div>` : `<div class="post-head"><div><span class="post-user">${esc(post.uploader)}</span><div class="post-time">${fmtDate(post.createdAt)}</div></div></div>`}
         ${post.note ? `<div class="post-note">${esc(post.note).replace(/\n/g, '<br>')}</div>` : ''}
-        ${mediaGrid(post.media || [])}
+        ${mediaGrid(post.media || [], post.id)}
         <div class="post-actions">
           <button type="button" class="${liked ? 'liked' : ''}" onclick="likePost('${post.id}', event)">❤ ${likes.length || '赞'}</button>
           <button type="button" onclick="togglePostComments('${post.id}', event)">💬 ${comments.length || '评论'}</button>
@@ -1601,6 +1634,23 @@ const closeImg = () => { imgModal.classList.remove('show'); imgView.src = ''; iv
 document.getElementById('imgClose').onclick = e => { e.stopPropagation(); closeImg(); };
 document.getElementById('vClose').onclick = e => { e.stopPropagation(); closeVideo(); };
 document.getElementById('vModal').onclick = e => { if (e.target.id === 'vModal') closeVideo(); };
+// 左右滑动切换同帖视频（不退出播放器）
+let vSwipeX = null, vSwipeY = null;
+document.getElementById('vModal').addEventListener('touchstart', e => { vSwipeX = e.touches[0].clientX; vSwipeY = e.touches[0].clientY; }, { passive: true });
+document.getElementById('vModal').addEventListener('touchend', e => {
+  if (vSwipeX == null) return;
+  const dx = e.changedTouches[0].clientX - vSwipeX;
+  const dy = e.changedTouches[0].clientY - vSwipeY;
+  vSwipeX = vSwipeY = null;
+  if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) vGo(dx < 0 ? 1 : -1);
+}, { passive: true });
+// PC 键盘 ←→
+document.addEventListener('keydown', e => {
+  if (!document.getElementById('vModal').classList.contains('show')) return;
+  if (e.key === 'ArrowLeft') vGo(-1);
+  if (e.key === 'ArrowRight') vGo(1);
+  if (e.key === 'Escape') closeVideo();
+});
 
 (function initImgViewer() {
   let pinchD = 0, pinchS = 1, panX = 0, panY = 0, panning = false;
