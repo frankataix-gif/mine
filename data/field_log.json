@@ -47,7 +47,7 @@
   "posts": [
     {
       "id": "f_mux8m2i6_i2ci",
-      "note": "现场生产相关视频！\n明天开始正常摇床生产，同时安装打沙机！",
+      "note": "现场生产相关视频！\n明天开始正常摇床日生产，会记录一日的产能统计！同时安装打沙机！",
       "uploader": "Frank",
       "createdAt": "2026-10-06T22:15:30.606Z",
       "media": [
@@ -88,7 +88,8 @@
         }
       ],
       "likes": [],
-      "comments": []
+      "comments": [],
+      "updatedAt": "2026-10-06T22:28:14.199Z"
     },
     {
       "id": "f_muvlbxhe_xpj1",
@@ -292,7 +293,7 @@
       "updatedAt": "2026-10-05T06:07:51.823Z"
     }
   ],
-  "updatedAt": "2026-10-06T22:15:30.607Z",
+  "updatedAt": "2026-10-06T22:28:14.199Z",
   "users": [
     {
       "name": "Natalie"
