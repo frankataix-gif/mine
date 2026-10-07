@@ -412,6 +412,7 @@
     <div id="qrUrl" style="font-size:12px;color:#666;word-break:break-all;margin:10px 0"></div>
     <div class="hint" style="margin-bottom:12px">微信里发图片给对方，扫码即用本人身份打开</div>
     <div style="display:flex;gap:8px">
+      <button type="button" class="btn" style="flex:1;background:#f0fdf4;color:#16a34a" onclick="saveQrImg()">保存图片</button>
       <button type="button" class="btn" style="flex:1;background:#eff6ff;color:var(--primary)" onclick="copyUserLink(currentQr)">复制链接</button>
       <button type="button" class="btn" style="flex:1;background:var(--light);color:var(--text)" onclick="closeQr()">关闭</button>
     </div>
@@ -1652,6 +1653,36 @@ function showQr(name) {
   document.getElementById('qrModal').classList.add('show');
 }
 function closeQr() { document.getElementById('qrModal').classList.remove('show'); }
+async function saveQrImg() {
+  const name = currentQr, url = userLink(name);
+  const qrImg = document.querySelector('#qrBox img');
+  if (!qrImg) return;
+  try {
+    const cv = document.createElement('canvas');
+    cv.width = 680; cv.height = 940;
+    const c = cv.getContext('2d');
+    c.fillStyle = '#fff'; c.fillRect(0, 0, 680, 940);
+    c.fillStyle = '#111'; c.textAlign = 'center';
+    c.font = 'bold 60px sans-serif';
+    c.fillText(name, 340, 120);
+    const im = new Image();
+    await new Promise((res, rej) => { im.onload = res; im.onerror = rej; im.src = qrImg.src; });
+    c.drawImage(im, 60, 170, 560, 560);
+    c.fillStyle = '#555'; c.font = '26px sans-serif';
+    c.fillText(url, 340, 790);
+    c.fillStyle = '#888'; c.font = '28px sans-serif';
+    c.fillText('微信扫码 · 直达 Ecobox 动态', 340, 850);
+    const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name + '-专属链接.png';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+    showToast('图片已保存，去相册/下载里发给对方');
+  } catch (e) {
+    showToast('保存失败：' + (e.message || ''));
+  }
+}
 
 function userLink(name) { return location.origin + '/u/' + encodeURIComponent(name); }
 function copyUserLink(name) {
