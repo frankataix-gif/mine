@@ -285,17 +285,21 @@
 
   <section class="tab-content" id="tab-mine">
     <div class="card">
-      <h2>今日产能</h2>
+      <h2>今日生产记录</h2>
       <div class="row">
         <div><label>日期</label><input type="date" id="pDate"></div>
-        <div><label>班次</label><select id="pShift"><option>全天</option><option>早班</option><option>中班</option><option>晚班</option></select></div>
+        <div><label>设备</label><input type="text" id="pEquip" placeholder="摇床"></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div><label>开始时间</label><input type="time" id="pStart"></div>
+        <div><label>结束时间</label><input type="time" id="pEnd"></div>
       </div>
       <div class="row" style="margin-top:10px">
         <div><label>入选矿石（吨）</label><input type="number" id="pInput" step="0.1" placeholder="0.0"></div>
-        <div><label>运行时长（小时）</label><input type="number" id="pRuntime" step="0.5" placeholder="0.0"></div>
+        <div><label>精矿湿重（吨）</label><input type="number" id="pWet" step="0.001" placeholder="0.000"></div>
       </div>
       <div class="row" style="margin-top:10px">
-        <div><label>钽铌精矿（吨）</label><input type="number" id="pCon" step="0.001" placeholder="0.000"></div>
+        <div><label>精矿干重（吨）</label><input type="number" id="pDry" step="0.001" placeholder="0.000"></div>
         <div><label>Ta₂O₅ 品位（%）</label><input type="number" id="pTa" step="0.001" placeholder="0.000"></div>
       </div>
       <div class="row" style="margin-top:10px">
@@ -303,9 +307,14 @@
         <div><label>Sn 品位（%）</label><input type="number" id="pSn" step="0.001" placeholder="0.000"></div>
       </div>
       <div class="field" style="margin-top:10px">
-        <label>备注</label><textarea id="pNote" rows="2" placeholder="异常、停机、设备情况等"></textarea>
+        <label>当日总结 / 说明</label><textarea id="pNote" rows="2" placeholder="运转情况、异常停机、设备问题等"></textarea>
       </div>
-      <button type="button" class="btn" id="pSubmit" style="width:100%;margin-top:10px">保存产能记录</button>
+      <div class="field" style="margin-top:10px">
+        <label>照片 / 视频</label>
+        <button type="button" class="btn" style="background:var(--light);color:var(--text);width:100%" onclick="pickAttach('prodform', event)">📎 添加照片或视频</button>
+        <div id="prodFiles" class="file-row" style="margin-top:6px"></div>
+      </div>
+      <button type="button" class="btn" id="pSubmit" style="width:100%;margin-top:10px">保存生产记录</button>
     </div>
     <div id="productionList" class="feed"></div>
   </section>
@@ -686,6 +695,8 @@ function openVideo(src) {
   v.src = src;
   m.classList.add('show');
   ld.style.display = 'block';
+  const ix = document.getElementById('vIdx');
+  if (ix) ix.style.display = 'none';
   const pr = v.play();
   if (pr && pr.catch) pr.catch(() => { ld.style.display = 'none'; });
 }
@@ -922,7 +933,8 @@ function fileChips(files) {
   return `<div class="file-row">${files.map(f => {
     const u = f.url;
     if (f.kind === 'image') return `<img class="file-img" src="${u}" onclick="openImg(this.src);event.stopPropagation()">`;
-    const icon = f.kind === 'video' ? '▶' : (f.kind === 'pdf' ? '📄' : '📎');
+    if (f.kind === 'video') return `<a class="file-chip" href="javascript:void(0)" onclick="openVideo('${u}');event.stopPropagation()">▶ ${esc(f.name || '视频')}</a>`;
+    const icon = f.kind === 'pdf' ? '📄' : '📎';
     return `<a class="file-chip" href="${u}" target="_blank" onclick="event.stopPropagation()">${icon} ${esc(f.name || '附件')}</a>`;
   }).join('')}</div>`;
 }
@@ -1285,6 +1297,17 @@ function unstageFile(key, fi) {
   (stagedFiles[key] || []).splice(fi, 1);
   renderSchedule();
 }
+let prodFiles = [];
+function renderProdFiles() {
+  const el = document.getElementById('prodFiles');
+  if (!el) return;
+  el.innerHTML = prodFiles.map((f, i) => {
+    if (f.kind === 'image') return `<span style="position:relative"><img class="file-img" src="${f.url}" onclick="openImg('${f.url}')"><button type="button" onclick="prodFiles.splice(${i},1);renderProdFiles()" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;border:none;background:var(--danger);color:#fff;font-size:11px;line-height:1">×</button></span>`;
+    const icon = f.kind === 'video' ? '▶' : (f.kind === 'pdf' ? '📄' : '📎');
+    return `<a class="file-chip" href="${f.url}" target="_blank">${icon} ${esc(f.name || '附件')}</a><button type="button" onclick="prodFiles.splice(${i},1);renderProdFiles()" style="border:none;background:transparent;color:var(--danger);font-size:14px">×</button>`;
+  }).join('');
+}
+
 async function uploadAttachment(file) {
   const ext = (file.name.split('.').pop() || 'bin').toLowerCase();
   const kind = file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : ext === 'pdf' ? 'pdf' : 'file';
@@ -1307,6 +1330,9 @@ document.getElementById('attFile').onchange = async e => {
       } else if (target.startsWith('attodo:')) {
         const d = (log.todos || []).find(x => x.id === target.slice(7));
         if (d) { if (!d.files) d.files = []; d.files.push(a); }
+      } else if (target === 'prodform') {
+        prodFiles.push(a);
+        renderProdFiles();
       } else {
         if (!stagedFiles[target]) stagedFiles[target] = [];
         stagedFiles[target].push(a);
@@ -1327,23 +1353,29 @@ function renderProduction() {
   list.innerHTML = log.production.slice().sort((a, b) => new Date(b.date) - new Date(a.date)).map(p => `
     <div class="prod-card">
       <div class="prod-head">
-        <span class="prod-title">${p.date} · ${p.shift}</span>
+        <span class="prod-title">${p.date}${p.shift ? ' · ' + p.shift : (p.equip ? ' · ' + esc(p.equip) : '')}</span>
         <span style="font-size:12px;color:var(--muted)">记录人：${esc(p.recorder)}${(p.recorder === currentUser || isAdmin()) ? `<span class="fb-wrap"><button type="button" class="fb-dots" onclick="toggleMiniMenu('pdo-${p.id}',event)">⋮</button><div class="fb-menu" id="pdo-${p.id}"><button type="button" onclick="editProd('${p.id}')">编辑</button><button type="button" class="danger" onclick="delProd('${p.id}')">删除</button></div></span>` : ''}</span>
       </div>
+      ${(p.start || p.end) ? `<div class="prod-note" style="margin-top:0">⏱ ${p.start || '?'} ~ ${p.end || '?'}${p.runtime ? ' · ' + p.runtime + '小时' : ''}　⚙ ${esc(p.equip || '摇床')}</div>` : ''}
       <div class="prod-grid">
         <div class="prod-item"><div class="k">入选矿石</div><div class="v">${p.input || '0'}</div><div class="k">吨</div></div>
+        ${(p.wet || p.dry) ? `
+        <div class="prod-item"><div class="k">精矿湿重</div><div class="v">${p.wet || '0'}</div><div class="k">吨</div></div>
+        <div class="prod-item"><div class="k">精矿干重</div><div class="v">${p.dry || '0'}</div><div class="k">吨</div></div>` : `
         <div class="prod-item"><div class="k">运行时长</div><div class="v">${p.runtime || '0'}</div><div class="k">小时</div></div>
-        <div class="prod-item"><div class="k">钽铌精矿</div><div class="v">${p.concentrate || '0'}</div><div class="k">吨</div></div>
+        <div class="prod-item"><div class="k">钽铌精矿</div><div class="v">${p.concentrate || '0'}</div><div class="k">吨</div></div>`}
         <div class="prod-item"><div class="k">Ta₂O₅</div><div class="v">${p.ta || '0'}</div><div class="k">%</div></div>
         <div class="prod-item"><div class="k">Nb₂O₅</div><div class="v">${p.nb || '0'}</div><div class="k">%</div></div>
-        <div class="prod-item"><div class="k">Sn</div><div class="v">${p.sn || '0'}</div><div class="k">%</div></div>
+        ${p.sn ? `<div class="prod-item"><div class="k">Sn</div><div class="v">${p.sn}</div><div class="k">%</div></div>` : ''}
       </div>
-      ${p.note ? `<div class="prod-note">备注：${p.note}</div>` : ''}
+      ${p.note ? `<div class="prod-note">${esc(p.note)}</div>` : ''}
+      ${fileChips(p.files)}
     </div>
   `).join('');
 }
 
 document.getElementById('pDate').valueAsDate = new Date();
+{ const eq = document.getElementById('pEquip'); if (eq && !eq.value) eq.value = localStorage.getItem('prodEquip') || '摇床'; }
 
 let editingProdId = null;
 function editProd(pid) {
@@ -1352,15 +1384,19 @@ function editProd(pid) {
   if (!p) return;
   editingProdId = pid;
   document.getElementById('pDate').value = p.date;
-  document.getElementById('pShift').value = p.shift;
+  document.getElementById('pStart').value = p.start || '';
+  document.getElementById('pEnd').value = p.end || '';
+  document.getElementById('pEquip').value = p.equip || '摇床';
   document.getElementById('pInput').value = p.input || '';
-  document.getElementById('pRuntime').value = p.runtime || '';
-  document.getElementById('pCon').value = p.concentrate || '';
+  document.getElementById('pWet').value = p.wet || '';
+  document.getElementById('pDry').value = p.dry || (p.concentrate || '');
   document.getElementById('pTa').value = p.ta || '';
   document.getElementById('pNb').value = p.nb || '';
   document.getElementById('pSn').value = p.sn || '';
   document.getElementById('pNote').value = p.note || '';
+  prodFiles = (p.files || []).slice(); renderProdFiles();
   document.getElementById('pSubmit').textContent = '保存修改';
+  document.querySelector('#tab-mine').scrollIntoView();
   window.scrollTo(0, 0);
 }
 async function delProd(pid) {
@@ -1380,17 +1416,27 @@ document.getElementById('pSubmit').onclick = async () => {
     const rec = {
       id: id(),
       date: document.getElementById('pDate').value,
-      shift: document.getElementById('pShift').value,
+      start: document.getElementById('pStart').value,
+      end: document.getElementById('pEnd').value,
+      equip: document.getElementById('pEquip').value || '摇床',
       input: parseFloat(document.getElementById('pInput').value) || 0,
-      runtime: parseFloat(document.getElementById('pRuntime').value) || 0,
-      concentrate: parseFloat(document.getElementById('pCon').value) || 0,
+      wet: parseFloat(document.getElementById('pWet').value) || 0,
+      dry: parseFloat(document.getElementById('pDry').value) || 0,
       ta: parseFloat(document.getElementById('pTa').value) || 0,
       nb: parseFloat(document.getElementById('pNb').value) || 0,
       sn: parseFloat(document.getElementById('pSn').value) || 0,
       note: document.getElementById('pNote').value,
+      files: prodFiles.slice(),
       recorder: currentUser,
       createdAt: new Date().toISOString()
     };
+    // 起止时间自动算运行时长（兼容旧字段）
+    if (rec.start && rec.end) {
+      const [h1, m1] = rec.start.split(':').map(Number), [h2, m2] = rec.end.split(':').map(Number);
+      let mins = (h2 * 60 + m2) - (h1 * 60 + m1); if (mins < 0) mins += 1440;
+      rec.runtime = Math.round(mins / 60 * 10) / 10;
+    }
+    localStorage.setItem('prodEquip', rec.equip);
     if (!rec.date) { showToast('请选择日期'); return; }
     if (!log.production) log.production = [];
     if (editingProdId) {
@@ -1402,17 +1448,20 @@ document.getElementById('pSubmit').onclick = async () => {
       log.production.unshift(rec);
     }
     if (await saveLog('save production')) {
+      document.getElementById('pStart').value = '';
+      document.getElementById('pEnd').value = '';
       document.getElementById('pInput').value = '';
-      document.getElementById('pRuntime').value = '';
-      document.getElementById('pCon').value = '';
+      document.getElementById('pWet').value = '';
+      document.getElementById('pDry').value = '';
       document.getElementById('pTa').value = '';
       document.getElementById('pNb').value = '';
       document.getElementById('pSn').value = '';
       document.getElementById('pNote').value = '';
+      prodFiles = []; renderProdFiles();
       renderProduction();
-      showToast('产能记录已保存');
+      showToast('生产记录已保存');
     }
-  } finally { btn.disabled = false; btn.textContent = '保存产能记录'; }
+  } finally { btn.disabled = false; btn.textContent = '保存生产记录'; }
 };
 
 // ---- 矿证台账（代理 franksync 巡检结果，只看 Active）----
