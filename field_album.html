@@ -1610,7 +1610,7 @@ if (currentUser === 'unknown') {
 // 用户链接（管理员可见 + 可创建新用户）
 const ADMIN_NAMES = ['Frank', '管理员'];
 function isAdmin() { return ADMIN_NAMES.includes(currentUser); }
-function userLink(name) { return location.origin + '/field_album.html?user=' + encodeURIComponent(name); }
+function userLink(name) { return location.origin + '/u/' + encodeURIComponent(name); }
 function copyUserLink(name) {
   const url = userLink(name);
   if (navigator.clipboard && navigator.clipboard.writeText) {

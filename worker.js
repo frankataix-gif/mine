@@ -719,6 +719,16 @@ export default {
           return Response.redirect(u.toString(), 302);
         }
 
+        // 短链接：/u/名字 → 动态页带身份（转发用，URL 短不容易被微信截断）
+        if (p.startsWith('/u/')) {
+          const name = decodeURIComponent(p.slice(3));
+          const u = new URL(request.url);
+          u.pathname = '/field_album.html';
+          u.searchParams.set('user', name);
+          u.searchParams.set('v', Date.now().toString());
+          return Response.redirect(u.toString(), 302);
+        }
+
         // 页面：门户公开，各 app 按权限拦截
         if (HTML_PAGES[p]) {
           const pg = HTML_PAGES[p];
