@@ -194,7 +194,9 @@
           "thumbKey": "media/1791225303459_pa2y88.jpg"
         }
       ],
-      "likes": [],
+      "likes": [
+        "Natalie"
+      ],
       "comments": []
     },
     {
@@ -379,7 +381,7 @@
       "updatedAt": "2026-10-05T06:07:51.823Z"
     }
   ],
-  "updatedAt": "2026-10-07T18:28:33.335Z",
+  "updatedAt": "2026-10-07T18:42:40.594Z",
   "users": [
     {
       "name": "Natalie"
