@@ -43,26 +43,7 @@
       "updatedAt": "2026-10-04T21:49:31.770Z"
     }
   ],
-  "production": [
-    {
-      "id": "f_muxp278g_eta3",
-      "date": "2026-10-07",
-      "start": "07:54",
-      "end": "03:54",
-      "equip": "摇床1台",
-      "input": 0,
-      "wet": 0,
-      "dry": 0,
-      "ta": 0,
-      "nb": 0,
-      "sn": 0,
-      "note": "",
-      "files": [],
-      "recorder": "Frank",
-      "createdAt": "2026-10-07T05:55:57.088Z",
-      "runtime": 20
-    }
-  ],
+  "production": [],
   "posts": [
     {
       "id": "f_mux9c9a0_iqvh",
@@ -368,7 +349,7 @@
       "updatedAt": "2026-10-05T06:07:51.823Z"
     }
   ],
-  "updatedAt": "2026-10-07T06:11:47.005Z",
+  "updatedAt": "2026-10-07T06:14:39.244Z",
   "users": [
     {
       "name": "Natalie"
