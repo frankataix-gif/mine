@@ -109,7 +109,13 @@
       "likes": [
         "Natalie"
       ],
-      "comments": [],
+      "comments": [
+        {
+          "user": "Natalie",
+          "text": "她们这样挖挖不洗也能卖？",
+          "time": "2026-10-07T18:15:33.404Z"
+        }
+      ],
       "updatedAt": "2026-10-07T06:26:17.195Z"
     },
     {
@@ -365,7 +371,7 @@
       "updatedAt": "2026-10-05T06:07:51.823Z"
     }
   ],
-  "updatedAt": "2026-10-07T18:15:11.490Z",
+  "updatedAt": "2026-10-07T18:15:33.404Z",
   "users": [
     {
       "name": "Natalie"
