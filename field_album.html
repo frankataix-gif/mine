@@ -2061,13 +2061,26 @@ async function backgroundUpload(queue, note, _vUrl, editingPostId) {
   }
   render();
   try {
-    const parts = await Promise.all(queue.map((item, i) => (async () => {
+    const results = await Promise.allSettled(queue.map((item, i) => (async () => {
       const r = await uploadOne(item, (l, t) => { loaded[i] = l; total[i] = t; render(); });
       completed++;
       render();
       return r;
     })()));
-    media.push(...parts);
+    const failedIdx = results.map((r, i) => r.status === 'rejected' ? i : -1).filter(i => i >= 0);
+    results.forEach(r => { if (r.status === 'fulfilled') media.push(r.value); });
+    if (failedIdx.length) {
+      // 保留失败项供重试；已成功的也留在队列会在重试时重传（幂等），此处只留失败项
+      uploadQueue = failedIdx.map(i => queue[i]);
+      renderUploadGrid();
+      const t = document.getElementById('upText');
+      if (t) { t.textContent = failedIdx.length + ' 个文件失败，请再点发布重试'; t.style.color = 'var(--danger)'; }
+      const sb = document.getElementById('uSubmit');
+      if (sb) { sb.disabled = false; sb.style.opacity = '1'; sb.textContent = '重试（剩' + failedIdx.length + '个）'; }
+      showToast(failedIdx.length + ' 个文件上传失败');
+      uploading = false;
+      return;
+    }
     if (editingPostId) {
       const idx = (log.posts || []).findIndex(x => x.id === editingPostId);
       if (idx >= 0) {
@@ -2085,6 +2098,8 @@ async function backgroundUpload(queue, note, _vUrl, editingPostId) {
       await saveLog('add post');
       showToast('发布成功');
     }
+    queue.forEach(i => { if (i.url && i.isVideo) URL.revokeObjectURL(i.url); });
+    uploadQueue = uploadQueue.filter(x => !queue.includes(x));
     hideProgress();
     document.getElementById('uNote').value = '';
     renderUploadGrid();
@@ -2114,8 +2129,6 @@ document.getElementById('uSubmit').onclick = () => {
   sb.style.opacity = '0.7';
   sb.textContent = '上传中 0%';
   const queue = uploadQueue.slice();
-  queue.forEach(i => { if (i.url && i.isVideo) URL.revokeObjectURL(i.url); });
-  uploadQueue = [];
   const eid = editingPostId;
   editingPostId = null;
   backgroundUpload(queue, note, '', eid);
@@ -2133,7 +2146,8 @@ async function checkVersion() {
     const seen = localStorage.getItem('appVersion');
     if (v && seen && String(v) !== String(seen)) {
       localStorage.setItem('appVersion', v);
-      if (!uploading && syncCount <= 0) location.reload();
+      const modalOpen = document.querySelector('.modal-mask.show');
+      if (!uploading && syncCount <= 0 && !uploadQueue.length && !modalOpen) location.reload();
       return;
     }
     if (v) localStorage.setItem('appVersion', v);
