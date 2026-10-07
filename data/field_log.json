@@ -168,7 +168,13 @@
       "likes": [
         "Natalie"
       ],
-      "comments": [],
+      "comments": [
+        {
+          "user": "Natalie",
+          "text": "看上去像模像样了👍",
+          "time": "2026-10-07T18:28:33.335Z"
+        }
+      ],
       "updatedAt": "2026-10-07T06:11:47.005Z"
     },
     {
@@ -373,7 +379,7 @@
       "updatedAt": "2026-10-05T06:07:51.823Z"
     }
   ],
-  "updatedAt": "2026-10-07T18:28:11.951Z",
+  "updatedAt": "2026-10-07T18:28:33.335Z",
   "users": [
     {
       "name": "Natalie"
