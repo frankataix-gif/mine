@@ -711,15 +711,34 @@ function vGo(d) {
   openVideo(l[vIdx]);
   updVIdx();
 }
+let vSlowTimer = null;
 function openVideo(src) {
   const m = document.getElementById('vModal');
   const v = document.getElementById('vView');
   const ld = document.getElementById('vLoading');
   if (!src) return;
-  v.oncanplay = () => { ld.style.display = 'none'; };
+  v.oncanplay = () => { ld.style.display = 'none'; clearTimeout(vSlowTimer); };
   v.onerror = () => { ld.textContent = '视频加载失败'; };
+  // 缓冲进度：让用户看到在动
+  v.onprogress = () => {
+    try {
+      if (v.duration && v.buffered.length) {
+        const pct = Math.round(v.buffered.end(v.buffered.length - 1) / v.duration * 100);
+        if (ld.style.display !== 'none') ld.textContent = '加载中… 已缓冲 ' + pct + '%';
+      }
+    } catch (e) {}
+  };
+  v.onwaiting = () => { ld.textContent = '缓冲中…'; ld.style.display = 'block'; };
+  v.onplaying = () => { ld.style.display = 'none'; clearTimeout(vSlowTimer); };
+  // 8 秒还没播：提示换浏览器
+  clearTimeout(vSlowTimer);
+  vSlowTimer = setTimeout(() => {
+    if (ld.style.display !== 'none') ld.innerHTML = '网络较慢，请耐心等待<br><span style="font-size:12px">缓冲慢可点右上角「···」在浏览器打开</span>';
+  }, 8000);
+  v.preload = 'auto';
   v.src = src;
   m.classList.add('show');
+  ld.textContent = '加载中…';
   ld.style.display = 'block';
   const ix = document.getElementById('vIdx');
   if (ix) ix.style.display = 'none';
@@ -727,6 +746,7 @@ function openVideo(src) {
   if (pr && pr.catch) pr.catch(() => { ld.style.display = 'none'; });
 }
 function closeVideo() {
+  clearTimeout(vSlowTimer);
   const v = document.getElementById('vView');
   v.pause(); v.removeAttribute('src'); v.load();
   document.getElementById('vModal').classList.remove('show');
