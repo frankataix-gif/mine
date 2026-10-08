@@ -233,7 +233,9 @@
           "thumbKey": "media/1791328039780_iyw3vq.jpg"
         }
       ],
-      "likes": [],
+      "likes": [
+        "Natalie"
+      ],
       "comments": [
         {
           "user": "Natalie",
@@ -453,7 +455,7 @@
       "updatedAt": "2026-10-05T06:07:51.823Z"
     }
   ],
-  "updatedAt": "2026-10-08T05:15:18.610Z",
+  "updatedAt": "2026-10-08T05:15:22.306Z",
   "users": [
     {
       "name": "Natalie"
