@@ -1684,7 +1684,8 @@ async function saveQrImg() {
   }
 }
 
-function userLink(name) { return location.origin + '/u/' + encodeURIComponent(name); }
+const SHARE_ORIGIN = 'https://mine.ecoboxmine.com';
+function userLink(name) { return SHARE_ORIGIN + '/u/' + encodeURIComponent(name); }
 function copyUserLink(name) {
   const url = userLink(name);
   if (navigator.clipboard && navigator.clipboard.writeText) {
