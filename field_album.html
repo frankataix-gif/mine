@@ -1685,7 +1685,8 @@ async function saveQrImg() {
 }
 
 const SHARE_ORIGIN = 'https://mine.ecoboxmine.com';
-function userLink(name) { return SHARE_ORIGIN + '/u/' + encodeURIComponent(name); }
+const USER_SLUG = { '小苏':'xiaosu', '基督山伯爵':'jds', '玲姐':'lingjie', '董事长':'dsz', 'Frank':'frank' };
+function userLink(name) { return SHARE_ORIGIN + '/u/' + (USER_SLUG[name] || encodeURIComponent(name)); }
 function copyUserLink(name) {
   const url = userLink(name);
   if (navigator.clipboard && navigator.clipboard.writeText) {

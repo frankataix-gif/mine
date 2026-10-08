@@ -719,9 +719,11 @@ export default {
           return Response.redirect(u.toString(), 302);
         }
 
-        // 短链接：/u/名字 → 动态页带身份（转发用，URL 短不容易被微信截断）
+        // 短链接：/u/名字或拼音短码 → 动态页带身份（转发用，URL 短不容易被微信截断）
         if (p.startsWith('/u/')) {
-          const name = decodeURIComponent(p.slice(3));
+          const SLUGS = { xiaosu: '小苏', jds: '基督山伯爵', lingjie: '玲姐', dsz: '董事长', frank: 'Frank' };
+          let name = decodeURIComponent(p.slice(3));
+          name = SLUGS[name.toLowerCase()] || name;
           const u = new URL(request.url);
           u.pathname = '/field_album.html';
           u.searchParams.set('user', name);
