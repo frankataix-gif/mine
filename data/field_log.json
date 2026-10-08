@@ -57,7 +57,26 @@
       "updatedAt": "2026-10-04T21:49:31.770Z"
     }
   ],
-  "production": [],
+  "production": [
+    {
+      "id": "f_muz2h7pb_rj0x",
+      "date": "2026-10-07",
+      "start": "09:30",
+      "end": "16:30",
+      "equip": "摇床1台",
+      "input": 0,
+      "wet": 0,
+      "dry": 5,
+      "ta": 10,
+      "nb": 14,
+      "sn": 0,
+      "note": "",
+      "files": [],
+      "recorder": "Frank",
+      "createdAt": "2026-10-08T04:59:18.719Z",
+      "runtime": 7
+    }
+  ],
   "posts": [
     {
       "id": "f_muyhsa2v_6j2q",
@@ -436,7 +455,7 @@
       "updatedAt": "2026-10-05T06:07:51.823Z"
     }
   ],
-  "updatedAt": "2026-10-07T19:46:01.966Z",
+  "updatedAt": "2026-10-08T04:59:18.721Z",
   "users": [
     {
       "name": "Natalie"
