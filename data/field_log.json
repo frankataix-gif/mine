@@ -120,6 +120,11 @@
         {
           "type": "image",
           "r2Key": "media/1791723801272_gsol97.jpg"
+        },
+        {
+          "type": "video",
+          "r2Key": "media/1791735319267_jwl6nr.mp4",
+          "thumbKey": "media/1791735317251_lxywka.jpg"
         }
       ],
       "likes": [
@@ -137,7 +142,7 @@
           "time": "2026-10-11T11:42:51.449Z"
         }
       ],
-      "updatedAt": "2026-10-11T13:03:23.376Z"
+      "updatedAt": "2026-10-11T16:15:23.553Z"
     },
     {
       "id": "f_muzwk52t_7ae5",
@@ -531,7 +536,7 @@
       "updatedAt": "2026-10-05T06:07:51.823Z"
     }
   ],
-  "updatedAt": "2026-10-11T16:13:19.392Z",
+  "updatedAt": "2026-10-11T16:15:23.553Z",
   "users": [
     {
       "name": "Natalie"
