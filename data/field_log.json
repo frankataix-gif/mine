@@ -122,7 +122,9 @@
           "r2Key": "media/1791723801272_gsol97.jpg"
         }
       ],
-      "likes": [],
+      "likes": [
+        "Natalie"
+      ],
       "comments": [
         {
           "user": "Frank",
@@ -529,7 +531,7 @@
       "updatedAt": "2026-10-05T06:07:51.823Z"
     }
   ],
-  "updatedAt": "2026-10-11T13:03:23.377Z",
+  "updatedAt": "2026-10-11T16:13:19.392Z",
   "users": [
     {
       "name": "Natalie"
