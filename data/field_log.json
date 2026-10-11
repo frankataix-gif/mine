@@ -80,7 +80,7 @@
   "posts": [
     {
       "id": "f_mv3r5mjd_2dzj",
-      "note": "今天去看了估计一个金矿带，别人的矿权，第一次见过选金的过程",
+      "note": "今天去看了一个在附近的金矿带，别人的矿权，第一次见过选金的过程",
       "uploader": "Frank",
       "createdAt": "2026-10-11T11:41:13.177Z",
       "media": [
@@ -119,7 +119,8 @@
         }
       ],
       "likes": [],
-      "comments": []
+      "comments": [],
+      "updatedAt": "2026-10-11T11:41:44.589Z"
     },
     {
       "id": "f_muzwk52t_7ae5",
@@ -513,7 +514,7 @@
       "updatedAt": "2026-10-05T06:07:51.823Z"
     }
   ],
-  "updatedAt": "2026-10-11T11:41:13.177Z",
+  "updatedAt": "2026-10-11T11:41:44.589Z",
   "users": [
     {
       "name": "Natalie"
