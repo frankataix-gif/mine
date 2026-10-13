@@ -513,7 +513,16 @@ function cycleStatus(key){
 }
 function setDoc(key,f,v){ const a=curApp(); if(!a) return; (a.docs[key]=a.docs[key]||{status:0})[f]=v; persist(); }
 let uploadScope='app';
-function pickFile(key, scope){ uploadDocKey=key; uploadScope=scope||'app'; $('filePick').click(); }
+function pickFile(key, scope){
+  uploadDocKey=key; uploadScope=scope||'app';
+  const fi=$('filePick');
+  if(!fi) return toast('文件选择器未就绪，请刷新页面');
+  try{ fi.click(); }catch(e){ toast('无法打开文件选择：'+e.message); }
+  if(/MicroMessenger/i.test(navigator.userAgent)) toast('微信内可能无法选文件，请用浏览器打开本页');
+}
+// 全局错误浮出来：任何静默 JS 错误都弹 toast，不再"点了没反应"
+window.addEventListener('error', e=>{ try{ toast('脚本错误：'+(e.message||e.type)); }catch(x){} });
+window.addEventListener('unhandledrejection', e=>{ try{ toast('异步错误：'+((e.reason&&e.reason.message)||e.reason||'promise')); }catch(x){} });
 $('filePick').addEventListener('change', async e=>{
   const f=e.target.files[0]; e.target.value=''; if(!f||!uploadDocKey) return;
   const a=curApp(), co=curCo(), key=uploadDocKey;
@@ -740,12 +749,12 @@ function renderCo(){
       ${coSrcDir(c)?`<button class="btn sm ghost" onclick="openSrcDir('${jsq(coSrcDir(c)+'/x')}')">📁 打开文件夹</button>`:''}
       <button class="btn sm" onclick="analyzeCo()">解析文件提取股东</button></div>
     <h3 style="display:flex;align-items:center;gap:8px">股东 Shareholders（赞方合计 <b style="color:${Math.round(zm)>=5?'var(--success)':'var(--danger)'}">${Math.round(zm)}%</b>）
-      <a href="javascript:void(0)" style="font-size:12px;font-weight:400" onclick="window._shEdit=window._shEdit===c.id?null:c.id;renderCo()">${window._shEdit===c.id?'收起':'编辑'}</a></h3>
+      <a href="javascript:void(0)" style="font-size:12px;font-weight:400" onclick="window._shEdit=window._shEdit==='${c.id}'?null:'${c.id}';renderCo()">${window._shEdit===c.id?'收起':'编辑'}</a></h3>
     <div id="shList"></div>
     ${window._shEdit===c.id?'<button class="btn sm ghost" onclick="shAdd()">＋股东</button>':''}
     <h3>基础文件（所有公司必备标准件）</h3><div id="coDocs"></div>
     <h3 style="display:flex;align-items:center;gap:8px">其他文件（本公司特有：矿证、出口许可证等）
-      <a href="javascript:void(0)" style="font-size:12px;font-weight:400" onclick="window._exEdit=window._exEdit===c.id?null:c.id;renderCo()">${window._exEdit===c.id?'收起':'编辑'}</a></h3>
+      <a href="javascript:void(0)" style="font-size:12px;font-weight:400" onclick="window._exEdit=window._exEdit==='${c.id}'?null:'${c.id}';renderCo()">${window._exEdit===c.id?'收起':'编辑'}</a></h3>
     <div id="coExtra"></div>
     ${window._exEdit===c.id?'<button class="btn sm ghost" onclick="addExtraDoc()">＋文件</button>':''}`;
   renderSh(); renderCoDocs(); renderCoExtra();
@@ -763,7 +772,7 @@ function renderCoExtra(){
   const c=curCo(); if(!c) return;
   const list=c.extraDocs||[];
   $('coExtra').innerHTML=list.map(d=>`<div class="doc">
-    <span class="chip ${d.mediaKey?'s1':'s0'}">${d.mediaKey?'已收':'缺'}</span>
+    <span class="chip ${d.mediaKey?'s1':'s0'}" style="cursor:pointer" onclick="${d.mediaKey?`viewFile('${d.mediaKey}','${jsq(d.fileName||'文件')}')`:`pickFile('x_${d.id}','co')`}">${d.mediaKey?'已收':'缺'}</span>
     <div class="doc-body"><div class="doc-name">${esc(d.label)}</div>
     <div class="doc-meta">
       <a href="javascript:void(0)" onclick="pickFile('x_${d.id}','co')">${d.mediaKey?'替换':'上传'}</a>
@@ -828,7 +837,7 @@ function renderCoDocs(){
   if(!c.docs) c.docs={};
   $('coDocs').innerHTML=CO_DOCS.map(([key,en,cn,exp])=>{
     const d=c.docs[key]||{};
-    return `<div class="doc"><button class="chip ${d.mediaKey?'s1':'s0'}">${d.mediaKey?'已收':'缺'}</button>
+    return `<div class="doc"><button class="chip ${d.mediaKey?'s1':'s0'}" onclick="${d.mediaKey?`viewFile('${d.mediaKey}','${jsq(d.fileName||'文件')}')`:`pickFile('${key}','co')`}">${d.mediaKey?'已收':'缺'}</button>
       <div class="doc-body"><div class="doc-name">${en}</div><div class="doc-cn">${cn}</div>
       <div class="doc-meta">
         <a href="javascript:void(0)" onclick="pickFile('${key}','co')">${d.mediaKey?'替换':'上传'}</a>
