@@ -141,6 +141,15 @@
 <div class="pane active" id="p-docs">
   <div class="tipbox">清单按 portal.miningcadastre.com 各证型上传栏整理。点状态圆片：缺 → 已收 → 已核 → 问题。<b>A 类 = 公司基础材料，B 类 = 支持性文件，C = 可选/兜底</b>。</div>
   <div class="card">
+    <h2>申请说明（把要求粘贴到这里，AI 提取要点并填进申请）</h2>
+    <textarea id="briefTxt" style="min-height:90px" placeholder="粘贴地块/申请要求的文字（中英文都行）：比如地块名、位置、矿种、投资额、雇工规模、历史矿证情况…" oninput="saveBrief(this.value)" onchange="persist()"></textarea>
+    <div class="btnrow">
+      <button class="btn sm" id="briefBtn" onclick="parseBrief()">AI 解析要点</button>
+      <button class="btn sm" id="genAllBtn" onclick="genAllDocs()">AI 生成全部 B 类文件</button>
+    </div>
+    <div class="muted" id="briefHint" style="font-size:12px"></div>
+  </div>
+  <div class="card">
     <div class="row"><h2 style="flex:1">材料清单</h2><span class="muted" id="progTxt">0/0</span>
       <button class="btn sm green" onclick="exportPackage()">导出递交包</button></div>
     <div class="pbar"><div class="pfill" id="pfill"></div></div>
@@ -428,7 +437,8 @@ function effDoc(a, key, cat){
 }
 function renderDocs(){
   const a=curApp(), box=$('docList');
-  if(!a){ box.innerHTML='<div class="empty">先在顶部「＋申请」建立一个矿证申请</div>'; $('progTxt').textContent='0/0'; $('pfill').style.width='0'; return; }
+  if(!a){ box.innerHTML='<div class="empty">先在顶部「＋申请」建立一个矿证申请</div>'; $('progTxt').textContent='0/0'; $('pfill').style.width='0'; $('briefTxt').value=''; $('briefHint').textContent=''; return; }
+  $('briefTxt').value=a.brief||'';
   const defs=DOC_DEFS[a.type]||[];
   let req=defs.filter(d=>d[3]!=='C'), done=req.filter(d=>effDoc(a,d[0],d[3]).d.status>=1).length;
   $('progTxt').textContent=`${done}/${req.length}`;
@@ -448,6 +458,7 @@ function renderDocs(){
           ${st.mediaKey?`<a href="javascript:void(0)" onclick="viewFile('${st.mediaKey}','${jsq(st.fileName||'文件')}')" title="${esc(st.fileName||'')}">${esc(st.fileName||'查看')}</a>`:''}
           ${st.srcPath?`<a href="javascript:void(0)" onclick="openSrcDir('${jsq(st.srcPath)}')" title="打开来源文件夹">${'📁'}</a>`:''}
           ${docDate(st)?`<span class="muted" style="font-size:11px">传于 ${docDate(st)}</span>`:''}
+          ${d[5]?`<a href="javascript:void(0)" onclick="jumpWrite('${d[5]}')" style="color:${(a.drafts[d[5]]||'').trim()?'var(--success)':'var(--muted)'}">${(a.drafts[d[5]]||'').trim()?'✍️ 文稿✓':'✍️ 编写'}</a>`:''}
           ${exp?`到期 <input type="date" value="${st.expiry||''}" onchange="setDoc('${key}','expiry',this.value)">`:''}
           <input class="note" placeholder="备注" value="${esc(st.note||'')}" onchange="setDoc('${key}','note',this.value)">
         </div>
@@ -1092,7 +1103,7 @@ function genCtx(){
     licEn:lic?lic.en:'',
     areaName:a?.area.name||'[Area Name]', prov:a?.area.province||'[Province]', dist:a?.area.district||'[District]',
     commodity:a?.commodity||'[Commodity]', desc:a?.area.desc||'',
-    prevLic:a?.area.prevLic||'', prevNote:a?.area.prevNote||'',
+    prevLic:a?.area.prevLic||'', prevNote:a?.area.prevNote||'', brief:a?.brief||'',
     coordsTxt:a&&a.area.coords.filter(c=>c.trim()).length?a.area.coords.filter(c=>c.trim()).join(' ; '):'[coordinates]',
     areaTxt:units?`${units} cadastre units (approx. ${(units*UNIT_HA).toFixed(0)} hectares)`:'[area]',
     invest:a?.params.investUsd||'[amount]',years:a?.params.years||'4',staff:a?.params.staff||'[number]',cit:a?.params.citizenPct||'90'};
@@ -1255,11 +1266,9 @@ Signed: ____________________  Date: ${D}`;
   return '';
 }
 function genFromTemplate(){ $('genOut').value=tpl($('genSel').value); $('genVia').textContent='模板生成'; }
-async function genFromAI(){
-  const key=$('genSel').value, x=genCtx();
-  if(!x.a) return toast('先建立申请');
-  $('aiBtn').disabled=true; $('aiBtn').textContent='编写中…'; $('genVia').textContent='';
-  const sys='You are a professional mining licence documentation writer familiar with Zambia\'s Minerals Regulation Commission requirements. Write formal English documents suitable for submission to the Zambia Ministry of Mines mining cadastre portal. Use clear numbered sections, be specific to the facts given, and keep it 400-800 words.';
+const AI_SYS='You are a professional mining licence documentation writer familiar with Zambia\'s Minerals Regulation Commission requirements. Write formal English documents suitable for submission to the Zambia Ministry of Mines mining cadastre portal. Use clear numbered sections, be specific to the facts given, and keep it 400-800 words.';
+async function genAI(key){
+  const x=genCtx();
   const prompt=`Draft the document "${GEN_DOCS[key].name}" for a mining rights application in Zambia.
 
 Facts:
@@ -1275,16 +1284,79 @@ ${x.a.params.phases?('- Work phases: '+x.a.params.phases):''}
 ${x.a.area.chief?('- Chief/landowner: '+x.a.area.chief):''}
 ${x.prevLic?('- This area was previously held under licence No. '+x.prevLic+(x.prevNote?' ('+x.prevNote+')':'')+'; the licence has been surrendered/cancelled and the area is now open. Where appropriate, mention prior work on the area.'):''}
 ${x.desc?('- Area background (use this to make the document specific, do NOT copy it verbatim): '+x.desc):''}
+${x.brief?('- Applicant brief (use to tailor specifics, do NOT copy verbatim): '+x.brief):''}
 
 Requirements: official tone, numbered sections, include a signature block, tailor content to the area facts above (do not produce a generic boilerplate), comply with the document's purpose under the Mines and Minerals framework (environmental documents must cover pollution prevention, waste, land & water protection and reclamation).`;
-  try{
-    const r=await api({action:'draft',prompt,system:sys});
-    if(r&&r.ok&&r.text){ $('genOut').value=r.text; $('genVia').textContent='AI · '+(r.via||''); }
-    else { $('genOut').value=tpl(key); $('genVia').textContent='AI 不可用，已用模板（'+(r&&r.error||'')+'）'; }
-  }catch(e){ $('genOut').value=tpl(key); $('genVia').textContent='AI 调用失败，已用模板'; }
+  const r=await api({action:'draft',prompt,system:AI_SYS});
+  if(r&&r.ok&&r.text) return r.text;
+  return tpl(key); // AI 不可用回退模板
+}
+async function genFromAI(){
+  const key=$('genSel').value;
+  if(!curApp()) return toast('先建立申请');
+  $('aiBtn').disabled=true; $('aiBtn').textContent='编写中…'; $('genVia').textContent='';
+  try{ $('genOut').value=await genAI(key); $('genVia').textContent='AI'; }
+  catch(e){ $('genOut').value=tpl(key); $('genVia').textContent='AI 失败，已用模板'; }
   $('aiBtn').disabled=false; $('aiBtn').textContent='AI 编写';
 }
 function saveDraft(){ const a=curApp(); if(!a)return toast('先建立申请'); a.drafts[$('genSel').value]=$('genOut').value; persist(); toast('已存入申请'); }
+// 清单行「✍️编写」→ 跳到编写页并选中对应文件
+function jumpWrite(genKey){
+  const tb=document.querySelector('.tab[data-p="p-write"]'); if(tb) go(tb);
+  const a=curApp(); renderGen(); $('genSel').value=genKey;
+  $('genOut').value=a?(a.drafts[genKey]||''):''; $('genVia').textContent='';
+}
+
+/* ================= 申请说明粘贴 → AI 解析/批量生成 ================= */
+function saveBrief(v){ const a=curApp(); if(!a) return; a.brief=v; persist0(); }
+async function parseBrief(){
+  const a=curApp(); if(!a) return toast('先建立申请');
+  const t=(a.brief||'').trim(); if(!t) return toast('先粘贴说明文字');
+  $('briefBtn').disabled=true; $('briefBtn').textContent='解析中…';
+  try{
+    const prompt=`Extract mining licence application facts from the brief below. Reply with STRICT JSON ONLY (no prose), keys:
+{"label":"application/area short name","commodity":"","areaName":"","province":"","district":"","chief":"","investUsd":"","years":"","staff":"","citizenPct":"","prevLic":"previous licence number if mentioned","prevNote":"","desc":"1-2 sentence English background of the area/application","phases":"comma-separated work phases","localNote":""}
+Leave keys empty if not stated. Brief:\n${t}`;
+    const r=await api({action:'draft',prompt,system:'You output only valid JSON.'});
+    const txt=(r&&r.text)||'';
+    const jm=txt.match(/\{[\s\S]*\}/);
+    if(!jm) throw new Error('AI 未返回 JSON');
+    const f=JSON.parse(jm[0]); const ar=a.area, pr=a.params;
+    if(f.label) a.label=f.label;
+    if(f.commodity) a.commodity=f.commodity;
+    if(f.areaName) ar.name=f.areaName;
+    if(f.province) ar.province=f.province;
+    if(f.district) ar.district=f.district;
+    if(f.chief) ar.chief=f.chief;
+    if(f.prevLic) ar.prevLic=f.prevLic;
+    if(f.prevNote) ar.prevNote=f.prevNote;
+    if(f.desc) ar.desc=f.desc;
+    if(f.investUsd) pr.investUsd=String(f.investUsd).replace(/[^\d.]/g,'');
+    if(f.years) pr.years=String(f.years).replace(/[^\d.]/g,'');
+    if(f.staff) pr.staff=String(f.staff).replace(/[^\d]/g,'');
+    if(f.citizenPct) pr.citizenPct=String(f.citizenPct).replace(/[^\d.]/g,'');
+    if(f.phases) pr.phases=f.phases;
+    if(f.localNote) pr.localNote=f.localNote;
+    persist(); renderAll();
+    $('briefHint').innerHTML='已提取填入：'+[f.label&&'名称',f.commodity&&'矿种',f.areaName&&'地块',f.province&&'省份',f.investUsd&&'投资额',f.staff&&'人数',f.prevLic&&'原证号'].filter(Boolean).join('、')+'（请到「区域」页核对）';
+    toast('已解析并填入申请');
+  }catch(e){ toast('解析失败：'+e.message); }
+  $('briefBtn').disabled=false; $('briefBtn').textContent='AI 解析要点';
+}
+// 一键生成该证型全部 B 类支持性文件 → 存入 drafts（生成后可去「编写」页逐份润色）
+async function genAllDocs(){
+  const a=curApp(); if(!a) return toast('先建立申请');
+  const keys=(DOC_DEFS[a.type]||[]).map(d=>d[5]).filter(Boolean);
+  if(!keys.length) return toast('本证型没有可生成文件');
+  $('genAllBtn').disabled=true;
+  for(const k of keys){
+    $('genAllBtn').textContent=`生成中 ${GEN_DOCS[k].cn}…`;
+    try{ a.drafts[k]=await genAI(k); }catch(e){ a.drafts[k]=a.drafts[k]||tpl(k); }
+    persist(); renderDocs();
+  }
+  $('genAllBtn').disabled=false; $('genAllBtn').textContent='AI 生成全部 B 类文件';
+  toast('B 类文件已全部生成，到「编写」页逐份核对润色');
+}
 function copyDraft(){ navigator.clipboard.writeText($('genOut').value).then(()=>toast('已复制')); }
 function printDraft(){
   const key=$('genSel').value, text=$('genOut').value;
