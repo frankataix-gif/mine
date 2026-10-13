@@ -431,6 +431,7 @@ function renderDocs(){
         <div class="doc-meta">
           <a href="javascript:void(0)" onclick="pickFile('${key}')">📎 ${st.mediaKey?'替换':'上传文件'}</a>
           ${st.mediaKey?`<a href="${API}/media?key=${st.mediaKey}" target="_blank" title="${esc(st.fileName||'')}">${esc(st.fileName||'查看')}</a>`:''}
+          ${st.srcPath?`<a href="javascript:void(0)" onclick="openSrcDir('${jsq(st.srcPath)}')" title="打开来源文件夹">${'📁'}</a>`:''}
           ${docDate(st)?`<span class="muted" style="font-size:11px">传于 ${docDate(st)}</span>`:''}
           ${exp?`到期 <input type="date" value="${st.expiry||''}" onchange="setDoc('${key}','expiry',this.value)">`:''}
           <input class="note" placeholder="备注" value="${esc(st.note||'')}" onchange="setDoc('${key}','note',this.value)">
@@ -439,6 +440,16 @@ function renderDocs(){
   }
   box.innerHTML=html;
   renderTl();
+}
+// JS 字符串字面量转义（路径含反斜杠，\t \n 会被吃掉）
+function jsq(s){ return String(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+// 打开源文件夹：gofolder: 协议（装过一次 openfolder_setup.reg 的机器）+ 复制路径兜底
+function openSrcDir(srcPath){
+  const dir=String(srcPath).replace(/[\\/][^\\/]+$/,'');
+  const f=document.createElement('iframe'); f.style.display='none';
+  f.src='gofolder:'+dir; document.body.appendChild(f); setTimeout(()=>f.remove(),3000);
+  if(navigator.clipboard) navigator.clipboard.writeText(dir);
+  toast('路径已复制'+String.fromCharCode(10)+'文件夹未自动打开？先运行一次 openfolder_setup.reg 注册 gofolder 协议，或把路径粘到资源管理器地址栏');
 }
 // 文件上传日期：优先 d.at，其次从 mediaKey 自带毫秒时间戳解析
 function docDate(d){
@@ -683,6 +694,7 @@ function renderCoDocs(){
       <div class="doc-meta">
         <a href="javascript:void(0)" onclick="pickFile('${key}','co')">${d.mediaKey?'替换':'上传'}</a>
         ${d.mediaKey?`<a href="${API}/media?key=${d.mediaKey}" target="_blank" title="${esc(d.fileName||'')}">${esc(d.fileName||'查看')}</a>`:''}
+        ${d.srcPath?`<a href="javascript:void(0)" onclick="openSrcDir('${jsq(d.srcPath)}')" title="打开来源文件夹">${'📁'}</a>`:''}
         ${docDate(d)?`<span class="muted" style="font-size:11px">传于 ${docDate(d)}</span>`:''}
         ${exp?`到期 <input type="date" value="${d.expiry||''}" onchange="coDocSet('${key}','expiry',this.value)">`:''}
       </div></div></div>`;
