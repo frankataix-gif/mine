@@ -154,9 +154,6 @@
 <!-- ============ 公司 ============ -->
 <div class="pane" id="p-co">
   <div class="card">
-    <div class="row"><h2 style="flex:1">公司档案</h2>
-      <button class="btn sm ghost" onclick="newCo()">＋公司</button>
-    </div>
     <div id="coForm"></div>
   </div>
 </div>
@@ -366,6 +363,8 @@ function go(btn){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.pane').forEach(p=>p.classList.remove('active'));
   btn.classList.add('active'); $(btn.dataset.p).classList.add('active');
+  // 公司页是纯资料库，不显示申请选择器
+  document.querySelector('.appsel').style.display = btn.dataset.p==='p-co' ? 'none' : '';
 }
 
 /* ================= 申请（矿证）管理 ================= */
@@ -635,7 +634,8 @@ function renderCo(){
   const f=$('coForm'), today=new Date().toISOString().slice(0,10);
   // 列表模式
   if(!curCoId){
-    f.innerHTML=(S.companies.length?'':'<div class="empty">还没有公司，点上方「＋公司」新建</div>')
+    f.innerHTML=`<div class="row"><h2 style="flex:1">公司档案（${S.companies.length} 家）</h2><button class="btn sm" onclick="newCo()">＋公司</button></div>`
+      +(S.companies.length?'':'<div class="empty">还没有公司，点右上角「＋公司」新建</div>')
       +S.companies.map(c=>{
         const dn=CO_DOCS.filter(([k])=>(c.docs||{})[k]&&c.docs[k].mediaKey).length;
         const zm=(c.profile&&c.profile.zmPct!=null)?`赞方 <b style="color:${Math.round(c.profile.zmPct)>=5?'var(--success)':'var(--danger)'}">${Math.round(c.profile.zmPct)}%</b>`:'';
@@ -665,8 +665,8 @@ function renderCo(){
       ${(p.directors||[]).length?`董事/秘书：${p.directors.map(s=>esc(s.name)+'（'+esc(s.nationality||'')+'）').join('；')}<br>`:''}
       ${p.hasNrc?'识别到 NRC/赞比亚人材料（SEL 资格仍需人工确认 ≥5%）<br>':''}
     </div>`:'';
-  f.innerHTML=`<div class="row"><button class="btn sm gray" onclick="curCoId=null;renderCo()">‹ 列表</button>
-      <h2 style="flex:1">${esc(c.name)}</h2>
+  f.innerHTML=`<div class="muted" style="font-size:13px;margin-bottom:6px"><a href="javascript:void(0)" onclick="curCoId=null;renderCo()">‹ 返回公司列表</a></div>
+    <div class="row"><h2 style="flex:1;font-size:1.05rem">${esc(c.name)}</h2>
       <button class="btn sm" onclick="analyzeCo()">解析全部文件</button>
       <button class="del" title="删除公司" onclick="delCo()">✕</button></div>
     ${prof}
