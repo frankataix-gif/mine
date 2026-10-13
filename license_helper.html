@@ -504,7 +504,7 @@ $('filePick').addEventListener('change', async e=>{
       if(!co.docs) co.docs={};
       co.docs[key]={...(co.docs[key]||{}),fileName:f.name,mediaKey:j.key,status:1,at:new Date().toISOString().slice(0,10)};
       if(/\.pdf$/i.test(f.name)){
-        try{ const t=await extractPdfText(f); mergeProfile(co,analyzeText(t,{people:['pacra','iddir','idsh'].includes(key)})); toast('已上传并解析字段'); }
+        try{ const t=await extractPdfText(f); mergeProfile(co,analyzeText(t,{people:key==='pacra'})); toast('已上传并解析字段'); }
         catch(e2){ toast('已上传（PDF 文本解析失败，可能是扫描件）'); }
       }else toast('已上传到公司档');
       persist(); renderCo();
@@ -523,8 +523,8 @@ function ensurePdfjs(){
   if(_pdfjsReady) return _pdfjsReady;
   _pdfjsReady=new Promise((res,rej)=>{
     const s=document.createElement('script');
-    s.src='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js';
-    s.onload=()=>{ pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js'; res(); };
+    s.src=API+'/media?key=media/1791888935404_fo2znj.js';
+    s.onload=()=>{ pdfjsLib.GlobalWorkerOptions.workerSrc=API+'/media?key=media/1791888937047_4spjo8.js'; res(); };
     s.onerror=()=>rej(new Error('pdf.js 加载失败'));
     document.head.appendChild(s);
   });
@@ -603,7 +603,7 @@ async function analyzeCo(){
       const r=await fetch(`${API}/media?key=${d.mediaKey}`);
       if(!r.ok) throw 0;
       const t=await extractPdfText(await r.blob());
-      mergeProfile(c,analyzeText(t,{people:['pacra','iddir','idsh'].includes(key)}));
+      mergeProfile(c,analyzeText(t,{people:key==='pacra'}));
       notes.push(en+':ok');
     }catch(e){ notes.push(en+':失败'); }
   }
