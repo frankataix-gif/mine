@@ -918,6 +918,19 @@ function renderCo(){
       <a href="javascript:void(0)" style="font-size:12px;font-weight:400" onclick="window._shEdit=window._shEdit==='${c.id}'?null:'${c.id}';renderCo()">${window._shEdit===c.id?'收起':'编辑'}</a></h3>
     <div id="shList"></div>
     ${window._shEdit===c.id?'<button class="btn sm ghost" onclick="shAdd()">＋股东</button>':''}
+    <h3>基本信息（Form I 自动引用）</h3>
+    <div class="muted" style="font-size:11px;margin:-4px 0 4px">董事缺省按股东表填；留空的项在生成的表里也是空</div>
+    <div class="row"><div style="flex:1"><label>PACRA 注册号</label><input value="${esc(c.regNo||'')}" onchange="cSet('regNo',this.value)"></div>
+    <div style="flex:1"><label>注册日期</label><input value="${esc(c.regDate||'')}" onchange="cSet('regDate',this.value)"></div></div>
+    <label>注册地址（physical & postal）</label><input value="${esc(c.address||'')}" onchange="cSet('address',this.value)">
+    <div class="row"><div style="flex:1"><label>Tel</label><input value="${esc(c.tel||'')}" onchange="cSet('tel',this.value)"></div>
+    <div style="flex:1"><label>Mobile</label><input value="${esc(c.phone||'')}" onchange="cSet('phone',this.value)"></div>
+    <div style="flex:1"><label>Fax</label><input value="${esc(c.fax||'/')}" onchange="cSet('fax',this.value)"></div></div>
+    <label>Email</label><input value="${esc(c.email||'')}" onchange="cSet('email',this.value)">
+    <div class="row"><div style="flex:1"><label>CEO 姓名</label><input value="${esc(c.ceo||'')}" onchange="cSet('ceo',this.value)" placeholder="缺省=第一股东"></div>
+    <div style="flex:1"><label>CEO 国籍</label><input value="${esc(c.ceoNat||'')}" onchange="cSet('ceoNat',this.value)"></div></div>
+    <div class="row"><div style="flex:1"><label>Company Secretary 姓名</label><input value="${esc(c.secretary||'')}" onchange="cSet('secretary',this.value)" placeholder="缺省=赞方股东"></div>
+    <div style="flex:1"><label>秘书国籍</label><input value="${esc(c.secNat||'')}" onchange="cSet('secNat',this.value)"></div></div>
     <h3 style="display:flex;align-items:center;gap:8px">基础文件（所有公司必备标准件）
       <a href="javascript:void(0)" style="font-size:12px;font-weight:400" onclick="window._coEdit=window._coEdit==='${c.id}'?null:'${c.id}';renderCo()">${window._coEdit===c.id?'收起':'编辑'}</a></h3>
     <div class="muted" style="font-size:11px;margin:-4px 0 4px">点「缺/上传」选文件，或直接把文件拖到对应行上</div><div id="coDocs"></div>
@@ -967,7 +980,7 @@ function renderSh(){
   const sum=(c.shareholders||[]).reduce((s,x)=>s+(+x.pct||0),0);
   const warn=c.shareholders.length&&Math.abs(sum-100)>1?`<div style="color:var(--danger);font-size:12px;padding:2px 0">⚠ 占比合计 ${Math.round(sum)}% ≠100%，请核对股数</div>`:'';
   const shEd=window._shEdit===c.id;
-  const hd=shEd?'<div class="doc" style="padding:2px 0;color:var(--muted);font-size:11px"><span style="width:30px"></span><div class="doc-body" style="display:flex;gap:6px"><span style="flex:3">姓名</span><span style="flex:1.4">国籍</span><span style="flex:1.4;text-align:right">股份数</span><span style="width:56px;text-align:right">占比</span></div><span style="width:26px"></span></div>':'';
+  const hd=shEd?'<div class="doc" style="padding:2px 0;color:var(--muted);font-size:11px"><span style="width:30px"></span><div class="doc-body" style="display:flex;gap:6px"><span style="flex:2.4">姓名</span><span style="flex:1.2">国籍</span><span style="flex:1.2">证件号(NRC/护照)</span><span style="flex:1.2;text-align:right">股份数</span><span style="width:56px;text-align:right">占比</span></div><span style="width:26px"></span></div>':'';
   $('shList').innerHTML=hd+warn+(c.shareholders.map((p,i)=>{
     const zm=/zambia|赞/i.test(p.nationality||'');
     if(!shEd) return `<div class="doc" style="padding:6px 0">
@@ -977,9 +990,10 @@ function renderSh(){
     return `<div class="doc" style="padding:4px 0">
       <span style="font-size:14px;width:30px;color:${zm?'var(--success)':'var(--text)'}">${zm?'赞':'外'}</span>
       <div class="doc-body" style="display:flex;gap:6px">
-        <input style="flex:3" value="${esc(p.name)}" onchange="shSet(${i},'name',this.value)">
-        <input style="flex:1.4" value="${esc(p.nationality)}" onchange="shSet(${i},'nationality',this.value)">
-        <input style="flex:1.4;text-align:right" type="number" value="${p.amount!=null?p.amount:''}" onchange="shSet(${i},'amount',this.value)">
+        <input style="flex:2.4" value="${esc(p.name)}" onchange="shSet(${i},'name',this.value)">
+        <input style="flex:1.2" value="${esc(p.nationality)}" onchange="shSet(${i},'nationality',this.value)">
+        <input style="flex:1.2" value="${esc(p.idNo||'')}" onchange="shSet(${i},'idNo',this.value)" placeholder="NRC/护照">
+        <input style="flex:1.2;text-align:right" type="number" value="${p.amount!=null?p.amount:''}" onchange="shSet(${i},'amount',this.value)">
         <b style="width:56px;text-align:right;align-self:center;color:${zm?'var(--success)':'var(--text)'}">${p.pct!=null?Math.round(p.pct)+'%':''}</b>
       </div>
       <button class="del" onclick="shDel(${i})">×</button></div>`;
@@ -987,6 +1001,7 @@ function renderSh(){
   +(shEd?'':'')
   ;
 }
+function cSet(k,v){ const c=curCo(); if(!c) return; c[k]=v; persist(); }
 function shAdd(){ const c=curCo(); (c.shareholders=c.shareholders||[]).push({name:'',nationality:'',amount:0,pct:null}); persist(); renderCo(); }
 function shSet(i,f,v){
   const c=curCo(); const p=c.shareholders[i];
@@ -1654,7 +1669,7 @@ function form1Values(a){
   const zm=sh.find(s=>/ZAMBIA/i.test(s.nationality||''));
   const v={
     MINERALS:a.commodity||'', APPLICANT:co.name||a.applicantName||'', ADDR:co.address||'',
-    TEL:co.phone||'/', MOBILE:co.phone||'/', FAX:'/', EMAIL:co.email||'',
+    TEL:co.tel||'/', MOBILE:co.phone||'/', FAX:co.fax||'/', EMAIL:co.email||'',
     REGNO:co.regNo||'', DOB:'', NAT:'', IDNO:'',
     PROVINCE:a.area.province||'', DISTRICT:a.area.district||'', LOCALITY:a.area.name||a.area.locRaw||'',
     SIZEKM2:a.area.km2||'', FEE:'', SIGN_NAME:(co.ceo||sh[0]?.name||''),
