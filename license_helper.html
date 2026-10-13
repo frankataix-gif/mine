@@ -501,6 +501,11 @@ $('filePick').addEventListener('change', async e=>{
     const j=await r.json();
     if(!j.ok||!j.key) throw new Error(j.error||('HTTP '+r.status));
     if(uploadScope==='co'&&co){
+      if(key.startsWith('x_')){
+        const xd=(co.extraDocs||[]).find(d=>('x_'+d.id)===key);
+        if(xd){ xd.fileName=f.name; xd.mediaKey=j.key; xd.at=new Date().toISOString().slice(0,10); }
+        persist(); renderCo(); toast('已上传'); return;
+      }
       if(!co.docs) co.docs={};
       co.docs[key]={...(co.docs[key]||{}),fileName:f.name,mediaKey:j.key,status:1,at:new Date().toISOString().slice(0,10)};
       if(/\.pdf$/i.test(f.name)){
@@ -657,8 +662,39 @@ function renderCo(){
       <button class="btn sm" onclick="analyzeCo()">解析文件提取股东</button></div>
     <h3>股东 Shareholders（赞方合计 <b style="color:${Math.round(zm)>=5?'var(--success)':'var(--danger)'}">${Math.round(zm)}%</b>）</h3>
     <div id="shList"></div>
-    <h3>基础文件（传一次，名下申请自动引用）</h3><div id="coDocs"></div>`;
-  renderSh(); renderCoDocs();
+    <h3>基础文件（所有公司必备标准件）</h3><div id="coDocs"></div>
+    <h3>其他文件（本公司特有：矿证、出口许可证等）</h3>
+    <div id="coExtra"></div>
+    <button class="btn sm ghost" onclick="addExtraDoc()">＋文件</button>`;
+  renderSh(); renderCoDocs(); renderCoExtra();
+}
+// 自定义文件：本公司特有的矿证、许可证等
+function addExtraDoc(){
+  const c=curCo(); if(!c) return;
+  const label=prompt('文件名称（如：矿证 42181-LEL、出口许可证）：');
+  if(!label||!label.trim()) return;
+  const d={id:uid(),label:label.trim()};
+  (c.extraDocs=c.extraDocs||[]).push(d); persist();
+  pickFile('x_'+d.id,'co');
+}
+function renderCoExtra(){
+  const c=curCo(); if(!c) return;
+  const list=c.extraDocs||[];
+  $('coExtra').innerHTML=list.map(d=>`<div class="doc">
+    <span class="chip ${d.mediaKey?'s1':'s0'}">${d.mediaKey?'已收':'缺'}</span>
+    <div class="doc-body"><div class="doc-name">${esc(d.label)}</div>
+    <div class="doc-meta">
+      <a href="javascript:void(0)" onclick="pickFile('x_${d.id}','co')">${d.mediaKey?'替换':'上传'}</a>
+      ${d.mediaKey?`<a href="${API}/media?key=${d.mediaKey}" target="_blank" title="${esc(d.fileName||'')}">${esc(d.fileName||'查看')}</a>`:''}
+      ${d.srcPath?`<a href="javascript:void(0)" onclick="openSrcDir('${jsq(d.srcPath)}')">📁</a>`:''}
+      ${docDate(d)?`<span class="muted" style="font-size:11px">传于 ${docDate(d)}</span>`:''}
+    </div></div>
+    <button class="del" onclick="delExtraDoc('${d.id}')">×</button></div>`).join('')
+    ||'<div class="muted" style="padding:2px 0 6px">暂无，点下方＋文件添加</div>';
+}
+function delExtraDoc(id){
+  const c=curCo(); if(!c) return;
+  c.extraDocs=(c.extraDocs||[]).filter(d=>d.id!==id); persist(); renderCo();
 }
 function renderSh(){
   const c=curCo(); if(!c) return;
