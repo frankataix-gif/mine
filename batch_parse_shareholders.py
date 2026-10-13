@@ -83,8 +83,10 @@ for c in S['companies']:
         info = parse(t)
         shs = info['shareholders']
         if shs: c['shareholders'] = shs
-        for k in ('regNo','regDate','address','phone','email','capital','secretary','secNat'):
+        for k in ('regNo','regDate','address','capital','secretary','secNat'):
             if info.get(k): c[k] = info[k]  # 以 PACRA 为准刷新
+        for k in ('phone','email'):          # 联系方式用户确认过，不覆盖
+            if info.get(k) and not c.get(k): c[k] = info[k]
         if info.get('directors'): c['directors'] = info['directors']
         zm = round(sum(x.get('pct') or 0 for x in shs if 'ZAMBIA' in x['nationality'].upper()), 1)
         print(f"股东{len(shs)}人 赞方{zm}% 注册号{info.get('regNo','-')} | " + '; '.join(f"{x['name']}({x['nationality'][:3]}){x.get('pct','')}%" for x in shs))
