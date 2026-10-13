@@ -438,7 +438,7 @@ function renderDocs(){
     const [key,en,cn,cat,exp]=d;
     if(cat!==lastCat){ lastCat=cat; html+=`<h3 style="margin:10px 0 2px">${cat==='A'?'A 类 · 公司基础材料（可在公司档一次上传复用）':cat==='B'?'B 类 · 支持性文件':'C · 可选/兜底'}</h3>`; }
     const eff=effDoc(a,key,cat), st=eff.d;
-    html+=`<div class="doc">
+    html+=`<div class="doc" ondragover="event.preventDefault()" ondrop="docDrop(event,'${key}','app')">
       <button class="chip s${st.status}" onclick="cycleStatus('${key}')">${ST_TXT[st.status]}</button>
       <div class="doc-body">
         <div class="doc-name">${en} ${eff.src==='co'?'<span style="font-size:11px;color:var(--primary);font-weight:700">公司档</span>':''}</div>
@@ -526,8 +526,18 @@ function pickFile(key, scope){
 // 全局错误浮出来：任何静默 JS 错误都弹 toast，不再"点了没反应"
 window.addEventListener('error', e=>{ try{ toast('脚本错误：'+(e.message||e.type)); }catch(x){} });
 window.addEventListener('unhandledrejection', e=>{ try{ toast('异步错误：'+((e.reason&&e.reason.message)||e.reason||'promise')); }catch(x){} });
-$('filePick').addEventListener('change', async e=>{
+$('filePick').addEventListener('change', e=>{
   const f=e.target.files[0]; e.target.value=''; if(!f||!uploadDocKey) return;
+  handlePickedFile(f, uploadDocKey, uploadScope);
+});
+// 拖拽上传：把文件拖到某行 = 上传到该槽位（不依赖文件选择框，彻底解决弹不出来的环境）
+function docDrop(e, key, scope){
+  e.preventDefault(); e.stopPropagation();
+  const f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];
+  if(!f) return;
+  handlePickedFile(f, key, scope||'co');
+}
+async function handlePickedFile(f, uploadDocKey, uploadScope){
   const a=curApp(), co=curCo(), key=uploadDocKey;
   toast('上传中…');
   try{
@@ -557,7 +567,7 @@ $('filePick').addEventListener('change', async e=>{
       persist(); renderDocs(); toast('已上传');
     }
   }catch(err){ toast('上传失败：'+err.message); }
-});
+}
 
 /* ================= 文件解析（pdf.js 按需加载） ================= */
 let _pdfjsReady=null;
@@ -756,7 +766,8 @@ function renderCo(){
     <div id="shList"></div>
     ${window._shEdit===c.id?'<button class="btn sm ghost" onclick="shAdd()">＋股东</button>':''}
     <h3 style="display:flex;align-items:center;gap:8px">基础文件（所有公司必备标准件）
-      <a href="javascript:void(0)" style="font-size:12px;font-weight:400" onclick="window._coEdit=window._coEdit==='${c.id}'?null:'${c.id}';renderCo()">${window._coEdit===c.id?'收起':'编辑'}</a></h3><div id="coDocs"></div>
+      <a href="javascript:void(0)" style="font-size:12px;font-weight:400" onclick="window._coEdit=window._coEdit==='${c.id}'?null:'${c.id}';renderCo()">${window._coEdit===c.id?'收起':'编辑'}</a></h3>
+    <div class="muted" style="font-size:11px;margin:-4px 0 4px">点「缺/上传」选文件，或直接把文件拖到对应行上</div><div id="coDocs"></div>
     <h3 style="display:flex;align-items:center;gap:8px">其他文件（本公司特有：矿证、出口许可证等）
       <a href="javascript:void(0)" style="font-size:12px;font-weight:400" onclick="window._exEdit=window._exEdit==='${c.id}'?null:'${c.id}';renderCo()">${window._exEdit===c.id?'收起':'编辑'}</a></h3>
     <div id="coExtra"></div>
@@ -775,7 +786,7 @@ function addExtraDoc(){
 function renderCoExtra(){
   const c=curCo(); if(!c) return;
   const list=c.extraDocs||[];
-  $('coExtra').innerHTML=list.map(d=>`<div class="doc">
+  $('coExtra').innerHTML=list.map(d=>`<div class="doc" ondragover="event.preventDefault()" ondrop="docDrop(event,'x_${d.id}','co')">
     ${d.mediaKey
       ?`<span class="chip s1" style="cursor:pointer" onclick="viewFile('${d.mediaKey}','${jsq(d.fileName||'文件')}')">已收</span>`
       :`<label class="chip s0" for="filePick" onclick="uploadDocKey='x_${d.id}';uploadScope='co'">缺</label>`}
@@ -847,7 +858,7 @@ function renderCoDocs(){
     const chipBtn=d.mediaKey
       ?`<button class="chip s1" onclick="viewFile('${d.mediaKey}','${jsq(d.fileName||'文件')}')">已收</button>`
       :`<label class="chip s0" for="filePick" onclick="uploadDocKey='${key}';uploadScope='co'">缺</label>`;
-    return `<div class="doc">${chipBtn}
+    return `<div class="doc" ondragover="event.preventDefault()" ondrop="docDrop(event,'${key}','co')">${chipBtn}
       <div class="doc-body"><div class="doc-name">${en}</div><div class="doc-cn">${cn}</div>
       <div class="doc-meta">
         ${!d.mediaKey?`<label for="filePick" onclick="uploadDocKey='${key}';uploadScope='co'">上传</label>`:''}
