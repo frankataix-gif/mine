@@ -671,10 +671,7 @@ function renderCo(){
       <button class="del" title="删除公司" onclick="delCo()">✕</button></div>
     ${prof}
     <h3>基础文件（传一次，名下申请自动引用）</h3><div id="coDocs"></div>
-    <div class="row" style="margin-top:10px"><div style="flex:1"><label>存量已获批矿证数（批复上限 5 个）</label>
-    <input type="number" min="0" value="${c.heldLicences||0}" onchange="coSet('heldLicences',+this.value||0)"></div>
-    <div style="flex:1"><label>在办 / 已获批（本工具内）</label><input value="${S.apps.filter(x=>x.companyId===c.id&&!['rejected','abandoned','granted'].includes(x.status)).length} / ${S.apps.filter(x=>x.companyId===c.id&&x.status==='granted').length}" disabled></div></div>
-    <div class="tipbox" style="margin-top:10px">上传 PDF 自动提取注册号/日期/股东/税证到期（扫描件无文本层则识别不出）；SEL 需赞比亚人持股 ≥5%，以股东文件为准人工确认；获批矿权上限 5 个。</div>`;
+    <div class="tipbox" style="margin-top:10px">上传 PDF 自动提取注册号/日期/股东/税证到期（扫描件无文本层则识别不出）；SEL 需赞比亚人持股 ≥5%，以股东文件为准人工确认。</div>`;
   renderCoDocs();
 }
 function delCo(){
