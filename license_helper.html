@@ -711,6 +711,7 @@ function runReview(){
       inProg=S.apps.filter(x=>same(x)&&!['rejected','abandoned','granted'].includes(x.status)).length;
     push(0, !a.applicantName?'warn':granted>=5?'fail':granted===4?'warn':'na','同一主体获批矿权 ≤5 个',
       a.applicantName?`${a.applicantName}：本工具内已获批 ${granted} 个、在办 ${inProg} 个；工具外已获批数请手动核对，合计超 5 则本申请不可获批`:'未填申请人姓名，无法核对同主体数量');
+  }
   // 5. 坐标
   const pts=a.area.coords.filter(c=>c.trim());
   if(pts.length<3) push(0,'fail','坐标角点数量',`只有 ${pts.length} 个，至少 3 个角点（门户要求闭合地块）`);
