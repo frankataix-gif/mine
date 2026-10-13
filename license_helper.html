@@ -788,6 +788,8 @@ function analyzeText(t, opt){
   if(m=t.match(/registered office[^a-z]{0,10}([A-Z0-9][^\n]{10,120}(?:plot|road|street|avenue|lusaka|ndola|kitwe|p\.?\s*o\.?\s*box)[^\n]{0,40})/i)) v.address=m[1].replace(/\s+/g,' ').trim();
   if(m=t.match(/share capital[^\dKk]{0,30}K?\s*([\d,]+(?:\.\d+)?)/i)) v.capital=m[1];
   else if(m=t.match(/nominal capital[^\d]{0,20}([\d,]+)/i)) v.capital=m[1];
+  if(m=t.match(/Phone\s+(\+?\d[\d\s\-]{5,}\d)/i)) v.phone=m[1].replace(/\s+/g,'');
+  if(m=t.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/)) v.email=m[0];
   // 税务清关证：ZRA 格式 "Valid From DD/MM/YYYY To DD/MM/YYYY" 或 Expiry
   if(m=t.match(/(?:valid\s*(?:to|until|thru)|expir\w*)[^\d]{0,20}(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i)) v.taxTo=m[1];
   if(m=t.match(/clearance.*?to[^\d]{0,10}(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i)) v.taxTo=m[1];
@@ -802,15 +804,20 @@ function analyzeText(t, opt){
     const auth=t.match(/(?:ordinary|common|preference)[^\d]{0,10}([\d,]+(?:\.\d+)?)\s+[\d.]+/i);
     if(auth) totAuth=parseFloat(auth[1].replace(/,/g,''));
     const NATIONS='ZAMBIA|ZAMBIAN|CHINA|CHINESE|GRENADA|INDIA|INDIAN|CONGO|CONGOLESE|DRC|TANZANIA|KENYA|ZIMBABWE|BOTSWANA|NAMIBIA|ANGOLA|MOZAMBIQUE|MALAWI|SOUTH AFRICA|BRITISH|BRITAIN|USA|AMERICAN|LEBANON|LEBANESE|UAE|RUSSIA|RUSSIAN|KOREA|JAPAN|CANADA|AUSTRALIA|SWITZERLAND|SWISS|CYPRUS|MAURITIUS|SEYCHELLES|HONG KONG|NIGERIA|GHANA|EGYPT|PAKISTAN|TURKEY|BELGIUM|FRANCE|FRENCH|GERMANY|ITALY|SPAIN|PORTUGAL|NETHERLANDS|IRELAND|BRITISH VIRGIN';
-    const rowRe=new RegExp(`([A-Z][A-Z'&.,\\- ]{2,}?)\\s+(${NATIONS}|[A-Z]{3,}(?=\\s+\\S*\\d))\\s+(.+?)\\s+Yes\\s+Yes(?:\\s+Yes)?(?:\\s+([\\d,]+(?:\\.\\d+)?)\\s+([A-Za-z]+))?`,'g');
+    // 行格式：NAME NAT IDNO Yes Yes [Yes] [AMOUNT CLASS]；旗标列=董事/秘书/股东，证件号如 EM9928571 / 168233/46/1
+    const rowRe=new RegExp(`([A-Z][A-Z'&.,\\- ]{2,}?)\\s+(${NATIONS}|[A-Z]{3,}(?=\\s+\\S*\\d))\\s+(.+?)\\s+((?:Yes|No)(?:\\s+(?:Yes|No)){1,2})(?:\\s+([\\d,]+(?:\\.\\d+)?)\\s+([A-Za-z]+))?`,'g');
     let r;
     while((r=rowRe.exec(t))){
       const nm=r[1].replace(/\s+/g,' ').trim(), nat=r[2];
       if(/LIMITED|COMPANY|REGISTERED|ADDRESS|CERTIFICATE|PRINTED|FORENAMES|SURNAMES|BENEFICIARY|NATIONALITY|IDENTITY|MEMBER/i.test(nm)) continue;
-      const amt=r[4]&&/ordinary|preference|common/i.test(r[5]||'')?parseFloat(r[4].replace(/,/g,'')):0;
-      const ent={name:nm,nationality:nat};
+      const flags=r[4].trim().split(/\s+/);
+      const idNo=(r[3]||'').replace(/\s{2,}/g,' ').replace(/^(?:Passport|National ID|ID Card|NRC|Driving Licen[cs]e)\s+/i,'').trim();
+      const amt=r[5]&&/ordinary|preference|common/i.test(r[6]||'')?parseFloat(r[5].replace(/,/g,'')):0;
+      const ent={name:nm,nationality:nat,idNo};
       if(amt){ ent.amount=amt; v.shareholders.push(ent); }
-      else if(!v.directors.some(d=>d.name===nm)) v.directors.push(ent);
+      // 旗标：3个Yes=兼秘书；≥1个Yes=董事
+      if(flags.filter(f=>f==='Yes').length>=3) v.secretary=ent;
+      if(!v.directors.some(d=>d.name===nm)) v.directors.push(ent);
       if(/ZAMBIA/i.test(nat)) v.hasNrc=true;
     }
     // Beneficial Owners 表交叉校正：Individuals 股数与核定股本对不上时，用 BO 表金额修正
@@ -843,8 +850,12 @@ function analyzeText(t, opt){
 // 解析出的字段并入公司档案（已有字段不覆盖）
 function mergeProfile(c,v){
   c.profile=c.profile||{};
-  for(const k of ['regNo','regDate','address','capital','taxTo']) if(v[k]&&!c.profile[k]) c.profile[k]=v[k];
+  for(const k of ['regNo','regDate','address','capital','taxTo','phone','email']) if(v[k]&&!c.profile[k]) c.profile[k]=v[k];
+  // 同步到顶层字段（Form I 直接引用）；已有值不覆盖人工填写
+  for(const k of ['regNo','regDate','address','capital','phone','email']) if(v[k]&&!c[k]) c[k]=v[k];
   if((v.shareholders||[]).length) c.shareholders=v.shareholders;  // 股东以最新解析到的 PACRA 打印件为准，直接覆盖
+  if((v.directors||[]).length&&!(c.directors||[]).length) c.directors=v.directors;
+  if(v.secretary&&!c.secretary){ c.secretary=v.secretary.name; c.secNat=v.secretary.nationality; }
   if(v.hasNrc) c.profile.hasNrc=true;
   if(v.taxTo){ c.docs=c.docs||{}; (c.docs.tax=c.docs.tax||{}).expiry=normDate(v.taxTo)||c.docs.tax.expiry; }
 }
@@ -931,6 +942,10 @@ function renderCo(){
     <div style="flex:1"><label>CEO 国籍</label><input value="${esc(c.ceoNat||'')}" onchange="cSet('ceoNat',this.value)"></div></div>
     <div class="row"><div style="flex:1"><label>Company Secretary 姓名</label><input value="${esc(c.secretary||'')}" onchange="cSet('secretary',this.value)" placeholder="缺省=赞方股东"></div>
     <div style="flex:1"><label>秘书国籍</label><input value="${esc(c.secNat||'')}" onchange="cSet('secNat',this.value)"></div></div>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:4px"><span style="font-size:13px;font-weight:700">董事 Directors</span>
+      <a href="javascript:void(0)" style="font-size:12px" onclick="window._dirEdit=window._dirEdit==='${c.id}'?null:'${c.id}';renderCo()">${window._dirEdit===c.id?'收起':'编辑'}</a></div>
+    <div id="dirList"></div>
+    ${window._dirEdit===c.id?'<button class="btn sm ghost" onclick="dirAdd()">＋董事</button>':''}
     <h3 style="display:flex;align-items:center;gap:8px">基础文件（所有公司必备标准件）
       <a href="javascript:void(0)" style="font-size:12px;font-weight:400" onclick="window._coEdit=window._coEdit==='${c.id}'?null:'${c.id}';renderCo()">${window._coEdit===c.id?'收起':'编辑'}</a></h3>
     <div class="muted" style="font-size:11px;margin:-4px 0 4px">点「缺/上传」选文件，或直接把文件拖到对应行上</div><div id="coDocs"></div>
@@ -938,8 +953,29 @@ function renderCo(){
       <a href="javascript:void(0)" style="font-size:12px;font-weight:400" onclick="window._exEdit=window._exEdit==='${c.id}'?null:'${c.id}';renderCo()">${window._exEdit===c.id?'收起':'编辑'}</a></h3>
     <div id="coExtra"></div>
     ${window._exEdit===c.id?'<button class="btn sm ghost" onclick="addExtraDoc()">＋文件</button>':''}`;
-  renderSh(); renderCoDocs(); renderCoExtra();
+  renderSh(); renderDirs(); renderCoDocs(); renderCoExtra();
 }
+// 董事表（Form I 用）：只读列表 + 编辑态增删改
+function renderDirs(){
+  const c=curCo(); if(!c) return;
+  const dirs=(c.directors&&c.directors.length?c.directors:c.shareholders)||[];
+  const ed=window._dirEdit===c.id;
+  $('dirList').innerHTML=dirs.length?dirs.map((p,i)=>{
+    if(!ed) return `<div class="doc" style="padding:4px 0"><span style="width:30px;font-size:14px;color:${/ZAMBIA/i.test(p.nationality||'')?'var(--success)':'var(--text)'}">${/ZAMBIA/i.test(p.nationality||'')?'赞':'外'}</span>
+      <div class="doc-body"><div class="doc-name" style="font-weight:400">${esc(p.name)}${p.nationality?`（${esc(p.nationality)}）`:''}${p.idNo?` <span class="muted" style="font-size:11px">${esc(p.idNo)}</span>`:''}</div></div></div>`;
+    return `<div class="doc" style="padding:4px 0"><span style="width:30px"></span>
+      <div class="doc-body" style="display:flex;gap:6px">
+        <input style="flex:2" value="${esc(p.name)}" onchange="dirSet(${i},'name',this.value)">
+        <input style="flex:1" value="${esc(p.nationality||'')}" onchange="dirSet(${i},'nationality',this.value)" placeholder="国籍">
+        <input style="flex:1.2" value="${esc(p.idNo||'')}" onchange="dirSet(${i},'idNo',this.value)" placeholder="证件号">
+        <input style="flex:1" type="number" value="${p.amount!=null?p.amount:''}" onchange="dirSet(${i},'amount',this.value)" placeholder="股数">
+      </div><button class="del" onclick="dirDel(${i})">×</button></div>`;
+  }).join(''):'<div class="muted" style="padding:2px 0">缺省按股东表填；＋董事 可单独维护</div>';
+}
+function dirsEnsure(){ const c=curCo(); if(!(c.directors||[]).length) c.directors=(c.shareholders||[]).map(x=>({...x})); return c.directors; }
+function dirAdd(){ dirsEnsure().push({name:'',nationality:'',idNo:'',amount:0}); persist(); renderCo(); }
+function dirSet(i,f,v){ const d=dirsEnsure()[i]; if(!d) return; d[f]=f==='amount'?(+v||0):v; persist(); }
+function dirDel(i){ dirsEnsure().splice(i,1); persist(); renderCo(); }
 // 自定义文件：本公司特有的矿证、许可证等
 function addExtraDoc(){
   const c=curCo(); if(!c) return;
