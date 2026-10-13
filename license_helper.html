@@ -386,7 +386,7 @@ function go(btn){
   btn.classList.add('active'); $(btn.dataset.p).classList.add('active');
   // 公司页是纯资料库，不显示申请选择器
   document.querySelector('.appsel').style.display = (btn.dataset.p==='p-co'||btn.dataset.p==='p-docs') ? 'none' : '';
-  saveUI();
+  saveUI(); renderAll();
 }
 
 /* ================= 申请（矿证）管理 ================= */
@@ -475,6 +475,7 @@ function editApp(id){
     <label>名称</label><input id="eaLabel" value="${esc(a.label)}">
     <label>证型</label><select id="eaType">${Object.keys(LIC).map(k=>`<option value="${k}" ${a.type===k?'selected':''}>${LIC[k].name} ${LIC[k].en}</option>`).join('')}</select>
     <label>矿种</label><input id="eaCom" value="${esc(a.commodity||'')}">
+    <label>地理位置（显示原文）</label><input id="eaLoc" value="${esc(a.area.locRaw||'')}" placeholder="Central, Serenje; Northern, Mpika">
     <div class="row"><div style="flex:1"><label>省份</label><input id="eaProv" value="${esc(a.area.province||'')}"></div>
     <div style="flex:1"><label>县/区</label><input id="eaDist" value="${esc(a.area.district||'')}"></div></div>
     <label>面积 km²</label><input id="eaKm2" type="number" step="0.01" value="${a.area.km2||''}">
@@ -485,6 +486,7 @@ function saveAppEdit(id){
   a.label=$('eaLabel').value.trim()||a.label;
   a.type=$('eaType').value; a.commodity=$('eaCom').value.trim();
   a.area.province=$('eaProv').value.trim(); a.area.district=$('eaDist').value.trim();
+  a.area.locRaw=$('eaLoc').value.trim();
   a.area.km2=parseFloat($('eaKm2').value)||null;
   if(a.area.km2&&!a.area.units) a.area.units=Math.round(a.area.km2/UNIT_HA);
   (DOC_DEFS[a.type]||[]).forEach(d=>{ if(!a.docs[d[0]]) a.docs[d[0]]={status:0,fileName:'',mediaKey:'',expiry:'',note:''}; });
@@ -565,7 +567,9 @@ function renderAppSum(a){
       <div class="stat"><div class="v" style="font-size:14px">${esc(loc)}</div><div class="k">地理位置</div></div>
       <div class="stat"><div class="v">${size}</div><div class="k">矿证面积</div></div>
       <div class="stat"><div class="v">${esc(a.commodity||'—')}</div><div class="k">矿产品种</div></div>
-      <div class="stat"><div class="v">${stTxt}</div><div class="k">状态（区域页可改）</div></div>
+      <div class="stat"><div class="v"><select style="border:none;background:transparent;font-size:15px;font-weight:700;padding:0" onchange="statusSet(this.value);renderAll()">
+        ${[['prep','准备中'],['submitted','已递交'],['paid','已缴费'],['granted','已获批'],['rejected','被拒'],['abandoned','放弃']].map(([v0,t0])=>`<option value="${v0}" ${(a.status||'prep')===v0?'selected':''}>${t0}</option>`).join('')}
+      </select></div><div class="k">状态</div></div>
     </div>
     ${a.brief?`<div class="muted" style="font-size:12px;margin-top:6px">原始说明：${esc(a.brief.slice(0,200))}${a.brief.length>200?'…':''}</div>`:''}`;
 }
@@ -1498,7 +1502,7 @@ function jumpWrite(genKey){
 }
 
 /* ================= 申请说明粘贴 → AI 解析/批量生成 ================= */
-function saveBrief(v){ const a=curApp(); if(!a) return; a.brief=v; persist0(); }
+function saveBrief(v){ const a=curApp(); if(!a) return; a.brief=v; persist(); }
 async function parseBrief(){
   const a=curApp(); if(!a) return toast('先建立申请');
   const t=(a.brief||'').trim(); if(!t) return toast('先粘贴说明文字');
@@ -1609,6 +1613,10 @@ async function exportPackage(){
     if(draftTxt){
       files.push({name:name+'.pdf',blob:textToPdfBlob(a.drafts[genKey])});
       manifest.push(`[生成文稿] ${en}.pdf`);
+    }else if(key==='form'&&!eff.d.mediaKey){
+      // 申请表槽位没传签署版 → 自动装一份系统生成的 Form I docx（版式=官方原件）
+      try{ files.push({name:name+'.docx',blob:await buildForm1Blob(a)}); manifest.push(`[系统生成] ${en}.docx（签字后转 PDF 上传）`); }
+      catch(e){ missing.push(en+'（Form I 生成失败）'); manifest.push(`[生成失败] ${en}`); }
     }else if(eff.d.mediaKey){
       try{
         const r=await fetch(`${API}/media?key=${eff.d.mediaKey}`);
@@ -1668,9 +1676,6 @@ async function unzipDocx(buf){
   if(eocd<0) throw new Error('不是 zip/docx');
   const n=dv.getUint16(eocd+10,true), cdOff=dv.getUint32(eocd+16,true);
   const out={};
-  for(let i=0;i<n;i++){
-    const p=cdOff+ (i? 0:0); // 遍历中央目录
-  }
   let p=cdOff;
   for(let i=0;i<n;i++){
     if(dv.getUint32(p,true)!==0x02014b50) break;
@@ -1704,7 +1709,7 @@ function form1Values(a){
     TEL:co.tel||'/', MOBILE:co.phone||'/', FAX:co.fax||'/', EMAIL:'frankataix@gmail.com',
     REGNO:co.regNo||'', DOB:'', NAT:'', IDNO:'',
     PROVINCE:a.area.province||'', DISTRICT:a.area.district||'', LOCALITY:a.area.name||a.area.locRaw||'',
-    SIZEKM2:a.area.km2||'', FEE:'', SIGN_NAME:(co.ceo||sh[0]?.name||''),
+    SIZEKM2:a.area.km2||'', FEE:LIC[a.type]?'K '+LIC[a.type].fee:'', SIGN_NAME:(co.ceo||sh[0]?.name||''),
     Q12A:'No', Q12B:'No', Q13A:'No',
   };
   for(let i=1;i<=5;i++){ const s=sh[i-1]; v[`SH${i}_N`]=s?s.name:''; v[`SH${i}_S`]=s?s.amount:''; v[`SH${i}_NA`]=s?s.nationality:''; v[`SH${i}_ID`]=s?s.idNo||'':''; }
@@ -1736,26 +1741,27 @@ function form1Checks(a){ // 勾选标记（规则：本系统一律申请勘探�
     CB_PENDING:true,                                     // Q13 状态默认 Pending
   };
 }
+// 生成填好的 Form I blob（下载和打包共用）
+async function buildForm1Blob(a){
+  const r=await fetch(`${API}/media?key=${FORM1_TPL}`);
+  if(!r.ok) throw new Error('模板下载失败 '+r.status);
+  const files=await unzipDocx(await r.arrayBuffer());
+  let xml=new TextDecoder().decode(files['word/document.xml']);
+  const vals=form1Values(a), chk=form1Checks(a);
+  // 勾选：整 run 替换成 Symbol F0D6（选中）或清空
+  xml=xml.replace(/<w:r>(?:(?!<\/w:r>)[\s\S])*\{\{(CB_\w+)\}\}(?:(?!<\/w:r>)[\s\S])*<\/w:r>/g,
+    (m,k)=>chk[k]?'<w:r><w:rPr><w:rFonts w:ascii="宋体" w:eastAsia="宋体" w:hAnsi="宋体"/><w:b/><w:sz w:val="18"/></w:rPr><w:sym w:font="Symbol" w:char="F0D6"/></w:r>':'<w:r><w:t></w:t></w:r>');
+  // 文本占位符
+  xml=xml.replace(/\{\{([A-Z0-9_]+)\}\}/g,(m,k)=>xmlEsc2(vals[k]??''));
+  files['word/document.xml']=new TextEncoder().encode(xml);
+  return makeZip(Object.entries(files).map(([name,data])=>({name,data})));
+}
 async function genForm1(){
   const a=curApp(); if(!a) return toast('先选择申请');
-  const co=appCo(a);
   toast('正在生成 Form I…');
   try{
-    const r=await fetch(`${API}/media?key=${FORM1_TPL}`);
-    if(!r.ok) throw new Error('模板下载失败 '+r.status);
-    const files=await unzipDocx(await r.arrayBuffer());
-    let xml=new TextDecoder().decode(files['word/document.xml']);
-    const vals=form1Values(a), chk=form1Checks(a);
-    // 勾选：整 run 替换成 Symbol F0D6（选中）或清空
-    xml=xml.replace(/<w:r>(?:(?!<\/w:r>)[\s\S])*\{\{(CB_\w+)\}\}(?:(?!<\/w:r>)[\s\S])*<\/w:r>/g,
-      (m,k)=>chk[k]?'<w:r><w:rPr><w:rFonts w:ascii="宋体" w:eastAsia="宋体" w:hAnsi="宋体"/><w:b/><w:sz w:val="18"/></w:rPr><w:sym w:font="Symbol" w:char="F0D6"/></w:r>':'<w:r><w:t></w:t></w:r>');
-    // 文本占位符
-    xml=xml.replace(/\{\{([A-Z0-9_]+)\}\}/g,(m,k)=>xmlEsc2(vals[k]??''));
-    files['word/document.xml']=new TextEncoder().encode(xml);
-    const entries=Object.entries(files).map(([name,data])=>({name,data}));
-    const blob=makeZip(entries);
-    const fname=`Duly Filled in Application Form - ${(a.label||'app').replace(/[^\w\s.-]/g,'')}.docx`;
-    downloadBlob(blob,fname);
+    const blob=await buildForm1Blob(a);
+    downloadBlob(blob,`Duly Filled in Application Form - ${(a.label||'app').replace(/[^\w\s.-]/g,'')}.docx`);
     toast('Form I 已生成（docx，版式与官方一致）。用 Word/WPS 打开另存为 PDF 即可递交');
   }catch(e){ toast('生成失败：'+e.message); }
 }
