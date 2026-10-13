@@ -666,14 +666,23 @@ function renderSh(){
   if(!c.shareholders.length && c.profile && c.profile.shareholders && c.profile.shareholders.length){
     c.shareholders=c.profile.shareholders; persist();
   }
-  $('shList').innerHTML=c.shareholders.map((p,i)=>`<div class="person">
-    <input placeholder="姓名/公司" value="${esc(p.name)}" onchange="shSet(${i},'name',this.value)">
-    <input placeholder="国籍" value="${esc(p.nationality)}" onchange="shSet(${i},'nationality',this.value)" style="max-width:110px">
-    <input class="pct" placeholder="%" type="number" value="${p.pct!=null?p.pct:''}" onchange="shSet(${i},'pct',this.value)">
-    <button class="del" onclick="shDel(${i})">×</button></div>`).join('')||'<div class="muted" style="padding:4px 0">还没有股东记录，手填或点「解析文件提取股东」</div>';
+  $('shList').innerHTML=c.shareholders.map((p,i)=>{
+    const zm=/zambia|赞/i.test(p.nationality||'');
+    return `<div class="doc" style="padding:6px 0">
+      <span style="font-size:14px;color:${zm?'var(--success)':'var(--text)'}">${zm?'赞':'外'}</span>
+      <div class="doc-body"><div class="doc-name" style="font-weight:400">${esc(p.name)}${p.nationality?`（${esc(p.nationality)}）`:''}</div></div>
+      <b style="color:${zm?'var(--success)':'var(--text)'}">${p.pct!=null?Math.round(p.pct)+'%':''}</b>
+      <button class="del" onclick="shDel(${i})">×</button></div>`;
+  }).join('')||'<div class="muted" style="padding:4px 0">还没有股东记录，点「解析文件提取股东」或＋股东添加</div>';
 }
-function shAdd(){ const c=curCo(); (c.shareholders=c.shareholders||[]).push({name:'',nationality:'',pct:''}); persist(); renderCo(); }
-function shSet(i,f,v){ curCo().shareholders[i][f]=v; persist(); renderCo(); }
+function shAdd(){
+  const c=curCo();
+  const name=prompt('股东姓名/公司名：'); if(!name) return;
+  const nat=prompt('国籍（ZAMBIA 为赞方）：','');
+  const pct=+(prompt('持股比例 %：','')||0);
+  (c.shareholders=c.shareholders||[]).push({name:name.trim(),nationality:(nat||'').trim(),pct:pct||null});
+  persist(); renderCo();
+}
 function shDel(i){ curCo().shareholders.splice(i,1); persist(); renderCo(); }
 function delCo(){
   const c=curCo(); if(!c) return;
