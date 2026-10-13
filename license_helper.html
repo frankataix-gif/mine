@@ -738,6 +738,7 @@ function renderCo(){
       <button class="btn sm" onclick="analyzeCo()">解析文件提取股东</button></div>
     <h3>股东 Shareholders（赞方合计 <b style="color:${Math.round(zm)>=5?'var(--success)':'var(--danger)'}">${Math.round(zm)}%</b>）</h3>
     <div id="shList"></div>
+    <button class="btn sm ghost" onclick="shAdd()">＋股东</button>
     <h3>基础文件（所有公司必备标准件）</h3><div id="coDocs"></div>
     <h3>其他文件（本公司特有：矿证、出口许可证等）</h3>
     <div id="coExtra"></div>
@@ -779,15 +780,30 @@ function renderSh(){
     c.shareholders=c.profile.shareholders; persist();
   }
   const sum=(c.shareholders||[]).reduce((s,x)=>s+(+x.pct||0),0);
-  const warn=c.shareholders.length&&Math.abs(sum-100)>1?`<div style="color:var(--danger);font-size:12px;padding:2px 0">⚠ 占比合计 ${Math.round(sum)}% ≠100%，解析可能不完整，请核对 PACRA 打印件</div>`:'';
-  $('shList').innerHTML=warn+c.shareholders.map((p,i)=>{
+  const warn=c.shareholders.length&&Math.abs(sum-100)>1?`<div style="color:var(--danger);font-size:12px;padding:2px 0">⚠ 占比合计 ${Math.round(sum)}% ≠100%，请核对股数</div>`:'';
+  const hd='<div class="doc" style="padding:2px 0;color:var(--muted);font-size:11px"><span style="width:30px"></span><div class="doc-body" style="display:flex;gap:6px"><span style="flex:3">姓名</span><span style="flex:1.4">国籍</span><span style="flex:1.4;text-align:right">股份数</span><span style="width:56px;text-align:right">占比</span></div><span style="width:26px"></span></div>';
+  $('shList').innerHTML=hd+warn+c.shareholders.map((p,i)=>{
     const zm=/zambia|赞/i.test(p.nationality||'');
-    return `<div class="doc" style="padding:6px 0">
-      <span style="font-size:14px;color:${zm?'var(--success)':'var(--text)'}">${zm?'赞':'外'}</span>
-      <div class="doc-body"><div class="doc-name" style="font-weight:400">${esc(p.name)}${p.nationality?`（${esc(p.nationality)}）`:''}</div></div>
-      <b style="color:${zm?'var(--success)':'var(--text)'}">${p.pct!=null?Math.round(p.pct)+'%':''}</b></div>`;
-  }).join('')||'<div class="muted" style="padding:4px 0">还没有股东记录，点「解析文件提取股东」从 PACRA Print Out 读取</div>';
+    return `<div class="doc" style="padding:4px 0">
+      <span style="font-size:14px;width:30px;color:${zm?'var(--success)':'var(--text)'}">${zm?'赞':'外'}</span>
+      <div class="doc-body" style="display:flex;gap:6px">
+        <input style="flex:3" value="${esc(p.name)}" onchange="shSet(${i},'name',this.value)">
+        <input style="flex:1.4" value="${esc(p.nationality)}" onchange="shSet(${i},'nationality',this.value)">
+        <input style="flex:1.4;text-align:right" type="number" value="${p.amount!=null?p.amount:''}" onchange="shSet(${i},'amount',this.value)">
+        <b style="width:56px;text-align:right;align-self:center;color:${zm?'var(--success)':'var(--text)'}">${p.pct!=null?Math.round(p.pct)+'%':''}</b>
+      </div>
+      <button class="del" onclick="shDel(${i})">×</button></div>`;
+  }).join('')||'<div class="muted" style="padding:4px 0">还没有股东记录，＋股东手填 或 点「解析文件提取股东」从 PACRA Print Out 读取</div>';
 }
+function shAdd(){ const c=curCo(); (c.shareholders=c.shareholders||[]).push({name:'',nationality:'',amount:0,pct:null}); persist(); renderCo(); }
+function shSet(i,f,v){
+  const c=curCo(); const p=c.shareholders[i];
+  p[f]= f==='amount' ? (+v||0) : v;
+  const tot=c.shareholders.reduce((s,x)=>s+(+x.amount||0),0);
+  if(tot) c.shareholders.forEach(x=>x.pct=+(x.amount*100/tot).toFixed(1));
+  persist(); renderCo();
+}
+function shDel(i){ curCo().shareholders.splice(i,1); persist(); renderCo(); }
 function delCo(){
   const c=curCo(); if(!c) return;
   if(!confirm(`删除公司「${c.name}」？云端已传文件保留，仅移除记录。`)) return;
