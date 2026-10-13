@@ -385,7 +385,7 @@ function go(btn){
   document.querySelectorAll('.pane').forEach(p=>p.classList.remove('active'));
   btn.classList.add('active'); $(btn.dataset.p).classList.add('active');
   // 公司页是纯资料库，不显示申请选择器
-  document.querySelector('.appsel').style.display = btn.dataset.p==='p-co' ? 'none' : '';
+  document.querySelector('.appsel').style.display = (btn.dataset.p==='p-co'||btn.dataset.p==='p-docs') ? 'none' : '';
   saveUI();
 }
 
