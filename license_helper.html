@@ -132,7 +132,8 @@
 <div class="pane active" id="p-docs">
   <div class="tipbox">清单按 portal.miningcadastre.com 各证型上传栏整理。点状态圆片：缺 → 已收 → 已核 → 问题。<b>A 类 = 公司基础材料，B 类 = 支持性文件，C = 可选/兜底</b>。</div>
   <div class="card">
-    <div class="row"><h2 style="flex:1">材料清单</h2><span class="muted" id="progTxt">0/0</span></div>
+    <div class="row"><h2 style="flex:1">材料清单</h2><span class="muted" id="progTxt">0/0</span>
+      <button class="btn sm green" onclick="exportPackage()">导出递交包</button></div>
     <div class="pbar"><div class="pfill" id="pfill"></div></div>
     <div id="docList"></div>
   </div>
@@ -978,6 +979,86 @@ body{font-family:'Times New Roman',Georgia,serif;font-size:12pt;line-height:1.65
 pre{white-space:pre-wrap;word-wrap:break-word;font-family:inherit;font-size:12pt;margin:0}</style></head>
 <body><pre>${esc(text)}</pre><scr`+`ipt>window.onload=()=>setTimeout(()=>window.print(),300)</scr`+`ipt></body></html>`);
   w.document.close();
+}
+/* ================= 递交包导出 ================= */
+// 极简文本→PDF（内置 Helvetica，不依赖外部库；官方文稿为英文，导出时剥离非 ASCII）
+function textToPdfBlob(text){
+  const clean=s=>String(s).replace(/[^\x20-\x7E]/g,' ').replace(/([\\()])/g,'\\$1');
+  const lines=String(text||'').split('\n');
+  const perPage=50, segs=[];
+  for(let i=0;i<lines.length;i+=perPage) segs.push(lines.slice(i,i+perPage));
+  if(!segs.length) segs.push(['']);
+  const contents=segs.map(seg=>{
+    let ops='BT /F1 11 Tf 56 792 Td 16 TL\n';
+    seg.forEach(l=>{ops+=`(${clean(l)}) Tj T*\n`;});
+    return ops+'ET';
+  });
+  const objs=[],kids=[];
+  objs[0]='<< /Type /Catalog /Pages 2 0 R >>';
+  objs[2]='<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>';
+  contents.forEach((ops,i)=>{
+    const pid=4+i*2, cid=5+i*2;
+    kids.push(`${pid} 0 R`);
+    objs[pid-1]=`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents ${cid} 0 R >>`;
+    objs[cid-1]=`<< /Length ${ops.length} >>\nstream\n${ops}\nendstream`;
+  });
+  objs[1]=`<< /Type /Pages /Kids [${kids.join(' ')}] /Count ${contents.length} >>`;
+  let pdf='%PDF-1.4\n'; const offs=[];
+  objs.forEach((o,i)=>{ offs.push(pdf.length); pdf+=`${i+1} 0 obj\n${o}\nendobj\n`; });
+  const xp=pdf.length;
+  pdf+=`xref\n0 ${objs.length+1}\n0000000000 65535 f \n`;
+  offs.forEach(o=>{pdf+=String(o).padStart(10,'0')+' 00000 n \n';});
+  pdf+=`trailer\n<< /Size ${objs.length+1} /Root 1 0 R >>\nstartxref\n${xp}\n%%EOF`;
+  return new Blob([pdf],{type:'application/pdf'});
+}
+function downloadBlob(blob,name){const el=document.createElement('a');el.href=URL.createObjectURL(blob);el.download=name;el.click();}
+// 导出递交包：公司目录/申请目录两层，文件名=门户槽位英文名
+async function exportPackage(){
+  const a=curApp(); if(!a) return toast('先建立申请');
+  const co=appCo(a), defs=DOC_DEFS[a.type]||[];
+  const safe=s=>String(s||'').replace(/[\\/:*?"<>|]/g,'-').trim();
+  const coDirName=safe(co?co.name:(a.applicantName||'_Applicant'));
+  const appDirName=safe(`${a.label||'未命名'}_${a.type}`);
+  const manifest=[`递交包：${coDirName} / ${appDirName}`,'生成时间：'+new Date().toISOString().slice(0,16).replace('T',' '),''];
+  const files=[],missing=[];
+  toast('正在打包…');
+  for(const d of defs){
+    const [key,en,cn,cat,,genKey]=d;
+    const name=safe(en);
+    const draftTxt=genKey&&(a.drafts[genKey]||'').trim();
+    const eff=effDoc(a,key,cat);
+    if(draftTxt){
+      files.push({name:name+'.pdf',blob:textToPdfBlob(a.drafts[genKey])});
+      manifest.push(`[生成文稿] ${en}.pdf`);
+    }else if(eff.d.mediaKey){
+      try{
+        const r=await fetch(`${API}/media?key=${eff.d.mediaKey}`);
+        if(!r.ok) throw new Error('http '+r.status);
+        const ext=(eff.d.fileName||'').split('.').pop()||'bin';
+        files.push({name:name+'.'+safe(ext),blob:await r.blob()});
+        manifest.push(`[已收${eff.src==='co'?'·公司档':''}] ${name}.${safe(ext)}`);
+      }catch(e){ missing.push(en+'（文件取回失败）'); manifest.push(`[取回失败] ${en}`); }
+    }else if(cat!=='C'){
+      missing.push(en); manifest.push(`[缺] ${en}`);
+    }
+  }
+  manifest.push('','—— 缺失清单 ——', missing.length?missing.join('\n'):'无');
+  files.push({name:'00_清单与缺口.txt',blob:new Blob([manifest.join('\n')],{type:'text/plain;charset=utf-8'})});
+  if('showDirectoryPicker' in window){
+    try{
+      const dir=await window.showDirectoryPicker({mode:'readwrite'});
+      const coDir=await dir.getDirectoryHandle(coDirName,{create:true});
+      const appDir=await coDir.getDirectoryHandle(appDirName,{create:true});
+      for(const f of files){
+        const fh=await appDir.getFileHandle(f.name,{create:true});
+        const w=await fh.createWritable(); await w.write(f.blob); await w.close();
+      }
+      toast(`已导出 ${files.length} 个文件 → ${coDirName}/${appDirName}`);
+    }catch(e){ if(e.name!=='AbortError') toast('导出失败：'+e.message); }
+  }else{
+    for(const f of files){ downloadBlob(f.blob,`${coDirName}__${appDirName}__${f.name}`); await new Promise(r=>setTimeout(r,300)); }
+    toast('浏览器不支持选目录，已逐个下载（文件名带前缀）');
+  }
 }
 function exportDoc(){
   const key=$('genSel').value, text=$('genOut').value;
