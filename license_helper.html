@@ -778,7 +778,7 @@ function renderCoExtra(){
     <div class="doc-body"><div class="doc-name">${esc(d.label)}</div>
     <div class="doc-meta">
       ${!d.mediaKey?`<a href="javascript:void(0)" onclick="pickFile('x_${d.id}','co')">上传</a>`:''}
-      ${d.mediaKey&&window._exEdit===c.id?`<a href="javascript:void(0)" onclick="pickFile('x_${d.id}','co')">替换</a>`:''}
+      ${d.mediaKey&&window._exEdit===c.id?`<a href="javascript:void(0)" style="color:var(--danger)" onclick="delCoDoc('x_${d.id}')">删除文件</a>`:''}
       ${d.mediaKey?`<a href="javascript:void(0)" onclick="viewFile('${d.mediaKey}','${jsq(d.fileName||'文件')}')" title="${esc(d.fileName||'')}">${esc(d.fileName||'查看')}</a>`:''}
       ${(d.srcPath||coSrcDir(c))?`<a href="javascript:void(0)" onclick="openSrcDir('${jsq(d.srcPath||(coSrcDir(c)+'/x'))}')" title="打开来源文件夹">📁</a>`:''}
       ${docDate(d)?`<span class="muted" style="font-size:11px">传于 ${docDate(d)}</span>`:''}
@@ -844,7 +844,7 @@ function renderCoDocs(){
       <div class="doc-body"><div class="doc-name">${en}</div><div class="doc-cn">${cn}</div>
       <div class="doc-meta">
         ${!d.mediaKey?`<a href="javascript:void(0)" onclick="pickFile('${key}','co')">上传</a>`:''}
-        ${d.mediaKey&&window._coEdit===c.id?`<a href="javascript:void(0)" onclick="pickFile('${key}','co')">替换</a>`:''}
+        ${d.mediaKey&&window._coEdit===c.id?`<a href="javascript:void(0)" style="color:var(--danger)" onclick="delCoDoc('${key}')">删除</a>`:''}
         ${d.mediaKey?`<a href="javascript:void(0)" onclick="viewFile('${d.mediaKey}','${jsq(d.fileName||'文件')}')" title="${esc(d.fileName||'')}">${esc(d.fileName||'查看')}</a>`:''}
         ${d.srcPath?`<a href="javascript:void(0)" onclick="openSrcDir('${jsq(d.srcPath)}')" title="打开来源文件夹">${'📁'}</a>`:''}
         ${docDate(d)?`<span class="muted" style="font-size:11px">传于 ${docDate(d)}</span>`:''}
@@ -853,6 +853,12 @@ function renderCoDocs(){
   }).join('');
 }
 function coDocSet(k,f,v){ const c=curCo(); if(!c.docs)c.docs={}; c.docs[k]={...(c.docs[k]||{}),[f]:v}; persist(); }
+function delCoDoc(k){
+  const c=curCo(), d=(c.docs||{})[k];
+  if(!d||!d.mediaKey) return;
+  if(!confirm('删除已上传的文件「'+(d.fileName||'')+'」？删后需重新上传')) return;
+  delete c.docs[k]; persist(); renderCo(); toast('已删除，点「缺」重新上传');
+}
 function coSet(k,v){ const c=curCo(); c[k]=v; persist(); if(k==='name')renderAppSel(); }
 function renderPersons(){ /* 人员信息改由文件自动解析，见 co.profile */ }
 

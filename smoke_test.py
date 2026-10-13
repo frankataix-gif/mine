@@ -137,7 +137,7 @@ code, html = get('/')
 all_ok &= check('根路径落回现场相册', code == 200 and ('Ecobox' in html or 'field_album' in html))
 code, html = get('/license_helper.html')
 all_ok &= check('license_helper.html 可访问', code == 200)
-for fn in ['DOC_DEFS', 'runReview', 'genFromAI', 'genFromTemplate', 'parseCoord', 'syncPull', 'pickFile', 'effDoc', 'printDraft', 'renderCoDocs', 'renderTl', 'statusSet', 'exportPackage', 'textToPdfBlob', 'analyzeCo', 'analyzeText', 'extractPdfText', 'mergeProfile', 'delCo', 'normDate', 'docDate', 'openSrcDir', 'jsq', 'viewFile', 'closeViewer', 'renderCoExtra', 'addExtraDoc', 'coSrcDir']:
+for fn in ['DOC_DEFS', 'runReview', 'genFromAI', 'genFromTemplate', 'parseCoord', 'syncPull', 'pickFile', 'effDoc', 'printDraft', 'renderCoDocs', 'renderTl', 'statusSet', 'exportPackage', 'textToPdfBlob', 'analyzeCo', 'analyzeText', 'extractPdfText', 'mergeProfile', 'delCo', 'normDate', 'docDate', 'openSrcDir', 'jsq', 'viewFile', 'closeViewer', 'renderCoExtra', 'addExtraDoc', 'coSrcDir', 'delCoDoc', 'shSet', 'shAdd', 'shDel']:
     all_ok &= check(f'license 前端 {fn}', code == 200 and fn in html)
 
 # license 脚本括号/字符串配平（防"一个 } 丢了整页白屏"：2026-10 runReview 事故）
