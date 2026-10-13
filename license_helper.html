@@ -371,12 +371,14 @@ function openSheet(html){ $('sheet').innerHTML=html; $('modal').classList.add('s
 function closeSheet(){ $('modal').classList.remove('show'); }
 $('modal').addEventListener('click', e=>{ if(e.target===$('modal')) closeSheet(); });
 
+function saveUI(){ try{ localStorage.setItem('lh_ui', JSON.stringify({pane:document.querySelector('.tab.active').dataset.p, app:curAppId, co:curCoId})); }catch(e){} }
 function go(btn){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.pane').forEach(p=>p.classList.remove('active'));
   btn.classList.add('active'); $(btn.dataset.p).classList.add('active');
   // 公司页是纯资料库，不显示申请选择器
   document.querySelector('.appsel').style.display = btn.dataset.p==='p-co' ? 'none' : '';
+  saveUI();
 }
 
 /* ================= 申请（矿证）管理 ================= */
@@ -710,6 +712,7 @@ function doNewCo(){
 }
 function onCoSel(){ /* 公司选择改为列表点击进入（curCoId） */ }
 function renderCo(){
+  saveUI();
   const f=$('coForm'), today=new Date().toISOString().slice(0,10);
   // 列表模式
   if(!curCoId){
@@ -1349,6 +1352,13 @@ function exportDoc(){
 
 /* ================= 渲染 ================= */
 function renderAll(){ renderAppSel(); renderDocs(); renderCo(); renderArea(); renderGen(); }
+// 恢复上次的页面状态（页签/申请/公司），刷新不回到默认页
+try{
+  const ui=JSON.parse(localStorage.getItem('lh_ui')||'{}');
+  if(ui.app&&S.apps.some(a=>a.id===ui.app)) curAppId=ui.app;
+  if(ui.co&&S.companies.some(c=>c.id===ui.co)) curCoId=ui.co;
+  if(ui.pane){ const tb=document.querySelector(`.tab[data-p="${ui.pane}"]`); if(tb) go(tb); }
+}catch(e){}
 renderAll();
 syncPull();
 </script>
