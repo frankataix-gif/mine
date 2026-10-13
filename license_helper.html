@@ -656,11 +656,9 @@ function renderCo(){
   const zm=(c.shareholders||[]).filter(s=>/zambia|赞/i.test(s.nationality||'')).reduce((t,s)=>t+(+s.pct||0),0);
   f.innerHTML=`<div class="muted" style="font-size:13px;margin-bottom:6px"><a href="javascript:void(0)" onclick="curCoId=null;renderCo()">‹ 返回公司列表</a></div>
     <div class="row"><h2 style="flex:1;font-size:1.05rem">${esc(c.name)}</h2>
-      <button class="btn sm" onclick="analyzeCo()">解析文件提取股东</button>
-      <button class="del" title="删除公司" onclick="delCo()">✕</button></div>
+      <button class="btn sm" onclick="analyzeCo()">解析文件提取股东</button></div>
     <h3>股东 Shareholders（赞方合计 <b style="color:${Math.round(zm)>=5?'var(--success)':'var(--danger)'}">${Math.round(zm)}%</b>）</h3>
     <div id="shList"></div>
-    <button class="btn sm ghost" onclick="shAdd()">＋股东</button>
     <h3>基础文件（传一次，名下申请自动引用）</h3><div id="coDocs"></div>`;
   renderSh(); renderCoDocs();
 }
@@ -676,17 +674,8 @@ function renderSh(){
       <span style="font-size:14px;color:${zm?'var(--success)':'var(--text)'}">${zm?'赞':'外'}</span>
       <div class="doc-body"><div class="doc-name" style="font-weight:400">${esc(p.name)}${p.nationality?`（${esc(p.nationality)}）`:''}</div></div>
       <b style="color:${zm?'var(--success)':'var(--text)'}">${p.pct!=null?Math.round(p.pct)+'%':''}</b></div>`;
-  }).join('')||'<div class="muted" style="padding:4px 0">还没有股东记录，点「解析文件提取股东」或＋股东添加</div>';
+  }).join('')||'<div class="muted" style="padding:4px 0">还没有股东记录，点「解析文件提取股东」从 PACRA Print Out 读取</div>';
 }
-function shAdd(){
-  const c=curCo();
-  const name=prompt('股东姓名/公司名：'); if(!name) return;
-  const nat=prompt('国籍（ZAMBIA 为赞方）：','');
-  const pct=+(prompt('持股比例 %：','')||0);
-  (c.shareholders=c.shareholders||[]).push({name:name.trim(),nationality:(nat||'').trim(),pct:pct||null});
-  persist(); renderCo();
-}
-function shDel(i){ curCo().shareholders.splice(i,1); persist(); renderCo(); }
 function delCo(){
   const c=curCo(); if(!c) return;
   if(!confirm(`删除公司「${c.name}」？云端已传文件保留，仅移除记录。`)) return;
