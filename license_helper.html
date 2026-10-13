@@ -409,34 +409,38 @@ function newApp(){
 
     <div class="btnrow"><button class="btn" onclick="doNewApp()">创建</button><button class="btn gray" onclick="closeSheet()">取消</button></div>`);
 }
-// 粘贴文本 → 本地自动拆解填进新建表单（地区/面积/矿种/原证号/酋长/地块名）
-function autoFillApp(t){
-  const set=(id,v)=>{ if(v!=null&&v!==''){ const el=$(id); if(el) el.value=v; } };
-  // 地区：Province, District; Province2, District2
-  const loc=t.match(/(?:地区|位置|location|area)\s*[:：]\s*([^\n]+)/i);
+// 纯解析：从粘贴文本拆出结构化字段（不碰 DOM）
+function parseBriefFields(t){
+  const f={};
+  // 各字段值可能挤在一行里，截到下一个"键名："为止
+  const CUT=/\s*(?=(?:产区)?面积\s*[:：]|矿种\s*[:：]|commodity\s*[:：]|mineral\s*[:：]|原矿证|旧证|矿证号|licen[cs]e|酋长|chief\s*[:：]|地块名|名称\s*[:：]|name\s*[:：]|证型|公司)/i;
+  const grab=(re)=>{ const m=t.match(re); return m?m[1].split(CUT)[0].trim():null; };
+  const loc=grab(/(?:地区|位置|location|area)\s*[:：]\s*([^\n]+)/i);
   if(loc){
-    window._naLoc=loc[1].trim(); // 原文整条存为地理位置
-    const pairs=loc[1].split(/[;；]/).map(s=>s.trim()).filter(Boolean);
+    f.locRaw=loc;
     const provs=[],dists=[];
-    for(const p of pairs){
+    for(const p of loc.split(/[;；]/).map(s=>s.trim()).filter(Boolean)){
       const m=p.match(/^([A-Za-z][A-Za-z .'-]+?)\s*[,，]\s*(.+)$/);
-      if(m){ provs.push(m[1].trim()); dists.push(m[2].trim()); }
-      else provs.push(p);
+      if(m){ provs.push(m[1].trim()); dists.push(m[2].trim()); } else provs.push(p);
     }
-    set('naProv',[...new Set(provs)].join(', '));
-    if(dists.length) set('naDist',dists.join(', '));
+    f.province=[...new Set(provs)].join(', ');
+    if(dists.length) f.district=dists.join(', ');
   }
-  // 面积：62.20 km² / ha
   const am=t.match(/(?:产区)?面积\s*[:：]\s*([\d.,]+)\s*(km²|km2|平方公里|平方千米|ha|公顷|hectare)/i);
-  if(am){
-    const v=parseFloat(am[1].replace(/,/g,''));
-    const isHa=/ha|公顷|hectare/i.test(am[2]);
-    set('naKm2', isHa?(v/100).toFixed(2):String(v));
-  }
-  const com=t.match(/(?:矿种|commodity|mineral)\s*[:：]\s*([^\n]+)/i); if(com) set('naCom',com[1].trim());
-  const lic=t.match(/(?:原矿证|旧证|矿证号|licen[cs]e\s*(?:no\.?|number))\s*[:：]?\s*([\w\-\/]+)/i); if(lic) set('naPrev',lic[1].trim());
-  const ch=t.match(/(?:酋长|地主|chief)\s*[:：]\s*([^\n]+)/i); if(ch) set('naChief',ch[1].trim());
-  const nm=t.match(/(?:地块名|名称|name)\s*[:：]\s*([^\n]+)/i); if(nm) set('naLabel',nm[1].trim());
+  if(am){ const v=parseFloat(am[1].replace(/,/g,'')); f.km2=/ha|公顷|hectare/i.test(am[2])?+(v/100).toFixed(2):v; }
+  const com=grab(/(?:矿种|commodity|mineral)\s*[:：]\s*([^\n]+)/i); if(com) f.commodity=com;
+  const lic=t.match(/(?:原矿证|旧证|矿证号|licen[cs]e\s*(?:no\.?|number))\s*[:：]?\s*([\w\-\/]+)/i); if(lic) f.prevLic=lic[1].trim();
+  const ch=grab(/(?:酋长|地主|chief)\s*[:：]\s*([^\n]+)/i); if(ch) f.chief=ch;
+  const nm=grab(/(?:地块名|名称|name)\s*[:：]\s*([^\n]+)/i); if(nm) f.label=nm;
+  return f;
+}
+// 粘贴文本 → 自动拆解填进新建表单
+function autoFillApp(t){
+  const f=parseBriefFields(t);
+  const set=(id,v)=>{ if(v!=null&&v!==''){ const el=$(id); if(el) el.value=v; } };
+  if(f.locRaw) window._naLoc=f.locRaw;
+  set('naProv',f.province); set('naDist',f.district);
+  set('naKm2',f.km2); set('naCom',f.commodity); set('naPrev',f.prevLic); set('naChief',f.chief); set('naLabel',f.label);
 }
 function doNewApp(){
   const type=$('naType').value, coSel=$('naCo').value, com=$('naCom').value.trim();
@@ -535,6 +539,18 @@ function renderAppList(){
 }
 // 申请概要卡：公司/证型/位置/面积/矿种/状态一览
 function renderAppSum(a){
+  // 旧申请只存了说明没填结构字段 → 自动解析回填
+  if(a.brief&&(!a.area.locRaw||!a.area.km2||!a.commodity)){
+    const f=parseBriefFields(a.brief), ar=a.area;
+    if(f.locRaw&&!ar.locRaw) ar.locRaw=f.locRaw;
+    if(f.province&&!ar.province) ar.province=f.province;
+    if(f.district&&!ar.district) ar.district=f.district;
+    if(f.km2&&!ar.km2){ ar.km2=f.km2; if(!ar.units) ar.units=Math.round(f.km2/UNIT_HA); }
+    if(f.commodity&&!a.commodity) a.commodity=f.commodity;
+    if(f.prevLic&&!ar.prevLic) ar.prevLic=f.prevLic;
+    if(f.chief&&!ar.chief) ar.chief=f.chief;
+    persist();
+  }
   const co=appCo(a), lic=LIC[a.type]||{};
   const stTxt={prep:'准备中',submitted:'已递交',paid:'已缴费',granted:'已获批',rejected:'被拒',abandoned:'放弃'}[a.status||'prep'];
   const size=a.area.km2?a.area.km2+' km²':(a.area.units?a.area.units+' 单位':'—');
