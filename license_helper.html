@@ -429,8 +429,8 @@ function renderDocs(){
         <div class="doc-name">${en} ${eff.src==='co'?'<span style="font-size:11px;color:var(--primary);font-weight:700">公司档</span>':''}</div>
         <div class="doc-cn">${cn}</div>
         <div class="doc-meta">
-          <a href="javascript:void(0)" onclick="pickFile('${key}')">📎 ${st.fileName?esc(st.fileName):'上传文件'}</a>
-          ${st.mediaKey?`<a href="${API}/media?key=${st.mediaKey}" target="_blank">查看</a>`:''}
+          <a href="javascript:void(0)" onclick="pickFile('${key}')">📎 ${st.mediaKey?'替换':'上传文件'}</a>
+          ${st.mediaKey?`<a href="${API}/media?key=${st.mediaKey}" target="_blank" title="${esc(st.fileName||'')}">${esc(st.fileName||'查看')}</a>`:''}
           ${docDate(st)?`<span class="muted" style="font-size:11px">传于 ${docDate(st)}</span>`:''}
           ${exp?`到期 <input type="date" value="${st.expiry||''}" onchange="setDoc('${key}','expiry',this.value)">`:''}
           <input class="note" placeholder="备注" value="${esc(st.note||'')}" onchange="setDoc('${key}','note',this.value)">
@@ -682,7 +682,7 @@ function renderCoDocs(){
       <div class="doc-body"><div class="doc-name">${en}</div><div class="doc-cn">${cn}</div>
       <div class="doc-meta">
         <a href="javascript:void(0)" onclick="pickFile('${key}','co')">${d.mediaKey?'替换':'上传'}</a>
-        ${d.mediaKey?`<a href="${API}/media?key=${d.mediaKey}" target="_blank">查看</a>`:''}
+        ${d.mediaKey?`<a href="${API}/media?key=${d.mediaKey}" target="_blank" title="${esc(d.fileName||'')}">${esc(d.fileName||'查看')}</a>`:''}
         ${docDate(d)?`<span class="muted" style="font-size:11px">传于 ${docDate(d)}</span>`:''}
         ${exp?`到期 <input type="date" value="${d.expiry||''}" onchange="coDocSet('${key}','expiry',this.value)">`:''}
       </div></div></div>`;
