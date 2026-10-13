@@ -753,7 +753,8 @@ function renderCo(){
       <a href="javascript:void(0)" style="font-size:12px;font-weight:400" onclick="window._shEdit=window._shEdit==='${c.id}'?null:'${c.id}';renderCo()">${window._shEdit===c.id?'收起':'编辑'}</a></h3>
     <div id="shList"></div>
     ${window._shEdit===c.id?'<button class="btn sm ghost" onclick="shAdd()">＋股东</button>':''}
-    <h3>基础文件（所有公司必备标准件）</h3><div id="coDocs"></div>
+    <h3 style="display:flex;align-items:center;gap:8px">基础文件（所有公司必备标准件）
+      <a href="javascript:void(0)" style="font-size:12px;font-weight:400" onclick="window._coEdit=window._coEdit==='${c.id}'?null:'${c.id}';renderCo()">${window._coEdit===c.id?'收起':'编辑'}</a></h3><div id="coDocs"></div>
     <h3 style="display:flex;align-items:center;gap:8px">其他文件（本公司特有：矿证、出口许可证等）
       <a href="javascript:void(0)" style="font-size:12px;font-weight:400" onclick="window._exEdit=window._exEdit==='${c.id}'?null:'${c.id}';renderCo()">${window._exEdit===c.id?'收起':'编辑'}</a></h3>
     <div id="coExtra"></div>
@@ -776,7 +777,8 @@ function renderCoExtra(){
     <span class="chip ${d.mediaKey?'s1':'s0'}" style="cursor:pointer" onclick="${d.mediaKey?`viewFile('${d.mediaKey}','${jsq(d.fileName||'文件')}')`:`pickFile('x_${d.id}','co')`}">${d.mediaKey?'已收':'缺'}</span>
     <div class="doc-body"><div class="doc-name">${esc(d.label)}</div>
     <div class="doc-meta">
-      <a href="javascript:void(0)" onclick="pickFile('x_${d.id}','co')">${d.mediaKey?'替换':'上传'}</a>
+      ${!d.mediaKey?`<a href="javascript:void(0)" onclick="pickFile('x_${d.id}','co')">上传</a>`:''}
+      ${d.mediaKey&&window._exEdit===c.id?`<a href="javascript:void(0)" onclick="pickFile('x_${d.id}','co')">替换</a>`:''}
       ${d.mediaKey?`<a href="javascript:void(0)" onclick="viewFile('${d.mediaKey}','${jsq(d.fileName||'文件')}')" title="${esc(d.fileName||'')}">${esc(d.fileName||'查看')}</a>`:''}
       ${(d.srcPath||coSrcDir(c))?`<a href="javascript:void(0)" onclick="openSrcDir('${jsq(d.srcPath||(coSrcDir(c)+'/x'))}')" title="打开来源文件夹">📁</a>`:''}
       ${docDate(d)?`<span class="muted" style="font-size:11px">传于 ${docDate(d)}</span>`:''}
@@ -841,7 +843,8 @@ function renderCoDocs(){
     return `<div class="doc"><button class="chip ${d.mediaKey?'s1':'s0'}" onclick="${d.mediaKey?`viewFile('${d.mediaKey}','${jsq(d.fileName||'文件')}')`:`pickFile('${key}','co')`}">${d.mediaKey?'已收':'缺'}</button>
       <div class="doc-body"><div class="doc-name">${en}</div><div class="doc-cn">${cn}</div>
       <div class="doc-meta">
-        <a href="javascript:void(0)" onclick="pickFile('${key}','co')">${d.mediaKey?'替换':'上传'}</a>
+        ${!d.mediaKey?`<a href="javascript:void(0)" onclick="pickFile('${key}','co')">上传</a>`:''}
+        ${d.mediaKey&&window._coEdit===c.id?`<a href="javascript:void(0)" onclick="pickFile('${key}','co')">替换</a>`:''}
         ${d.mediaKey?`<a href="javascript:void(0)" onclick="viewFile('${d.mediaKey}','${jsq(d.fileName||'文件')}')" title="${esc(d.fileName||'')}">${esc(d.fileName||'查看')}</a>`:''}
         ${d.srcPath?`<a href="javascript:void(0)" onclick="openSrcDir('${jsq(d.srcPath)}')" title="打开来源文件夹">${'📁'}</a>`:''}
         ${docDate(d)?`<span class="muted" style="font-size:11px">传于 ${docDate(d)}</span>`:''}
