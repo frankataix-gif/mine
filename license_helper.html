@@ -375,7 +375,7 @@ function doNewApp(){
     applicantKind:(coSel==='person'?'person':coSel==='coop'?'coop':'company'), applicantName:$('naApplicant')?$('naApplicant').value.trim():'',
     area:{name:'',province:'',district:'',chief:'',coords:[],units:null,datum:'GCS_Arc1950'},
     params:{investUsd:'',years:'',staff:'',citizenPct:'',localNote:'',phases:''},
-    docs:{}, drafts:{}, createdAt:new Date().toISOString() };
+    docs:{}, drafts:{}, status:'prep', createdAt:new Date().toISOString() };
   (DOC_DEFS[type]||[]).forEach(d=>app.docs[d[0]]={status:0,fileName:'',mediaKey:'',expiry:'',note:''});
   S.apps.push(app); curAppId=app.id; persist(); renderAll(); closeSheet(); toast('已创建申请');
 }
@@ -485,11 +485,11 @@ function renderCo(){
     <button class="btn sm ghost" onclick="addPerson('directors')">＋董事</button>
     <h3>股东 Shareholders（赞方合计 <b id="zmPct">${zmPct.toFixed(1)}%</b>）</h3><div id="shList"></div>
     <button class="btn sm ghost" onclick="addPerson('shareholders')">＋股东</button>
-    <div class="row" style="margin-top:8px"><div style="flex:1"><label>已持有矿证数（同一主体上限 5 个）</label>
+    <div class="row" style="margin-top:8px"><div style="flex:1"><label>存量已获批矿证数（本工具外、批复上限 5 个）</label>
     <input type="number" min="0" value="${c.heldLicences||0}" onchange="coSet('heldLicences',+this.value||0)"></div>
-    <div style="flex:1"><label>在办申请数</label><input value="${S.apps.filter(x=>x.companyId===c.id).length} 个" disabled></div></div>
+    <div style="flex:1"><label>在办 / 已获批（本工具内）</label><input value="${S.apps.filter(x=>x.companyId===c.id&&!['rejected','abandoned','granted'].includes(x.status)).length} / ${S.apps.filter(x=>x.companyId===c.id&&x.status==='granted').length}" disabled></div></div>
     <h3>公司基础文件（一次上传，名下申请自动引用）</h3><div id="coDocs"></div>
-    <div class="tipbox" style="margin-top:10px">SEL 要求赞比亚人持股 ≥5%；AMR 仅限公民个人或纯公民合作社持有，公司主体不可申请；同一公司最多持有 5 个矿权。</div>`;
+    <div class="tipbox" style="margin-top:10px">SEL 要求赞比亚人持股 ≥5%；AMR 仅限公民个人或纯公民合作社持有；同一主体获批矿权上限 5 个（申请数不限，被拒/放弃不缴费不计入）。</div>`;
   renderPersons(); renderCoDocs();
 }
 function renderCoDocs(){
@@ -531,7 +531,10 @@ function renderArea(){
   const a=curApp(), c=$('areaCard');
   if(!a){ c.innerHTML='<div class="empty">先建立申请</div>'; $('coordList').innerHTML=''; $('areaStats').innerHTML=''; return; }
   const ar=a.area;
-  c.innerHTML=`<h2>区域信息</h2>
+  c.innerHTML=`<div class="row"><h2 style="flex:1">区域信息</h2>
+    <select style="max-width:130px" onchange="appSet('status',this.value)" title="申请状态">
+      ${[['prep','准备中'],['submitted','已递交'],['paid','已缴费'],['granted','已获批'],['rejected','被拒'],['abandoned','放弃']].map(([v,t])=>`<option value="${v}" ${(a.status||'prep')===v?'selected':''}>${t}</option>`).join('')}
+    </select></div>
     <label>区域/地块名称</label><input value="${esc(ar.name)}" onchange="aSet('name',this.value)">
     <div class="row"><div style="flex:1"><label>省 Province</label><input value="${esc(ar.province)}" onchange="aSet('province',this.value)"></div>
     <div style="flex:1"><label>县 District</label><input value="${esc(ar.district)}" onchange="aSet('district',this.value)"></div></div>
@@ -654,14 +657,18 @@ function runReview(){
   push(0, a.commodity?'ok':'fail','矿种 Commodity', a.commodity||'门户必选，未填');
   if(a.commodity && RADIO_RE.test(a.commodity) && a.type!=='LEL')
     push(0,'fail','放射性矿种限制','放射性矿产不得申请小规模/手工矿权，只能走大型勘探证');
-  // 4.5 同一主体最多 5 个矿权
+  // 4.5 获批矿权 ≤5（申请不限，获批数由人工维护：已批 − 被拒 − 放弃不缴费）
   if(a.applicantKind==='company' && co){
-    const held=+co.heldLicences||0, inProg=S.apps.filter(x=>x.companyId===co.id).length, tot=held+inProg;
-    push(0, tot>5?'fail':tot===5?'warn':'ok','同一主体矿权 ≤5 个', `${co.name}：已持有 ${held} + 在办 ${inProg} = ${tot} 个`);
+    const ext=+co.heldLicences||0, granted=S.apps.filter(x=>x.companyId===co.id&&x.status==='granted').length, held=ext+granted,
+      inProg=S.apps.filter(x=>x.companyId===co.id&&!['rejected','abandoned','granted'].includes(x.status)).length;
+    push(0, held>=5?'fail':held===4?'warn':'ok','同一主体获批矿权 ≤5 个',
+      `${co.name}：已获批 ${held} 个（存量 ${ext} + 本工具获批 ${granted}）${held>=5?'，已达上限，本申请获批将超额':held===4?'，仅剩 1 个获批额度':''}；在办 ${inProg} 个（不限）`);
   }else if(a.applicantKind!=='company'){
-    const inProg=S.apps.filter(x=>x.applicantKind===a.applicantKind&&x.applicantName&&x.applicantName===a.applicantName).length;
-    push(0, a.applicantName?'na':'warn','同一主体矿权 ≤5 个',
-      a.applicantName?`${a.applicantName} 名下在办 ${inProg} 个；其已持有的矿证数请另行核对`:'未填申请人姓名，无法核对同主体数量');
+    const same=x=>x.applicantKind===a.applicantKind&&x.applicantName&&x.applicantName===a.applicantName;
+    const granted=S.apps.filter(x=>same(x)&&x.status==='granted').length,
+      inProg=S.apps.filter(x=>same(x)&&!['rejected','abandoned','granted'].includes(x.status)).length;
+    push(0, !a.applicantName?'warn':granted>=5?'fail':granted===4?'warn':'na','同一主体获批矿权 ≤5 个',
+      a.applicantName?`${a.applicantName}：本工具内已获批 ${granted} 个、在办 ${inProg} 个；工具外已获批数请手动核对，合计超 5 则本申请不可获批`:'未填申请人姓名，无法核对同主体数量');
   // 5. 坐标
   const pts=a.area.coords.filter(c=>c.trim());
   if(pts.length<3) push(0,'fail','坐标角点数量',`只有 ${pts.length} 个，至少 3 个角点（门户要求闭合地块）`);
