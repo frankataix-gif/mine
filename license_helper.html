@@ -636,11 +636,10 @@ function renderCo(){
     const hasZm=c=>(c.shareholders||[]).some(s=>/zambia|赞/i.test(s.nationality||''));
     const row=c=>{
       const sh=c.shareholders||[];
-      const zmv=sh.filter(s=>/zambia|赞/i.test(s.nationality||'')).reduce((t,s)=>t+(+s.pct||0),0);
-      const zm=sh.length?`赞方 <b style="color:${Math.round(zmv)>=5?'var(--success)':'var(--danger)'}">${Math.round(zmv)}%</b>`:'';
+      const shTxt=sh.map(s=>`<span style="${/zambia|赞/i.test(s.nationality||'')?'color:var(--success);font-weight:700':''}">${esc(s.name)} ${s.pct!=null?Math.round(s.pct)+'%':''}</span>`).join('；');
       return `<div class="doc" style="cursor:pointer" onclick="curCoId='${c.id}';renderCo()">
         <div class="doc-body"><div class="doc-name">${esc(c.name)}</div>
-        <div class="doc-cn">${zm}</div></div><span class="muted">›</span></div>`;
+        <div class="doc-cn">${shTxt||'<span class="muted">未解析</span>'}</div></div><span class="muted">›</span></div>`;
     };
     const zl=S.companies.filter(hasZm), full=S.companies.filter(c=>!hasZm(c));
     f.innerHTML=`<div class="row"><h2 style="flex:1">公司档案（${S.companies.length} 家）</h2><button class="btn sm" onclick="newCo()">＋公司</button></div>`
