@@ -136,6 +136,18 @@
     <div class="pbar"><div class="pfill" id="pfill"></div></div>
     <div id="docList"></div>
   </div>
+  <div class="card">
+    <h2>跟进记录（递交 / 部里反馈 / 补充材料 / 状态变更）</h2>
+    <div id="tlList"></div>
+    <div class="row" style="margin-top:8px">
+      <select id="tlType" style="max-width:140px">
+        <option>递交</option><option>缴费</option><option>部里反馈</option><option>补充材料要求</option>
+        <option>已提交补充材料</option><option>获批</option><option>被拒</option><option>放弃</option><option>备注</option>
+      </select>
+      <input id="tlNote" placeholder="记录内容，例：MRC 要求补充 PACRA 最新打印件" style="flex:1">
+      <button class="btn sm" onclick="addTl()">记一笔</button>
+    </div>
+  </div>
 </div>
 
 <!-- ============ 公司 ============ -->
@@ -373,9 +385,9 @@ function doNewApp(){
   if (coSel==='_new'){ closeSheet(); newCo(()=>newApp()); return; }
   const app={ id:uid(), type, label, commodity:com, companyId:(coSel==='person'||coSel==='coop')?null:coSel,
     applicantKind:(coSel==='person'?'person':coSel==='coop'?'coop':'company'), applicantName:$('naApplicant')?$('naApplicant').value.trim():'',
-    area:{name:'',province:'',district:'',chief:'',coords:[],units:null,datum:'GCS_Arc1950'},
+    area:{name:'',province:'',district:'',chief:'',coords:[],units:null,datum:'GCS_Arc1950',prevLic:'',prevNote:'',desc:''},
     params:{investUsd:'',years:'',staff:'',citizenPct:'',localNote:'',phases:''},
-    docs:{}, drafts:{}, status:'prep', createdAt:new Date().toISOString() };
+    docs:{}, drafts:{}, status:'prep', timeline:[{t:new Date().toISOString().slice(0,10),type:'创建',note:'建立申请'}], createdAt:new Date().toISOString() };
   (DOC_DEFS[type]||[]).forEach(d=>app.docs[d[0]]={status:0,fileName:'',mediaKey:'',expiry:'',note:''});
   S.apps.push(app); curAppId=app.id; persist(); renderAll(); closeSheet(); toast('已创建申请');
 }
@@ -425,6 +437,33 @@ function renderDocs(){
       </div></div>`;
   }
   box.innerHTML=html;
+  renderTl();
+}
+/* ---- 跟进时间线 ---- */
+const STATUS_TXT={prep:'准备中',submitted:'已递交',paid:'已缴费',granted:'已获批',rejected:'被拒',abandoned:'放弃'};
+function renderTl(){
+  const a=curApp(), box=$('tlList'); if(!a){box.innerHTML='';return;}
+  if(!a.timeline) a.timeline=[];
+  box.innerHTML = a.timeline.length ? a.timeline.slice().reverse().map(e=>
+    `<div class="doc" style="padding:8px 0"><span class="chip ${e.type==='获批'?'s2':e.type==='被拒'||e.type==='放弃'?'s3':e.type==='部里反馈'||e.type==='补充材料要求'?'s1':'s0'}" style="min-width:92px">${esc(e.type)}</span>
+    <div class="doc-body"><div class="doc-name" style="font-weight:400">${esc(e.note)}</div><div class="doc-cn">${e.t||''}</div></div></div>`
+  ).join('') : '<div class="muted">暂无记录</div>';
+}
+function addTl(){
+  const a=curApp(); if(!a) return;
+  const note=$('tlNote').value.trim(); if(!note) return toast('写点内容');
+  const type=$('tlType').value;
+  a.timeline.push({t:new Date().toISOString().slice(0,10),type,note});
+  $('tlNote').value='';
+  // 时间线事件联动申请状态
+  const map={'递交':'submitted','缴费':'paid','获批':'granted','被拒':'rejected','放弃':'abandoned'};
+  if(map[type]) a.status=map[type];
+  persist(); renderTl(); toast('已记录');
+}
+function statusSet(v){
+  const a=curApp(); if(!a)return;
+  if(a.status!==v){ a.status=v; a.timeline=a.timeline||[]; a.timeline.push({t:new Date().toISOString().slice(0,10),type:'备注',note:'状态变更为「'+STATUS_TXT[v]+'」'}); }
+  persist();
 }
 function cycleStatus(key){
   const a=curApp(), st=a.docs[key];
@@ -532,13 +571,15 @@ function renderArea(){
   if(!a){ c.innerHTML='<div class="empty">先建立申请</div>'; $('coordList').innerHTML=''; $('areaStats').innerHTML=''; return; }
   const ar=a.area;
   c.innerHTML=`<div class="row"><h2 style="flex:1">区域信息</h2>
-    <select style="max-width:130px" onchange="appSet('status',this.value)" title="申请状态">
+    <select style="max-width:130px" onchange="statusSet(this.value)" title="申请状态">
       ${[['prep','准备中'],['submitted','已递交'],['paid','已缴费'],['granted','已获批'],['rejected','被拒'],['abandoned','放弃']].map(([v,t])=>`<option value="${v}" ${(a.status||'prep')===v?'selected':''}>${t}</option>`).join('')}
     </select></div>
     <label>区域/地块名称</label><input value="${esc(ar.name)}" onchange="aSet('name',this.value)">
     <div class="row"><div style="flex:1"><label>省 Province</label><input value="${esc(ar.province)}" onchange="aSet('province',this.value)"></div>
     <div style="flex:1"><label>县 District</label><input value="${esc(ar.district)}" onchange="aSet('district',this.value)"></div></div>
     <label>酋长地/地主 Chief / Landowner</label><input value="${esc(ar.chief)}" onchange="aSet('chief',this.value)">
+    <div class="row"><div style="flex:1"><label>原矿证号（被取消的旧证）</label><input value="${esc(ar.prevLic||'')}" onchange="aSet('prevLic',this.value)" placeholder="例：12345-HQ-LEL"></div>
+    <div style="flex:1"><label>原证情况备注</label><input value="${esc(ar.prevNote||'')}" onchange="aSet('prevNote',this.value)" placeholder="例：2024 年因未缴费被注销"></div></div>
     <label>矿种 Commodity（门户必选）</label><input value="${esc(a.commodity)}" onchange="appSet('commodity',this.value)">
     <label>申请主体类型</label>
     <select onchange="appSet('applicantKind',this.value)">
@@ -732,6 +773,7 @@ function genCtx(){
     licEn:lic?lic.en:'',
     areaName:a?.area.name||'[Area Name]', prov:a?.area.province||'[Province]', dist:a?.area.district||'[District]',
     commodity:a?.commodity||'[Commodity]', desc:a?.area.desc||'',
+    prevLic:a?.area.prevLic||'', prevNote:a?.area.prevNote||'',
     coordsTxt:a&&a.area.coords.filter(c=>c.trim()).length?a.area.coords.filter(c=>c.trim()).join(' ; '):'[coordinates]',
     areaTxt:units?`${units} cadastre units (approx. ${(units*UNIT_HA).toFixed(0)} hectares)`:'[area]',
     invest:a?.params.investUsd||'[amount]',years:a?.params.years||'4',staff:a?.params.staff||'[number]',cit:a?.params.citizenPct||'90'};
@@ -912,6 +954,7 @@ Facts:
 ${x.a.params.localNote?('- Local business notes: '+x.a.params.localNote):''}
 ${x.a.params.phases?('- Work phases: '+x.a.params.phases):''}
 ${x.a.area.chief?('- Chief/landowner: '+x.a.area.chief):''}
+${x.prevLic?('- This area was previously held under licence No. '+x.prevLic+(x.prevNote?' ('+x.prevNote+')':'')+'; the licence has been surrendered/cancelled and the area is now open. Where appropriate, mention prior work on the area.'):''}
 ${x.desc?('- Area background (use this to make the document specific, do NOT copy it verbatim): '+x.desc):''}
 
 Requirements: official tone, numbered sections, include a signature block, tailor content to the area facts above (do not produce a generic boilerplate), comply with the document's purpose under the Mines and Minerals framework (environmental documents must cover pollution prevention, waste, land & water protection and reclamation).`;
