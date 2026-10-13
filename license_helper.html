@@ -56,6 +56,8 @@
   .doc-cn{font-size:12px;color:var(--muted)}
   .doc-meta{font-size:12px;color:var(--muted);margin-top:3px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
   .doc-meta a{color:var(--primary)}
+  .doc-meta label{color:var(--primary);cursor:pointer}
+  label.chip{cursor:pointer;display:inline-block}
   .chip{flex:0 0 auto;min-width:58px;text-align:center;font-size:12px;font-weight:700;
     border-radius:14px;padding:5px 10px;border:none;cursor:pointer}
   .chip.s0{background:#f3f4f6;color:var(--gray)}
@@ -442,7 +444,7 @@ function renderDocs(){
         <div class="doc-name">${en} ${eff.src==='co'?'<span style="font-size:11px;color:var(--primary);font-weight:700">公司档</span>':''}</div>
         <div class="doc-cn">${cn}</div>
         <div class="doc-meta">
-          <a href="javascript:void(0)" onclick="pickFile('${key}')">📎 ${st.mediaKey?'替换':'上传文件'}</a>
+          <label for="filePick" style="cursor:pointer" onclick="uploadDocKey='${key}';uploadScope='app'">📎 ${st.mediaKey?'替换':'上传文件'}</label>
           ${st.mediaKey?`<a href="javascript:void(0)" onclick="viewFile('${st.mediaKey}','${jsq(st.fileName||'文件')}')" title="${esc(st.fileName||'')}">${esc(st.fileName||'查看')}</a>`:''}
           ${st.srcPath?`<a href="javascript:void(0)" onclick="openSrcDir('${jsq(st.srcPath)}')" title="打开来源文件夹">${'📁'}</a>`:''}
           ${docDate(st)?`<span class="muted" style="font-size:11px">传于 ${docDate(st)}</span>`:''}
@@ -774,10 +776,12 @@ function renderCoExtra(){
   const c=curCo(); if(!c) return;
   const list=c.extraDocs||[];
   $('coExtra').innerHTML=list.map(d=>`<div class="doc">
-    <span class="chip ${d.mediaKey?'s1':'s0'}" style="cursor:pointer" onclick="${d.mediaKey?`viewFile('${d.mediaKey}','${jsq(d.fileName||'文件')}')`:`pickFile('x_${d.id}','co')`}">${d.mediaKey?'已收':'缺'}</span>
+    ${d.mediaKey
+      ?`<span class="chip s1" style="cursor:pointer" onclick="viewFile('${d.mediaKey}','${jsq(d.fileName||'文件')}')">已收</span>`
+      :`<label class="chip s0" for="filePick" onclick="uploadDocKey='x_${d.id}';uploadScope='co'">缺</label>`}
     <div class="doc-body"><div class="doc-name">${esc(d.label)}</div>
     <div class="doc-meta">
-      ${!d.mediaKey?`<a href="javascript:void(0)" onclick="pickFile('x_${d.id}','co')">上传</a>`:''}
+      ${!d.mediaKey?`<label for="filePick" onclick="uploadDocKey='x_${d.id}';uploadScope='co'">上传</label>`:''}
       ${d.mediaKey&&window._exEdit===c.id?`<a href="javascript:void(0)" style="color:var(--danger)" onclick="delCoDoc('x_${d.id}')">删除文件</a>`:''}
       ${d.mediaKey?`<a href="javascript:void(0)" onclick="viewFile('${d.mediaKey}','${jsq(d.fileName||'文件')}')" title="${esc(d.fileName||'')}">${esc(d.fileName||'查看')}</a>`:''}
       ${(d.srcPath||coSrcDir(c))?`<a href="javascript:void(0)" onclick="openSrcDir('${jsq(d.srcPath||(coSrcDir(c)+'/x'))}')" title="打开来源文件夹">📁</a>`:''}
@@ -840,10 +844,13 @@ function renderCoDocs(){
   if(!c.docs) c.docs={};
   $('coDocs').innerHTML=CO_DOCS.map(([key,en,cn,exp])=>{
     const d=c.docs[key]||{};
-    return `<div class="doc"><button class="chip ${d.mediaKey?'s1':'s0'}" onclick="${d.mediaKey?`viewFile('${d.mediaKey}','${jsq(d.fileName||'文件')}')`:`pickFile('${key}','co')`}">${d.mediaKey?'已收':'缺'}</button>
+    const chipBtn=d.mediaKey
+      ?`<button class="chip s1" onclick="viewFile('${d.mediaKey}','${jsq(d.fileName||'文件')}')">已收</button>`
+      :`<label class="chip s0" for="filePick" onclick="uploadDocKey='${key}';uploadScope='co'">缺</label>`;
+    return `<div class="doc">${chipBtn}
       <div class="doc-body"><div class="doc-name">${en}</div><div class="doc-cn">${cn}</div>
       <div class="doc-meta">
-        ${!d.mediaKey?`<a href="javascript:void(0)" onclick="pickFile('${key}','co')">上传</a>`:''}
+        ${!d.mediaKey?`<label for="filePick" onclick="uploadDocKey='${key}';uploadScope='co'">上传</label>`:''}
         ${d.mediaKey&&window._coEdit===c.id?`<a href="javascript:void(0)" style="color:var(--danger)" onclick="delCoDoc('${key}')">删除</a>`:''}
         ${d.mediaKey?`<a href="javascript:void(0)" onclick="viewFile('${d.mediaKey}','${jsq(d.fileName||'文件')}')" title="${esc(d.fileName||'')}">${esc(d.fileName||'查看')}</a>`:''}
         ${d.srcPath?`<a href="javascript:void(0)" onclick="openSrcDir('${jsq(d.srcPath)}')" title="打开来源文件夹">${'📁'}</a>`:''}
