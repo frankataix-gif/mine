@@ -636,12 +636,30 @@ function analyzeText(t, opt){
       else if(!v.directors.some(d=>d.name===nm)) v.directors.push(ent);
       if(/ZAMBIA/i.test(nat)) v.hasNrc=true;
     }
+    // Beneficial Owners 表交叉校正：Individuals 股数与核定股本对不上时，用 BO 表金额修正
+    // BO 行格式: NAME - IDNO NATIONALITY IDNO Yes [SHNAME] [NATURE] AMOUNT CLASS
+    const boIdx=t.indexOf('Beneficial Owners');
+    if(boIdx>=0&&v.shareholders.length){
+      const boSec=t.slice(boIdx,boIdx+4000), bo={};
+      const boRe=new RegExp(`([A-Z][A-Z'&.,\\- ]{2,}?)\\s*-\\s*\\S+\\s+(${NATIONS}|[A-Z]{3,})\\s+\\S+\\s+Yes\\s+.*?([\\d,]+\\.\\d+)\\s+(?:Ordinary|Preference|Common)`,'g');
+      let b;
+      while((b=boRe.exec(boSec))){
+        bo[b[1].replace(/\s+/g,' ').trim()]=parseFloat(b[3].replace(/,/g,''));
+      }
+      const norm=s=>s.replace(/\s+/g,' ').trim().toUpperCase();
+      const sumI=v.shareholders.reduce((s,x)=>s+x.amount,0);
+      if(totAuth&&Math.abs(sumI-totAuth)>1&&Object.keys(bo).length){
+        const fixed=v.shareholders.map(x=>bo[norm(x.name)]!=null?{...x,amount:bo[norm(x.name)]}:x);
+        const sumF=fixed.reduce((s,x)=>s+x.amount,0);
+        if(Math.abs(sumF-totAuth)<Math.abs(sumI-totAuth)) v.shareholders=fixed;
+      }
+    }
     const tot=totAuth||v.shareholders.reduce((s,x)=>s+x.amount,0);
     if(tot) v.shareholders.forEach(x=>x.pct=+(x.amount*100/tot).toFixed(1));
     v.zmPct=+v.shareholders.filter(x=>/ZAMBIA/i.test(x.nationality)).reduce((s,x)=>s+(x.pct||0),0).toFixed(1);
     // 完整性校验：解析出的占比合计明显低于 100% 说明有漏（断行/公司股东等）
     v.pctSum=+v.shareholders.reduce((s,x)=>s+(x.pct||0),0).toFixed(1);
-    if(v.shareholders.length&&v.pctSum<99) v.pctWarn=true;
+    if(v.shareholders.length&&Math.abs(v.pctSum-100)>1) v.pctWarn=true;
   }
   return v;
 }
@@ -761,7 +779,7 @@ function renderSh(){
     c.shareholders=c.profile.shareholders; persist();
   }
   const sum=(c.shareholders||[]).reduce((s,x)=>s+(+x.pct||0),0);
-  const warn=c.shareholders.length&&Math.round(sum)<99?`<div style="color:var(--danger);font-size:12px;padding:2px 0">⚠ 占比合计 ${Math.round(sum)}% ≠100%，解析可能不完整，请核对 PACRA 打印件</div>`:'';
+  const warn=c.shareholders.length&&Math.abs(sum-100)>1?`<div style="color:var(--danger);font-size:12px;padding:2px 0">⚠ 占比合计 ${Math.round(sum)}% ≠100%，解析可能不完整，请核对 PACRA 打印件</div>`:'';
   $('shList').innerHTML=warn+c.shareholders.map((p,i)=>{
     const zm=/zambia|赞/i.test(p.nationality||'');
     return `<div class="doc" style="padding:6px 0">
