@@ -574,7 +574,9 @@ function analyzeText(t, opt){
   // NRC 号出现 → 视为赞比亚人证据
   v.hasNrc=/\b\d{6}\s*\/\s*\d{2}\s*\/\s*\d\b/.test(t)||/national registration card|zambian/i.test(t);
   if(opt.people){
-    // PACRA 打印件 Individuals 表：行格式 "NAME NATIONALITY [IDTYPE] IDNO Yes Yes [AMOUNT CLASS]"
+    // 预处理：拼接跨行断开的金额（如 "140,000.0\n0 Ordinary" → "140,000.00 Ordinary"）
+    t=t.replace(/(\d+\.\d)\s*\n\s*(\d{1,2}(?!\d))/g,'$1$2');
+    // PACRA 打印件 Individuals 表：行格式 "NAME NATIONALITY [IDTYPE] IDNO Yes Yes [Yes] [AMOUNT CLASS]"
     // 有金额=股东（% = 金额/核定股本），无金额=董事/秘书
     let totAuth=0;
     const auth=t.match(/(?:ordinary|common|preference)[^\d]{0,10}([\d,]+(?:\.\d+)?)\s+[\d.]+/i);
@@ -594,6 +596,9 @@ function analyzeText(t, opt){
     const tot=totAuth||v.shareholders.reduce((s,x)=>s+x.amount,0);
     if(tot) v.shareholders.forEach(x=>x.pct=+(x.amount*100/tot).toFixed(1));
     v.zmPct=+v.shareholders.filter(x=>/ZAMBIA/i.test(x.nationality)).reduce((s,x)=>s+(x.pct||0),0).toFixed(1);
+    // 完整性校验：解析出的占比合计明显低于 100% 说明有漏（断行/公司股东等）
+    v.pctSum=+v.shareholders.reduce((s,x)=>s+(x.pct||0),0).toFixed(1);
+    if(v.shareholders.length&&v.pctSum<99) v.pctWarn=true;
   }
   return v;
 }
@@ -601,7 +606,7 @@ function analyzeText(t, opt){
 function mergeProfile(c,v){
   c.profile=c.profile||{};
   for(const k of ['regNo','regDate','address','capital','taxTo']) if(v[k]&&!c.profile[k]) c.profile[k]=v[k];
-  if((v.shareholders||[]).length>(c.shareholders||[]).length) c.shareholders=v.shareholders;
+  if((v.shareholders||[]).length) c.shareholders=v.shareholders;  // 股东以最新解析到的 PACRA 打印件为准，直接覆盖
   if(v.hasNrc) c.profile.hasNrc=true;
   if(v.taxTo){ c.docs=c.docs||{}; (c.docs.tax=c.docs.tax||{}).expiry=normDate(v.taxTo)||c.docs.tax.expiry; }
 }
@@ -712,7 +717,9 @@ function renderSh(){
   if(!c.shareholders.length && c.profile && c.profile.shareholders && c.profile.shareholders.length){
     c.shareholders=c.profile.shareholders; persist();
   }
-  $('shList').innerHTML=c.shareholders.map((p,i)=>{
+  const sum=(c.shareholders||[]).reduce((s,x)=>s+(+x.pct||0),0);
+  const warn=c.shareholders.length&&Math.round(sum)<99?`<div style="color:var(--danger);font-size:12px;padding:2px 0">⚠ 占比合计 ${Math.round(sum)}% ≠100%，解析可能不完整，请核对 PACRA 打印件</div>`:'';
+  $('shList').innerHTML=warn+c.shareholders.map((p,i)=>{
     const zm=/zambia|赞/i.test(p.nationality||'');
     return `<div class="doc" style="padding:6px 0">
       <span style="font-size:14px;color:${zm?'var(--success)':'var(--text)'}">${zm?'赞':'外'}</span>
