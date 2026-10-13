@@ -407,10 +407,7 @@ function newApp(){
       <div style="flex:1"><label>省份 Province</label><input id="naProv" placeholder="例：Central"></div>
       <div style="flex:1"><label>县/区 District</label><input id="naDist" placeholder="例：Serenje"></div>
     </div>
-    <div class="row">
-      <div style="flex:1"><label>面积 km²</label><input id="naKm2" type="number" step="0.01" placeholder="例：62.20"></div>
-      <div style="flex:1"><label>酋长/地主（可留空）</label><input id="naChief" placeholder="例：Chief Serenje"></div>
-    </div>
+    <label>面积 km²</label><input id="naKm2" type="number" step="0.01" placeholder="例：62.20">
 
     <div class="btnrow"><button class="btn" onclick="doNewApp()">创建</button><button class="btn gray" onclick="closeSheet()">取消</button></div>`);
 }
@@ -451,7 +448,7 @@ function doNewApp(){
   const app={ id:uid(), type, label, commodity:com, companyId:(coSel==='person'||coSel==='coop')?null:coSel,
     brief,
     applicantKind:(coSel==='person'?'person':coSel==='coop'?'coop':'company'), applicantName:$('naApplicant')?$('naApplicant').value.trim():'',
-    area:{name:'',province:$('naProv').value.trim(),district:$('naDist').value.trim(),chief:$('naChief').value.trim(),
+    area:{name:'',province:$('naProv').value.trim(),district:$('naDist').value.trim(),chief:'',
       km2,units:km2?Math.round(km2/UNIT_HA):null,coords:[],datum:'GCS_Arc1950',prevLic:'',prevNote:'',desc:''},
     params:{investUsd:'',years:'',staff:'',citizenPct:'',localNote:'',phases:''},
     docs:{}, drafts:{}, status:'prep', timeline:[{t:new Date().toISOString().slice(0,10),type:'创建',note:'建立申请'}], createdAt:new Date().toISOString() };
