@@ -938,10 +938,6 @@ function renderCo(){
     <div style="flex:1"><label>Mobile</label><input value="${esc(c.phone||'')}" onchange="cSet('phone',this.value)"></div>
     <div style="flex:1"><label>Fax</label><input value="${esc(c.fax||'/')}" onchange="cSet('fax',this.value)"></div></div>
     <label>Email</label><input value="${esc(c.email||'')}" onchange="cSet('email',this.value)">
-    <div class="row"><div style="flex:1"><label>CEO 姓名</label><input value="${esc(c.ceo||'')}" onchange="cSet('ceo',this.value)" placeholder="缺省=第一股东"></div>
-    <div style="flex:1"><label>CEO 国籍</label><input value="${esc(c.ceoNat||'')}" onchange="cSet('ceoNat',this.value)"></div></div>
-    <div class="row"><div style="flex:1"><label>Company Secretary 姓名</label><input value="${esc(c.secretary||'')}" onchange="cSet('secretary',this.value)" placeholder="缺省=赞方股东"></div>
-    <div style="flex:1"><label>秘书国籍</label><input value="${esc(c.secNat||'')}" onchange="cSet('secNat',this.value)"></div></div>
     <div style="display:flex;align-items:center;gap:8px;margin-top:4px"><span style="font-size:13px;font-weight:700">董事 Directors</span>
       <a href="javascript:void(0)" style="font-size:12px" onclick="window._dirEdit=window._dirEdit==='${c.id}'?null:'${c.id}';renderCo()">${window._dirEdit===c.id?'收起':'编辑'}</a></div>
     <div id="dirList"></div>
