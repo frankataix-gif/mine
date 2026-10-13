@@ -634,18 +634,20 @@ function renderCo(){
   const f=$('coForm'), today=new Date().toISOString().slice(0,10);
   // 列表模式
   if(!curCoId){
+    const hasZm=c=>(c.shareholders||[]).some(s=>/zambia|赞/i.test(s.nationality||''));
+    const row=c=>{
+      const sh=c.shareholders||[];
+      const zmv=sh.filter(s=>/zambia|赞/i.test(s.nationality||'')).reduce((t,s)=>t+(+s.pct||0),0);
+      const zm=sh.length?`赞方 <b style="color:${Math.round(zmv)>=5?'var(--success)':'var(--danger)'}">${Math.round(zmv)}%</b>`:'';
+      return `<div class="doc" style="cursor:pointer" onclick="curCoId='${c.id}';renderCo()">
+        <div class="doc-body"><div class="doc-name">${esc(c.name)}</div>
+        <div class="doc-cn">${zm}</div></div><span class="muted">›</span></div>`;
+    };
+    const zl=S.companies.filter(hasZm), full=S.companies.filter(c=>!hasZm(c));
     f.innerHTML=`<div class="row"><h2 style="flex:1">公司档案（${S.companies.length} 家）</h2><button class="btn sm" onclick="newCo()">＋公司</button></div>`
       +(S.companies.length?'':'<div class="empty">还没有公司，点右上角「＋公司」新建</div>')
-      +S.companies.map(c=>{
-        const dn=CO_DOCS.filter(([k])=>(c.docs||{})[k]&&c.docs[k].mediaKey).length;
-        const sh=c.shareholders||[];
-        const zmv=sh.filter(s=>/zambia|赞/i.test(s.nationality||'')).reduce((t,s)=>t+(+s.pct||0),0);
-        const zm=sh.length?`赞方 <b style="color:${Math.round(zmv)>=5?'var(--success)':'var(--danger)'}">${Math.round(zmv)}%</b>`:'';
-        return `<div class="doc" style="cursor:pointer" onclick="curCoId='${c.id}';renderCo()">
-          <span class="chip ${dn>=7?'s2':dn?'s1':'s0'}">${dn}/${CO_DOCS.length}</span>
-          <div class="doc-body"><div class="doc-name">${esc(c.name)}</div>
-          <div class="doc-cn">${zm}</div></div><span class="muted">›</span></div>`;
-      }).join('');
+      +(zl.length?`<h3 style="margin:12px 0 2px">有赞比亚当地人持股（${zl.length}）</h3>`+zl.map(row).join(''):'')
+      +(full.length?`<h3 style="margin:12px 0 2px">全资公司（${full.length}）</h3>`+full.map(row).join(''):'');
     return;
   }
   // 详情模式
