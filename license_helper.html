@@ -566,7 +566,7 @@ function analyzeText(t, opt){
     const auth=t.match(/(?:ordinary|common|preference)[^\d]{0,10}([\d,]+(?:\.\d+)?)\s+[\d.]+/i);
     if(auth) totAuth=parseFloat(auth[1].replace(/,/g,''));
     const NATIONS='ZAMBIA|ZAMBIAN|CHINA|CHINESE|GRENADA|INDIA|INDIAN|CONGO|CONGOLESE|DRC|TANZANIA|KENYA|ZIMBABWE|BOTSWANA|NAMIBIA|ANGOLA|MOZAMBIQUE|MALAWI|SOUTH AFRICA|BRITISH|BRITAIN|USA|AMERICAN|LEBANON|LEBANESE|UAE|RUSSIA|RUSSIAN|KOREA|JAPAN|CANADA|AUSTRALIA|SWITZERLAND|SWISS|CYPRUS|MAURITIUS|SEYCHELLES|HONG KONG|NIGERIA|GHANA|EGYPT|PAKISTAN|TURKEY|BELGIUM|FRANCE|FRENCH|GERMANY|ITALY|SPAIN|PORTUGAL|NETHERLANDS|IRELAND|BRITISH VIRGIN';
-    const rowRe=new RegExp(`([A-Z][A-Z'&.,\\- ]{2,}?)\\s+(${NATIONS}|[A-Z]{3,}(?=\\s+\\S*\\d))\\s+(.+?)\\s+Yes\\s+Yes(?:\\s+([\\d,]+(?:\\.\\d+)?)\\s+([A-Za-z]+))?`,'g');
+    const rowRe=new RegExp(`([A-Z][A-Z'&.,\\- ]{2,}?)\\s+(${NATIONS}|[A-Z]{3,}(?=\\s+\\S*\\d))\\s+(.+?)\\s+Yes\\s+Yes(?:\\s+Yes)?(?:\\s+([\\d,]+(?:\\.\\d+)?)\\s+([A-Za-z]+))?`,'g');
     let r;
     while((r=rowRe.exec(t))){
       const nm=r[1].replace(/\s+/g,' ').trim(), nat=r[2];
