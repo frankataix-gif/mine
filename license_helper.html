@@ -441,6 +441,15 @@ function renderDocs(){
 }
 // JS 字符串字面量转义（路径含反斜杠，\t \n 会被吃掉）
 function jsq(s){ return String(s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+// 公司源文件夹：从任一已记录 srcPath 反推「N 公司名」这一级目录
+function coSrcDir(c){
+  for(const d of [...Object.values(c.docs||{}),...(c.extraDocs||[])]){
+    const p=d.srcPath||''; if(!p) continue;
+    const m=p.match(/^(.+[\\/]\d+[^\\/]*?)[\\/]/);          // …\1 Ecobox Mining…\…
+    return m?m[1]:p.replace(/[\\/][^\\/]+$/,'');
+  }
+  return '';
+}
 // 打开源文件夹：gofolder: 协议（装过一次 openfolder_setup.reg 的机器）+ 复制路径兜底
 function openSrcDir(srcPath){
   const dir=String(srcPath).replace(/[\\/][^\\/]+$/,'');
@@ -659,6 +668,7 @@ function renderCo(){
   const zm=(c.shareholders||[]).filter(s=>/zambia|赞/i.test(s.nationality||'')).reduce((t,s)=>t+(+s.pct||0),0);
   f.innerHTML=`<div class="muted" style="font-size:13px;margin-bottom:6px"><a href="javascript:void(0)" onclick="curCoId=null;renderCo()">‹ 返回公司列表</a></div>
     <div class="row"><h2 style="flex:1;font-size:1.05rem">${esc(c.name)}</h2>
+      ${coSrcDir(c)?`<button class="btn sm ghost" onclick="openSrcDir('${jsq(coSrcDir(c)+'/x')}')">📁 打开文件夹</button>`:''}
       <button class="btn sm" onclick="analyzeCo()">解析文件提取股东</button></div>
     <h3>股东 Shareholders（赞方合计 <b style="color:${Math.round(zm)>=5?'var(--success)':'var(--danger)'}">${Math.round(zm)}%</b>）</h3>
     <div id="shList"></div>
@@ -686,7 +696,7 @@ function renderCoExtra(){
     <div class="doc-meta">
       <a href="javascript:void(0)" onclick="pickFile('x_${d.id}','co')">${d.mediaKey?'替换':'上传'}</a>
       ${d.mediaKey?`<a href="${API}/media?key=${d.mediaKey}" target="_blank" title="${esc(d.fileName||'')}">${esc(d.fileName||'查看')}</a>`:''}
-      ${d.srcPath?`<a href="javascript:void(0)" onclick="openSrcDir('${jsq(d.srcPath)}')">📁</a>`:''}
+      ${(d.srcPath||coSrcDir(c))?`<a href="javascript:void(0)" onclick="openSrcDir('${jsq(d.srcPath||(coSrcDir(c)+'/x'))}')" title="打开来源文件夹">📁</a>`:''}
       ${docDate(d)?`<span class="muted" style="font-size:11px">传于 ${docDate(d)}</span>`:''}
     </div></div>
     <button class="del" onclick="delExtraDoc('${d.id}')">×</button></div>`).join('')
