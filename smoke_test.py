@@ -132,9 +132,9 @@ for fn in ['toggleMiniMenu', 'editPostComment', 'delPostComment', 'toggleMarketB
            'editProd', 'delProd', 'pullStartY']:
     all_ok &= check(f'前端函数 {fn}', code == 200 and fn in html)
 
-# 7.4 矿权申请助手页面可达 + 裸域名落地到该页 + 关键前端函数存在
+# 7.4 矿权申请助手页面可达 + 裸域名落地现场相册（两个产品分开） + 关键前端函数存在
 code, html = get('/')
-all_ok &= check('根路径落地矿权助手', code == 200 and '矿权申请助手' in html)
+all_ok &= check('根路径落回现场相册', code == 200 and '现场相册' in html)
 code, html = get('/license_helper.html')
 all_ok &= check('license_helper.html 可访问', code == 200)
 for fn in ['DOC_DEFS', 'runReview', 'genFromAI', 'genFromTemplate', 'parseCoord', 'syncPull', 'pickFile', 'effDoc', 'printDraft', 'renderCoDocs', 'renderTl', 'statusSet', 'exportPackage', 'textToPdfBlob', 'analyzeCo', 'analyzeText', 'extractPdfText', 'mergeProfile', 'delCo', 'normDate', 'docDate', 'openSrcDir', 'jsq']:

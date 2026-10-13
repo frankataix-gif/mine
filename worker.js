@@ -3,7 +3,7 @@
 // 功能：托管门户 + 各子应用页面，统一登录，代理各 app 后端
 //
 // 路由：
-//   GET  /                       → 重定向到矿权申请助手；/index.html = 门户首页（公开）
+//   GET  /                       → 重定向到现场相册；/index.html = 门户首页（公开）
 //   GET  /mine_production.html   → 钽铌矿生产统计（需登录）
 //   GET  /sampling_helper.html   → 矿区考察记录本（需登录）
 //   GET  /sw.js /manifest /icon* → PWA 资源
@@ -713,10 +713,10 @@ export default {
           return await handleSampling(request, env, url);
         }
 
-        // 根路径落地矿权申请助手（门户首页仍可从 /index.html 访问，相册走 /field_album.html 和 /u/ 短链）
+        // 根路径落地现场相册（矿权助手是独立产品：/license_helper.html，门户首页 /index.html）
         if (p === '/') {
           const u = new URL(request.url);
-          u.pathname = '/license_helper.html';
+          u.pathname = '/field_album.html';
           u.searchParams.set('v', Date.now().toString());
           return Response.redirect(u.toString(), 302);
         }
