@@ -404,7 +404,7 @@ function newApp(){
       <div style="flex:1"><label>省份 Province</label><input id="naProv" placeholder="例：Central"></div>
       <div style="flex:1"><label>县/区 District</label><input id="naDist" placeholder="例：Serenje"></div>
     </div>
-    <label>面积 km²</label><input id="naKm2" type="number" step="0.01" placeholder="例：62.20">
+    <label>矿证面积 km²</label><input id="naKm2" type="number" step="0.01" placeholder="例：62.20">
 
     <div class="btnrow"><button class="btn" onclick="doNewApp()">创建</button><button class="btn gray" onclick="closeSheet()">取消</button></div>`);
 }
@@ -1027,7 +1027,7 @@ function renderArea(){
     <div class="row"><div style="flex:1"><label>省 Province</label><input value="${esc(ar.province)}" onchange="aSet('province',this.value)"></div>
     <div style="flex:1"><label>县 District</label><input value="${esc(ar.district)}" onchange="aSet('district',this.value)"></div></div>
     <label>酋长地/地主 Chief / Landowner</label><input value="${esc(ar.chief)}" onchange="aSet('chief',this.value)">
-    <div class="row"><div style="flex:1"><label>面积 km²（会折算成地籍单位）</label><input type="number" step="0.01" value="${ar.km2||''}" onchange="aSet('km2',this.value?+this.value:null);if(this.value&&!ar.units){ar.units=Math.round(+this.value/3.34);}renderArea()"></div>
+    <div class="row"><div style="flex:1"><label>矿证面积 km²（会折算成地籍单位）</label><input type="number" step="0.01" value="${ar.km2||''}" onchange="aSet('km2',this.value?+this.value:null);if(this.value&&!ar.units){ar.units=Math.round(+this.value/3.34);}renderArea()"></div>
     <div style="flex:1"><label>原矿证号（被取消的旧证）</label><input value="${esc(ar.prevLic||'')}" onchange="aSet('prevLic',this.value)" placeholder="例：12345-HQ-LEL"></div>
     <div style="flex:1"><label>原证情况备注</label><input value="${esc(ar.prevNote||'')}" onchange="aSet('prevNote',this.value)" placeholder="例：2024 年因未缴费被注销"></div></div>
     <label>矿种 Commodity（门户必选）</label><input value="${esc(a.commodity)}" onchange="appSet('commodity',this.value)">
