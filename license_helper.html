@@ -395,6 +395,8 @@ function go(btn){
 /* ================= 申请（矿证）管理 ================= */
 function newApp(){
   openSheet(`<h3>新建申请</h3>
+    <label>粘贴地块信息（地区/面积/矿种等，粘贴后自动填入下方字段）</label>
+    <textarea id="naPaste" style="min-height:80px" placeholder="例：\n地区：Central, Serenje; Northern, Mpika\n产区面积：62.20 km²\n矿种：Copper" oninput="autoFillApp(this.value)"></textarea>
     <label>证型</label>
     <select id="naType">${Object.keys(LIC).map(k=>`<option value="${k}">${LIC[k].name} ${LIC[k].en}</option>`).join('')}</select>
     <label>申请名称/地块代号</label><input id="naLabel" placeholder="例：Serenje 区块 A">
@@ -413,11 +415,41 @@ function newApp(){
     <label>申请人姓名（个人/合作社主体才填）</label><input id="naApplicant" placeholder="例：John Banda / XX Cooperative">
     <div class="btnrow"><button class="btn" onclick="doNewApp()">创建</button><button class="btn gray" onclick="closeSheet()">取消</button></div>`);
 }
+// 粘贴文本 → 本地自动拆解填进新建表单（地区/面积/矿种/原证号/酋长/地块名）
+function autoFillApp(t){
+  const set=(id,v)=>{ if(v!=null&&v!==''){ const el=$(id); if(el) el.value=v; } };
+  // 地区：Province, District; Province2, District2
+  const loc=t.match(/(?:地区|位置|location|area)\s*[:：]\s*([^\n]+)/i);
+  if(loc){
+    const pairs=loc[1].split(/[;；]/).map(s=>s.trim()).filter(Boolean);
+    const provs=[],dists=[];
+    for(const p of pairs){
+      const m=p.match(/^([A-Za-z][A-Za-z .'-]+?)\s*[,，]\s*(.+)$/);
+      if(m){ provs.push(m[1].trim()); dists.push(m[2].trim()); }
+      else provs.push(p);
+    }
+    set('naProv',[...new Set(provs)].join(', '));
+    if(dists.length) set('naDist',dists.join(', '));
+  }
+  // 面积：62.20 km² / ha
+  const am=t.match(/(?:产区)?面积\s*[:：]\s*([\d.,]+)\s*(km²|km2|平方公里|平方千米|ha|公顷|hectare)/i);
+  if(am){
+    const v=parseFloat(am[1].replace(/,/g,''));
+    const isHa=/ha|公顷|hectare/i.test(am[2]);
+    set('naKm2', isHa?(v/100).toFixed(2):String(v));
+  }
+  const com=t.match(/(?:矿种|commodity|mineral)\s*[:：]\s*([^\n]+)/i); if(com) set('naCom',com[1].trim());
+  const lic=t.match(/(?:原矿证|旧证|矿证号|licen[cs]e\s*(?:no\.?|number))\s*[:：]?\s*([\w\-\/]+)/i); if(lic) set('naPrev',lic[1].trim());
+  const ch=t.match(/(?:酋长|地主|chief)\s*[:：]\s*([^\n]+)/i); if(ch) set('naChief',ch[1].trim());
+  const nm=t.match(/(?:地块名|名称|name)\s*[:：]\s*([^\n]+)/i); if(nm) set('naLabel',nm[1].trim());
+}
 function doNewApp(){
   const type=$('naType').value, label=$('naLabel').value.trim()||LIC[type].name, coSel=$('naCo').value, com=$('naCom').value.trim();
   if (coSel==='_new'){ closeSheet(); newCo(()=>newApp()); return; }
   const km2=parseFloat($('naKm2').value)||null;
+  const brief=($('naPaste')?$('naPaste').value:'').trim();
   const app={ id:uid(), type, label, commodity:com, companyId:(coSel==='person'||coSel==='coop')?null:coSel,
+    brief,
     applicantKind:(coSel==='person'?'person':coSel==='coop'?'coop':'company'), applicantName:$('naApplicant')?$('naApplicant').value.trim():'',
     area:{name:'',province:$('naProv').value.trim(),district:$('naDist').value.trim(),chief:$('naChief').value.trim(),
       km2,units:km2?Math.round(km2/UNIT_HA):null,coords:[],datum:'GCS_Arc1950',prevLic:$('naPrev').value.trim(),prevNote:'',desc:''},
