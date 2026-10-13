@@ -113,6 +113,13 @@
   .banner{background:#fef3c7;color:#92400e;font-size:12.5px;padding:7px 14px;border-bottom:1px solid #fde68a;display:none}
   .banner.show{display:block}
   .tipbox{background:var(--primary-light);border-radius:8px;padding:9px 12px;font-size:12.5px;color:#1e40af;margin-bottom:10px}
+  .viewer{position:fixed;inset:0;background:#fff;z-index:400;display:none;flex-direction:column}
+  .viewer.show{display:flex}
+  .viewer-hd{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border);flex:0 0 auto}
+  .viewer-hd .vtitle{flex:1;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .viewer-bd{flex:1;overflow-y:auto;padding:10px;background:#525659}
+  .viewer-bd canvas{display:block;width:100%;max-width:900px;margin:0 auto 12px;box-shadow:0 1px 4px rgba(0,0,0,.4)}
+  .viewer-bd img{display:block;max-width:100%;margin:0 auto}
 </style>
 </head>
 <body>
@@ -221,6 +228,12 @@
 </div></div>
 
 <div class="modal" id="modal"><div class="sheet" id="sheet"></div></div>
+<div class="viewer" id="viewer">
+  <div class="viewer-hd"><div class="vtitle" id="vtitle"></div>
+    <a class="btn sm ghost" id="vdl" target="_blank">下载</a>
+    <button class="btn sm gray" onclick="closeViewer()">✕ 关闭</button></div>
+  <div class="viewer-bd" id="viewerBd"></div>
+</div>
 <div class="toast" id="toast"></div>
 <input type="file" id="filePick" style="display:none" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.zip,.xlsx,.csv">
 
@@ -428,7 +441,7 @@ function renderDocs(){
         <div class="doc-cn">${cn}</div>
         <div class="doc-meta">
           <a href="javascript:void(0)" onclick="pickFile('${key}')">📎 ${st.mediaKey?'替换':'上传文件'}</a>
-          ${st.mediaKey?`<a href="${API}/media?key=${st.mediaKey}" target="_blank" title="${esc(st.fileName||'')}">${esc(st.fileName||'查看')}</a>`:''}
+          ${st.mediaKey?`<a href="javascript:void(0)" onclick="viewFile('${st.mediaKey}','${jsq(st.fileName||'文件')}')" title="${esc(st.fileName||'')}">${esc(st.fileName||'查看')}</a>`:''}
           ${st.srcPath?`<a href="javascript:void(0)" onclick="openSrcDir('${jsq(st.srcPath)}')" title="打开来源文件夹">${'📁'}</a>`:''}
           ${docDate(st)?`<span class="muted" style="font-size:11px">传于 ${docDate(st)}</span>`:''}
           ${exp?`到期 <input type="date" value="${st.expiry||''}" onchange="setDoc('${key}','expiry',this.value)">`:''}
@@ -546,6 +559,36 @@ function ensurePdfjs(){
   });
   return _pdfjsReady;
 }
+// 页内文件查看器：PDF 用 pdf.js 渲染，图片直显，其他格式给下载（不走新标签页，微信里也能看）
+async function viewFile(key,name){
+  name=name||'文件'; $('vtitle').textContent=name;
+  $('vdl').href=`${API}/media?key=${key}`; $('vdl').download=name;
+  const bd=$('viewerBd'); bd.innerHTML='<div style="color:#fff;text-align:center;padding:30px">加载中…</div>';
+  $('viewer').classList.add('show');
+  try{
+    const ext=(name.split('.').pop()||'').toLowerCase();
+    const blob=await (await fetch(`${API}/media?key=${key}`)).blob();
+    const url=URL.createObjectURL(blob); $('vdl').href=url;
+    if(ext==='pdf'){
+      await ensurePdfjs();
+      const pdf=await pdfjsLib.getDocument({data:await blob.arrayBuffer()}).promise;
+      bd.innerHTML='';
+      for(let p=1;p<=pdf.numPages;p++){
+        const pg=await pdf.getPage(p);
+        const vp=pg.getViewport({scale:2});
+        const cv=document.createElement('canvas'); cv.width=vp.width; cv.height=vp.height;
+        await pg.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise;
+        bd.appendChild(cv);
+      }
+      if(!pdf.numPages) bd.innerHTML='<div style="color:#fff;text-align:center;padding:30px">空 PDF</div>';
+    }else if(['jpg','jpeg','png','gif','webp'].includes(ext)){
+      bd.innerHTML=''; const im=document.createElement('img'); im.src=url; bd.appendChild(im);
+    }else{
+      bd.innerHTML=`<div style="color:#fff;text-align:center;padding:40px">此格式（.${ext}）不支持预览<br><br><a href="${url}" download="${esc(name)}" class="btn" style="background:var(--primary);color:#fff;text-decoration:none;padding:10px 20px;border-radius:8px">下载文件</a></div>`;
+    }
+  }catch(e){ bd.innerHTML=`<div style="color:#fff;text-align:center;padding:40px">打开失败：${esc(e.message)}<br><br><a href="${API}/media?key=${key}" target="_blank" class="btn" style="color:#fff">尝试新窗口打开</a></div>`; }
+}
+function closeViewer(){ $('viewer').classList.remove('show'); $('viewerBd').innerHTML=''; }
 async function extractPdfText(blob){
   await ensurePdfjs();
   const pdf=await pdfjsLib.getDocument({data:await blob.arrayBuffer()}).promise;
@@ -700,7 +743,7 @@ function renderCoExtra(){
     <div class="doc-body"><div class="doc-name">${esc(d.label)}</div>
     <div class="doc-meta">
       <a href="javascript:void(0)" onclick="pickFile('x_${d.id}','co')">${d.mediaKey?'替换':'上传'}</a>
-      ${d.mediaKey?`<a href="${API}/media?key=${d.mediaKey}" target="_blank" title="${esc(d.fileName||'')}">${esc(d.fileName||'查看')}</a>`:''}
+      ${d.mediaKey?`<a href="javascript:void(0)" onclick="viewFile('${d.mediaKey}','${jsq(d.fileName||'文件')}')" title="${esc(d.fileName||'')}">${esc(d.fileName||'查看')}</a>`:''}
       ${(d.srcPath||coSrcDir(c))?`<a href="javascript:void(0)" onclick="openSrcDir('${jsq(d.srcPath||(coSrcDir(c)+'/x'))}')" title="打开来源文件夹">📁</a>`:''}
       ${docDate(d)?`<span class="muted" style="font-size:11px">传于 ${docDate(d)}</span>`:''}
     </div></div>
@@ -743,7 +786,7 @@ function renderCoDocs(){
       <div class="doc-body"><div class="doc-name">${en}</div><div class="doc-cn">${cn}</div>
       <div class="doc-meta">
         <a href="javascript:void(0)" onclick="pickFile('${key}','co')">${d.mediaKey?'替换':'上传'}</a>
-        ${d.mediaKey?`<a href="${API}/media?key=${d.mediaKey}" target="_blank" title="${esc(d.fileName||'')}">${esc(d.fileName||'查看')}</a>`:''}
+        ${d.mediaKey?`<a href="javascript:void(0)" onclick="viewFile('${d.mediaKey}','${jsq(d.fileName||'文件')}')" title="${esc(d.fileName||'')}">${esc(d.fileName||'查看')}</a>`:''}
         ${d.srcPath?`<a href="javascript:void(0)" onclick="openSrcDir('${jsq(d.srcPath)}')" title="打开来源文件夹">${'📁'}</a>`:''}
         ${docDate(d)?`<span class="muted" style="font-size:11px">传于 ${docDate(d)}</span>`:''}
         ${exp?`到期 <input type="date" value="${d.expiry||''}" onchange="coDocSet('${key}','expiry',this.value)">`:''}
