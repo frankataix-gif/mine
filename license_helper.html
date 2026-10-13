@@ -402,7 +402,7 @@ function newApp(){
     <label>申请名称/地块代号</label><input id="naLabel" placeholder="例：Serenje 区块 A">
     <label>申请主体</label>
     <select id="naCo">${S.companies.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}<option value="_new">（新建公司档案…）</option><option value="person">公民个人</option><option value="coop">合作社</option></select>
-    <label>矿种 Commodity</label><input id="naCom" placeholder="例：Tantalum, Niobium, Tin">
+    <label>矿种 Commodity</label><input id="naCom" value="Copper" placeholder="例：Copper; Tantalum">
     <div class="row">
       <div style="flex:1"><label>省份 Province</label><input id="naProv" placeholder="例：Central"></div>
       <div style="flex:1"><label>县/区 District</label><input id="naDist" placeholder="例：Serenje"></div>
