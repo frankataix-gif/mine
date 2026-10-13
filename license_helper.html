@@ -196,7 +196,8 @@
     <div class="btnrow">
       <button class="btn sm green" onclick="saveDraft()">存入申请</button>
       <button class="btn sm ghost" onclick="copyDraft()">复制</button>
-      <button class="btn sm ghost" onclick="exportDoc()">导出 .doc</button>
+      <button class="btn sm" onclick="printDraft()">导出 PDF</button>
+      <button class="btn sm gray" onclick="exportDoc()">.doc</button>
     </div>
   </div>
 </div>
@@ -275,6 +276,19 @@ const DOC_DEFS = {
 };
 const ST_TXT = ['缺','已收','已核','问题'];
 
+// 公司级基础文件：传一次，名下所有申请自动引用（等同门户"灰色=账户级文件"）
+const CO_DOCS = [
+  ['inc',  'Certificate of Incorporation', '公司注册证', 0],
+  ['cap',  'Certificate of Share Capital', '股本证书', 0],
+  ['art',  'Articles of Association', '公司章程', 0],
+  ['pacra','PACRA Print Out / Form 2 or 3', 'PACRA 登记打印件', 0],
+  ['iddir','Identity of Directors', '董事身份证明（合并 PDF）', 0],
+  ['idsh', 'Identity of Directors and Shareholders', '董事及股东身份证明（合并 PDF）', 0],
+  ['tax',  'Valid Tax Clearance Certificate', '税务清关证', 1],
+];
+// 放射性矿种：小规模/手工不可申请
+const RADIO_RE = /uranium|thorium|radioactive|铀|钍|放射/i;
+
 /* ================= 状态 ================= */
 let S = { v:1, companies:[], apps:[], updatedAt:'' };
 let curAppId = null, curCoId = null, uploadDocKey = null;
@@ -351,13 +365,14 @@ function newApp(){
     <label>申请主体</label>
     <select id="naCo">${S.companies.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}<option value="_new">（新建公司档案…）</option><option value="person">公民个人</option><option value="coop">合作社</option></select>
     <label>矿种 Commodity</label><input id="naCom" placeholder="例：Tantalum, Niobium, Tin">
+    <label>申请人姓名（个人/合作社主体才填）</label><input id="naApplicant" placeholder="例：John Banda / XX Cooperative">
     <div class="btnrow"><button class="btn" onclick="doNewApp()">创建</button><button class="btn gray" onclick="closeSheet()">取消</button></div>`);
 }
 function doNewApp(){
   const type=$('naType').value, label=$('naLabel').value.trim()||LIC[type].name, coSel=$('naCo').value, com=$('naCom').value.trim();
   if (coSel==='_new'){ closeSheet(); newCo(()=>newApp()); return; }
   const app={ id:uid(), type, label, commodity:com, companyId:(coSel==='person'||coSel==='coop')?null:coSel,
-    applicantKind:(coSel==='person'?'person':coSel==='coop'?'coop':'company'),
+    applicantKind:(coSel==='person'?'person':coSel==='coop'?'coop':'company'), applicantName:$('naApplicant')?$('naApplicant').value.trim():'',
     area:{name:'',province:'',district:'',chief:'',coords:[],units:null,datum:'GCS_Arc1950'},
     params:{investUsd:'',years:'',staff:'',citizenPct:'',localNote:'',phases:''},
     docs:{}, drafts:{}, createdAt:new Date().toISOString() };
@@ -373,22 +388,33 @@ function renderAppSel(){
 }
 
 /* ================= 清单 ================= */
+// 文件生效来源：申请自己上传的优先；没有则引用公司档（A 类文件一次上传多处复用）
+function effDoc(a, key, cat){
+  const ad = a.docs[key] || {status:0,fileName:'',mediaKey:'',expiry:'',note:''};
+  if (ad.fileName || ad.mediaKey || ad.status > 0) return { d: ad, src: 'app' };
+  if (cat === 'A' && a.companyId) {
+    const co = S.companies.find(c => c.id === a.companyId);
+    const cd = co && co.docs && co.docs[key];
+    if (cd && (cd.fileName || cd.mediaKey)) return { d: { ...cd, status: ad.status || 1, note: ad.note || cd.note || '' }, src: 'co' };
+  }
+  return { d: ad, src: null };
+}
 function renderDocs(){
   const a=curApp(), box=$('docList');
   if(!a){ box.innerHTML='<div class="empty">先在顶部「＋申请」建立一个矿证申请</div>'; $('progTxt').textContent='0/0'; $('pfill').style.width='0'; return; }
   const defs=DOC_DEFS[a.type]||[];
-  let req=defs.filter(d=>d[3]!=='C'), done=req.filter(d=>(a.docs[d[0]]?.status||0)>=1).length;
+  let req=defs.filter(d=>d[3]!=='C'), done=req.filter(d=>effDoc(a,d[0],d[3]).d.status>=1).length;
   $('progTxt').textContent=`${done}/${req.length}`;
   $('pfill').style.width=(req.length?done/req.length*100:0)+'%';
   let html='', lastCat='';
   for(const d of defs){
     const [key,en,cn,cat,exp]=d;
-    if(cat!==lastCat){ lastCat=cat; html+=`<h3 style="margin:10px 0 2px">${cat==='A'?'A 类 · 公司基础材料':cat==='B'?'B 类 · 支持性文件':'C · 可选/兜底'}</h3>`; }
-    const st=a.docs[key]||{status:0,fileName:'',mediaKey:'',expiry:'',note:''};
+    if(cat!==lastCat){ lastCat=cat; html+=`<h3 style="margin:10px 0 2px">${cat==='A'?'A 类 · 公司基础材料（可在公司档一次上传复用）':cat==='B'?'B 类 · 支持性文件':'C · 可选/兜底'}</h3>`; }
+    const eff=effDoc(a,key,cat), st=eff.d;
     html+=`<div class="doc">
       <button class="chip s${st.status}" onclick="cycleStatus('${key}')">${ST_TXT[st.status]}</button>
       <div class="doc-body">
-        <div class="doc-name">${en}</div>
+        <div class="doc-name">${en} ${eff.src==='co'?'<span style="font-size:11px;color:var(--primary);font-weight:700">公司档</span>':''}</div>
         <div class="doc-cn">${cn}</div>
         <div class="doc-meta">
           <a href="javascript:void(0)" onclick="pickFile('${key}')">📎 ${st.fileName?esc(st.fileName):'上传文件'}</a>
@@ -405,10 +431,11 @@ function cycleStatus(key){
   st.status=(st.status+1)%4; persist(); renderDocs();
 }
 function setDoc(key,f,v){ const a=curApp(); a.docs[key][f]=v; persist(); }
-function pickFile(key){ uploadDocKey=key; $('filePick').click(); }
+let uploadScope='app';
+function pickFile(key, scope){ uploadDocKey=key; uploadScope=scope||'app'; $('filePick').click(); }
 $('filePick').addEventListener('change', async e=>{
   const f=e.target.files[0]; e.target.value=''; if(!f||!uploadDocKey) return;
-  const a=curApp(), key=uploadDocKey;
+  const a=curApp(), co=curCo(), key=uploadDocKey;
   toast('上传中…');
   try{
     // 走 Worker /upload 代传 R2，避开 file:// 源被 R2 CORS 拦截
@@ -416,9 +443,15 @@ $('filePick').addEventListener('change', async e=>{
     const r=await fetch(API+'/upload',{method:'POST',body:fd});
     const j=await r.json();
     if(!j.ok||!j.key) throw new Error(j.error||('HTTP '+r.status));
-    a.docs[key].fileName=f.name; a.docs[key].mediaKey=j.key;
-    if(a.docs[key].status===0) a.docs[key].status=1;
-    persist(); renderDocs(); toast('已上传');
+    if(uploadScope==='co'&&co){
+      if(!co.docs) co.docs={};
+      co.docs[key]={...(co.docs[key]||{}),fileName:f.name,mediaKey:j.key,status:1};
+      persist(); renderCo(); toast('已上传到公司档');
+    }else{
+      a.docs[key].fileName=f.name; a.docs[key].mediaKey=j.key;
+      if(a.docs[key].status===0) a.docs[key].status=1;
+      persist(); renderDocs(); toast('已上传');
+    }
   }catch(err){ toast('上传失败：'+err.message); }
 });
 
@@ -452,9 +485,29 @@ function renderCo(){
     <button class="btn sm ghost" onclick="addPerson('directors')">＋董事</button>
     <h3>股东 Shareholders（赞方合计 <b id="zmPct">${zmPct.toFixed(1)}%</b>）</h3><div id="shList"></div>
     <button class="btn sm ghost" onclick="addPerson('shareholders')">＋股东</button>
-    <div class="tipbox" style="margin-top:10px">SEL 要求赞比亚人持股 ≥5%；AMR 仅限公民个人或纯公民合作社持有，公司主体不可申请。</div>`;
-  renderPersons();
+    <div class="row" style="margin-top:8px"><div style="flex:1"><label>已持有矿证数（同一主体上限 5 个）</label>
+    <input type="number" min="0" value="${c.heldLicences||0}" onchange="coSet('heldLicences',+this.value||0)"></div>
+    <div style="flex:1"><label>在办申请数</label><input value="${S.apps.filter(x=>x.companyId===c.id).length} 个" disabled></div></div>
+    <h3>公司基础文件（一次上传，名下申请自动引用）</h3><div id="coDocs"></div>
+    <div class="tipbox" style="margin-top:10px">SEL 要求赞比亚人持股 ≥5%；AMR 仅限公民个人或纯公民合作社持有，公司主体不可申请；同一公司最多持有 5 个矿权。</div>`;
+  renderPersons(); renderCoDocs();
 }
+function renderCoDocs(){
+  const c=curCo(); if(!c) return;
+  if(!c.docs) c.docs={};
+  $('coDocs').innerHTML=CO_DOCS.map(([key,en,cn,exp])=>{
+    const d=c.docs[key]||{};
+    return `<div class="doc"><button class="chip ${d.mediaKey?'s1':'s0'}">${d.mediaKey?'已收':'缺'}</button>
+      <div class="doc-body"><div class="doc-name">${en}</div><div class="doc-cn">${cn}</div>
+      <div class="doc-meta">
+        <a href="javascript:void(0)" onclick="pickFile('${key}','co')">📎 ${d.fileName?esc(d.fileName):'上传'}</a>
+        ${d.mediaKey?`<a href="${API}/media?key=${d.mediaKey}" target="_blank">查看</a>`:''}
+        ${exp?`到期 <input type="date" value="${d.expiry||''}" onchange="coDocSet('${key}','expiry',this.value)">`:''}
+        <input class="note" placeholder="备注" value="${esc(d.note||'')}" onchange="coDocSet('${key}','note',this.value)">
+      </div></div></div>`;
+  }).join('');
+}
+function coDocSet(k,f,v){ const c=curCo(); if(!c.docs)c.docs={}; c.docs[k]={...(c.docs[k]||{}),[f]:v}; persist(); }
 function coSet(k,v){ const c=curCo(); c[k]=v; persist(); if(k==='name')renderAppSel(); }
 function renderPersons(){
   const c=curCo(); if(!c) return;
@@ -489,7 +542,10 @@ function renderArea(){
       <option value="company" ${a.applicantKind==='company'?'selected':''}>公司</option>
       <option value="person" ${a.applicantKind==='person'?'selected':''}>公民个人</option>
       <option value="coop" ${a.applicantKind==='coop'?'selected':''}>合作社</option>
-    </select>`;
+    </select>
+    ${a.applicantKind!=='company'?`<label>申请人姓名 / 合作社名称</label><input value="${esc(a.applicantName||'')}" onchange="appSet('applicantName',this.value)">`:''}
+    <label>区域背景描述（AI 写报告的依据：矿化线索、地形交通、历史勘查、周边社区等）</label>
+    <textarea onchange="aSet('desc',this.value)" placeholder="例：区域位于绿片岩带边缘，地表见石英脉，沿走向断续出露约 2km；雨季部分低洼区积水；距最近公路 15km…">${esc(ar.desc||'')}</textarea>`;
   renderCoords(); renderAreaStats();
 }
 function aSet(k,v){ curApp().area[k]=v; persist(); }
@@ -573,15 +629,15 @@ function runReview(){
   if(!a){ box.innerHTML='<div class="empty">先建立申请</div>'; vbox.innerHTML=''; return; }
   const lic=LIC[a.type], co=appCo(a), defs=DOC_DEFS[a.type], out=[];
   const push=(ok,lv,t,d)=>out.push({lv,t,d});
-  // 1. 必传文件
+  // 1. 必传文件（含公司档继承）
   const req=defs.filter(d=>d[3]!=='C');
-  const missing=req.filter(d=>(a.docs[d[0]]?.status||0)<1);
-  const problematic=req.filter(d=>(a.docs[d[0]]?.status||0)===3);
+  const missing=req.filter(d=>effDoc(a,d[0],d[3]).d.status<1);
+  const problematic=req.filter(d=>effDoc(a,d[0],d[3]).d.status===3);
   push(0, missing.length?'fail':'ok','必传文件齐备',
     missing.length?`缺 ${missing.length} 项：${missing.map(d=>d[1]).join('、')}`:`${req.length} 项必传文件均已收到`);
   if(problematic.length) push(0,'warn','存在标记"问题"的文件', problematic.map(d=>d[1]).join('、'));
   // 2. 税务清关证有效期
-  const tax=a.docs['tax'];
+  const tax=effDoc(a,'tax','A').d;
   if(tax){ if(!tax.expiry) push(0,'warn','税务清关证未填到期日','门户要求 Valid TCC，递交前确认在有效期内');
     else if(tax.expiry<new Date().toISOString().slice(0,10)) push(0,'fail','税务清关证已过期',`到期 ${tax.expiry}`);
     else push(0,'ok','税务清关证有效',`到期 ${tax.expiry}`); }
@@ -596,6 +652,16 @@ function runReview(){
   }
   // 4. 矿种
   push(0, a.commodity?'ok':'fail','矿种 Commodity', a.commodity||'门户必选，未填');
+  if(a.commodity && RADIO_RE.test(a.commodity) && a.type!=='LEL')
+    push(0,'fail','放射性矿种限制','放射性矿产不得申请小规模/手工矿权，只能走大型勘探证');
+  // 4.5 同一主体最多 5 个矿权
+  if(a.applicantKind==='company' && co){
+    const held=+co.heldLicences||0, inProg=S.apps.filter(x=>x.companyId===co.id).length, tot=held+inProg;
+    push(0, tot>5?'fail':tot===5?'warn':'ok','同一主体矿权 ≤5 个', `${co.name}：已持有 ${held} + 在办 ${inProg} = ${tot} 个`);
+  }else if(a.applicantKind!=='company'){
+    const inProg=S.apps.filter(x=>x.applicantKind===a.applicantKind&&x.applicantName&&x.applicantName===a.applicantName).length;
+    push(0, a.applicantName?'na':'warn','同一主体矿权 ≤5 个',
+      a.applicantName?`${a.applicantName} 名下在办 ${inProg} 个；其已持有的矿证数请另行核对`:'未填申请人姓名，无法核对同主体数量');
   // 5. 坐标
   const pts=a.area.coords.filter(c=>c.trim());
   if(pts.length<3) push(0,'fail','坐标角点数量',`只有 ${pts.length} 个，至少 3 个角点（门户要求闭合地块）`);
@@ -626,6 +692,7 @@ function runReview(){
 
 /* ================= 支持性文件编写 ================= */
 const GEN_DOCS={
+  form:{name:'Application Form I — Information Sheet',cn:'Form I 申请信息页（辅助填官方表）'},
   prog:{name:'Proposed Programme of Exploration Operations',cn:'勘探工作计划'},
   progm:{name:'Proposed Programme of Mining Operations',cn:'采矿作业计划'},
   env:{name:'Environmental Commitment Plan',cn:'环境承诺计划'},
@@ -653,15 +720,38 @@ function genCtx(){
   const a=curApp(), co=appCo(a), lic=a?LIC[a.type]:null;
   const units=a?(a.area.units??gridUnits()?.units??null):null;
   return {a,co,lic,units,
-    coName:co?co.name:'[Company Name]',
+    coName:co?co.name:(a?.applicantName||'[Applicant Name]'),
+    regNo:co?co.regNo||'[PACRA No.]':'', coAddr:co?co.address||'[Registered Office]':'',
     licEn:lic?lic.en:'',
     areaName:a?.area.name||'[Area Name]', prov:a?.area.province||'[Province]', dist:a?.area.district||'[District]',
-    commodity:a?.commodity||'[Commodity]',
+    commodity:a?.commodity||'[Commodity]', desc:a?.area.desc||'',
+    coordsTxt:a&&a.area.coords.filter(c=>c.trim()).length?a.area.coords.filter(c=>c.trim()).join(' ; '):'[coordinates]',
     areaTxt:units?`${units} cadastre units (approx. ${(units*UNIT_HA).toFixed(0)} hectares)`:'[area]',
     invest:a?.params.investUsd||'[amount]',years:a?.params.years||'4',staff:a?.params.staff||'[number]',cit:a?.params.citizenPct||'90'};
 }
 function tpl(key){
   const x=genCtx(), D=new Date().toISOString().slice(0,10);
+  if(key==='form') return `FORM I — APPLICATION INFORMATION SHEET
+(for transfer to the official prescribed form)
+
+Applicant: ${x.coName}
+${x.regNo?`PACRA Registration No.: ${x.regNo}\n`:''}${x.coAddr?`Registered Office: ${x.coAddr}\n`:''}Licence type applied for: ${x.licEn}
+Commodity/ies applied for: ${x.commodity}
+
+AREA APPLIED FOR
+Area name: ${x.areaName}
+District / Province: ${x.dist} / ${x.prov}
+Chief / Landowner: ${x.a?.area.chief||'—'}
+Size: ${x.areaTxt}
+Coordinate datum: GCS Arc 1950
+Corner coordinates:
+${x.coordsTxt}
+
+DECLARATION
+The applicant confirms that the information given herein is correct, that the area applied for does not overlap an existing mining right or mineral processing licence, and that the applicant has the financial resources and technical ability to carry out the proposed programme.
+
+Name: ____________________  Title: ____________________
+Signature: ____________________  Date: ${D}`;
   if(key==='prog') return `PROPOSED PROGRAMME OF EXPLORATION OPERATIONS
 ${x.coName}
 Application for a ${x.licEn} — ${x.areaName}, ${x.dist} District, ${x.prov} Province, Zambia
@@ -805,7 +895,7 @@ async function genFromAI(){
   const prompt=`Draft the document "${GEN_DOCS[key].name}" for a mining rights application in Zambia.
 
 Facts:
-- Applicant/company: ${x.coName}
+- Applicant/company: ${x.coName}${x.regNo?(' (PACRA '+x.regNo+')'):''}${x.coAddr?(', registered office: '+x.coAddr):''}
 - Licence type: ${x.licEn}
 - Area: ${x.areaName}, ${x.dist} District, ${x.prov} Province, Zambia
 - Area size: ${x.areaTxt}
@@ -815,8 +905,9 @@ Facts:
 ${x.a.params.localNote?('- Local business notes: '+x.a.params.localNote):''}
 ${x.a.params.phases?('- Work phases: '+x.a.params.phases):''}
 ${x.a.area.chief?('- Chief/landowner: '+x.a.area.chief):''}
+${x.desc?('- Area background (use this to make the document specific, do NOT copy it verbatim): '+x.desc):''}
 
-Requirements: official tone, numbered sections, include a signature block, comply with the document's purpose under the Mines and Minerals framework (environmental documents must cover pollution prevention, waste, land & water protection and reclamation).`;
+Requirements: official tone, numbered sections, include a signature block, tailor content to the area facts above (do not produce a generic boilerplate), comply with the document's purpose under the Mines and Minerals framework (environmental documents must cover pollution prevention, waste, land & water protection and reclamation).`;
   try{
     const r=await api({action:'draft',prompt,system:sys});
     if(r&&r.ok&&r.text){ $('genOut').value=r.text; $('genVia').textContent='AI · '+(r.via||''); }
@@ -826,6 +917,18 @@ Requirements: official tone, numbered sections, include a signature block, compl
 }
 function saveDraft(){ const a=curApp(); if(!a)return toast('先建立申请'); a.drafts[$('genSel').value]=$('genOut').value; persist(); toast('已存入申请'); }
 function copyDraft(){ navigator.clipboard.writeText($('genOut').value).then(()=>toast('已复制')); }
+function printDraft(){
+  const key=$('genSel').value, text=$('genOut').value;
+  if(!text.trim()) return toast('文稿为空');
+  const w=window.open('','_blank');
+  if(!w) return toast('浏览器拦截了弹窗，请允许弹窗后重试');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(GEN_DOCS[key].name)}</title>
+<style>@page{size:A4;margin:2.2cm 2.4cm}
+body{font-family:'Times New Roman',Georgia,serif;font-size:12pt;line-height:1.65;color:#000}
+pre{white-space:pre-wrap;word-wrap:break-word;font-family:inherit;font-size:12pt;margin:0}</style></head>
+<body><pre>${esc(text)}</pre><scr`+`ipt>window.onload=()=>setTimeout(()=>window.print(),300)</scr`+`ipt></body></html>`);
+  w.document.close();
+}
 function exportDoc(){
   const key=$('genSel').value, text=$('genOut').value;
   if(!text.trim()) return toast('文稿为空');
