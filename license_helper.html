@@ -599,6 +599,7 @@ function renderDocs(){
           ${st.mediaKey?`<a href="javascript:void(0)" onclick="viewFile('${st.mediaKey}','${jsq(st.fileName||'文件')}')" title="${esc(st.fileName||'')}">${esc(st.fileName||'查看')}</a>`:''}
           ${st.srcPath?`<a href="javascript:void(0)" onclick="openSrcDir('${jsq(st.srcPath)}')" title="打开来源文件夹">${'📁'}</a>`:''}
           ${docDate(st)?`<span class="muted" style="font-size:11px">传于 ${docDate(st)}</span>`:''}
+          ${key==='form'?`<a href="javascript:void(0)" onclick="genForm1()" style="color:var(--success);font-weight:700">🧾 生成 Form I</a>`:''}
           ${d[5]?`<a href="javascript:void(0)" onclick="jumpWrite('${d[5]}')" style="color:${(a.drafts[d[5]]||'').trim()?'var(--success)':'var(--muted)'}">${(a.drafts[d[5]]||'').trim()?'✍️ 文稿✓':'✍️ 编写'}</a>`:''}
           ${exp?`到期 <input type="date" value="${st.expiry||''}" onchange="setDoc('${key}','expiry',this.value)">`:''}
           <input class="note" placeholder="备注" value="${esc(st.note||'')}" onchange="setDoc('${key}','note',this.value)">
@@ -1608,6 +1609,109 @@ function makeZip(entries){
   eo.setUint32(0,0x06054b50,true);eo.setUint16(8,cds.length/2,true);eo.setUint16(10,cds.length/2,true);
   eo.setUint32(12,cdSize,true);eo.setUint32(16,off,true);
   return new Blob([...parts,...cds,eo.buffer],{type:'application/zip'});
+}
+
+/* ================= Form I 申请表生成（docx 模板填充，版式=官方原件） ================= */
+const FORM1_TPL='media/1791922150246_l63ne6.docx';
+// 解压 docx（zip 阅读器：store+deflate）
+async function unzipDocx(buf){
+  const dv=new DataView(buf), u8=new Uint8Array(buf), dec=new TextDecoder();
+  let eocd=-1;
+  for(let i=u8.length-22;i>=0;i--){ if(dv.getUint32(i,true)===0x06054b50){eocd=i;break;} }
+  if(eocd<0) throw new Error('不是 zip/docx');
+  const n=dv.getUint16(eocd+10,true), cdOff=dv.getUint32(eocd+16,true);
+  const out={};
+  for(let i=0;i<n;i++){
+    const p=cdOff+ (i? 0:0); // 遍历中央目录
+  }
+  let p=cdOff;
+  for(let i=0;i<n;i++){
+    if(dv.getUint32(p,true)!==0x02014b50) break;
+    const method=dv.getUint16(p+10,true), csz=dv.getUint32(p+20,true), nl=dv.getUint16(p+28,true), el=dv.getUint16(p+30,true), cl=dv.getUint16(p+32,true), off=dv.getUint32(p+42,true);
+    const name=dec.decode(u8.slice(p+46,p+46+nl));
+    const lh=off, lnl=dv.getUint16(lh+26,true), lel=dv.getUint16(lh+28,true);
+    const comp=u8.slice(lh+30+lnl+lel, lh+30+lnl+lel+csz);
+    if(method===0) out[name]=comp;
+    else if(method===8){
+      const ds=new DecompressionStream('deflate-raw');
+      const st=new Blob([comp]).stream().pipeThrough(ds);
+      out[name]=new Uint8Array(await new Response(st).arrayBuffer());
+    }
+    p+=46+nl+el+cl;
+  }
+  return out;
+}
+const xmlEsc2=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function dmsParts(str){ // '13°24'36"S' → {d,m,s}
+  const c=parseCoord(str); if(!c) return null;
+  const t=c.totSec; return {d:Math.floor(t/3600), m:Math.floor((t%3600)/60), s:t%60};
+}
+// 占位符映射：公司档 + 申请数据
+function form1Values(a){
+  const co=appCo(a)||{};
+  const sh=(co.shareholders||[]);
+  const dir=(co.directors&&co.directors.length?co.directors:sh); // 董事缺省=股东
+  const zm=sh.find(s=>/ZAMBIA/i.test(s.nationality||''));
+  const v={
+    MINERALS:a.commodity||'', APPLICANT:co.name||a.applicantName||'', ADDR:co.address||'',
+    TEL:co.phone||'/', MOBILE:co.phone||'/', FAX:'/', EMAIL:co.email||'',
+    REGNO:co.regNo||'', DOB:'', NAT:'', IDNO:'',
+    PROVINCE:a.area.province||'', DISTRICT:a.area.district||'', LOCALITY:a.area.name||a.area.locRaw||'',
+    SIZEKM2:a.area.km2||'', FEE:'', SIGN_NAME:(co.ceo||sh[0]?.name||''),
+    Q12A:'No', Q12B:'No', Q13A:'No',
+  };
+  for(let i=1;i<=5;i++){ const s=sh[i-1]; v[`SH${i}_N`]=s?s.name:''; v[`SH${i}_S`]=s?s.amount:''; v[`SH${i}_NA`]=s?s.nationality:''; v[`SH${i}_ID`]=s?s.idNo||'':''; }
+  for(let i=1;i<=5;i++){ const s=dir[i-1]; v[`DIR${i}_N`]=s?s.name:''; v[`DIR${i}_S`]=s?(s.amount??''):''; v[`DIR${i}_NA`]=s?s.nationality:''; v[`DIR${i}_ID`]=s?s.idNo||'':''; }
+  v.CEO_N=co.ceo||sh[0]?.name||''; v.CEO_NA=co.ceoNat||sh[0]?.nationality||'';
+  v.SEC_N=co.secretary||zm?.name||''; v.SEC_NA=co.secNat||zm?.nationality||'';
+  for(let i=1;i<=6;i++){ ['CUR','PREV','SUB','FRN'].forEach(p=>{v[`${p}${i}_NO`]='';v[`${p}${i}_LOC`]='';v[`${p}${i}_AR`]='';}); }
+  if(a.area.prevLic){ v.PREV1_NO=a.area.prevLic; v.PREV1_LOC=a.area.locRaw||''; v.PREV1_AR=a.area.km2||''; }
+  else v.PREV1_NO='None';
+  v.CUR1_NO='None'; v.SUB1_NO='None'; v.FRN1_NO='None';
+  for(let i=1;i<=4;i++){['LIC','LOC','AR','DT'].forEach(s=>v[`HIST${i}_${s}`]='');}
+  // 角点：V1,V2=纬D; V3,V4=纬M; V5,V6=纬S; V7..V12=经DMS（每值只占首格）
+  for(let i=1;i<=12;i++){ for(let j=1;j<=12;j++) v[`C${i}_V${j}`]=''; }
+  (a.area.coords||[]).filter(c=>String(c).trim()).slice(0,12).forEach((c,i)=>{
+    const lat=dmsParts(c.lat??c[0]??c), lng=dmsParts(c.lng??c[1]??c);
+    if(lat){v[`C${i+1}_V1`]=lat.d; v[`C${i+1}_V3`]=lat.m; v[`C${i+1}_V5`]=lat.s;}
+    if(lng){v[`C${i+1}_V7`]=lng.d; v[`C${i+1}_V9`]=lng.m; v[`C${i+1}_V11`]=lng.s;}
+  });
+  return v;
+}
+function form1Checks(a){ // 勾选标记：type+scale
+  const chk={};
+  const T=a.type;
+  chk.CB_EXPLORE = T==='LEL'||T==='SEL';
+  chk.CB_MINING  = T==='AMR';
+  chk.CB_EXPL_LARGE = T==='LEL'; chk.CB_EXPL_SMALL = T==='SEL';
+  chk.CB_MINE_LARGE = false; chk.CB_MINE_SMALL=false; chk.CB_ARTISANAL = T==='AMR';
+  chk.CB_INDIV = a.applicantKind==='person'; chk.CB_COOP = a.applicantKind==='coop';
+  chk.CB_EXPL_ACT = T==='LEL'||T==='SEL'; chk.CB_MINE_ACT = T==='AMR';
+  chk.CB_PENDING=true;
+  return chk;
+}
+async function genForm1(){
+  const a=curApp(); if(!a) return toast('先选择申请');
+  const co=appCo(a);
+  toast('正在生成 Form I…');
+  try{
+    const r=await fetch(`${API}/media?key=${FORM1_TPL}`);
+    if(!r.ok) throw new Error('模板下载失败 '+r.status);
+    const files=await unzipDocx(await r.arrayBuffer());
+    let xml=new TextDecoder().decode(files['word/document.xml']);
+    const vals=form1Values(a), chk=form1Checks(a);
+    // 勾选：整 run 替换成 Symbol F0D6（选中）或清空
+    xml=xml.replace(/<w:r>(?:(?!<\/w:r>)[\s\S])*\{\{(CB_\w+)\}\}(?:(?!<\/w:r>)[\s\S])*<\/w:r>/g,
+      (m,k)=>chk[k]?'<w:r><w:rPr><w:rFonts w:ascii="宋体" w:eastAsia="宋体" w:hAnsi="宋体"/><w:b/><w:sz w:val="18"/></w:rPr><w:sym w:font="Symbol" w:char="F0D6"/></w:r>':'<w:r><w:t></w:t></w:r>');
+    // 文本占位符
+    xml=xml.replace(/\{\{([A-Z0-9_]+)\}\}/g,(m,k)=>xmlEsc2(vals[k]??''));
+    files['word/document.xml']=new TextEncoder().encode(xml);
+    const entries=Object.entries(files).map(([name,data])=>({name,data}));
+    const blob=makeZip(entries);
+    const fname=`Duly Filled in Application Form - ${(a.label||'app').replace(/[^\w\s.-]/g,'')}.docx`;
+    downloadBlob(blob,fname);
+    toast('Form I 已生成（docx，版式与官方一致）。用 Word/WPS 打开另存为 PDF 即可递交');
+  }catch(e){ toast('生成失败：'+e.message); }
 }
 function exportDoc(){
   const key=$('genSel').value, text=$('genOut').value;
