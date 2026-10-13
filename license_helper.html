@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="zh-CN" translate="no">
+<head>
+<meta charset="UTF-8">
+<meta name="google" content="notranslate">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>矿权申请助手</title>
+<meta name="theme-color" content="#2563eb">
+<style>
+  :root {
+    --primary:#2563eb; --primary-dark:#1d4ed8; --primary-light:#eff6ff;
+    --success:#16a34a; --warning:#f59e0b; --danger:#dc2626;
+    --gray:#6b7280; --light:#f3f4f6; --border:#e5e7eb;
+    --card:#ffffff; --text:#1f2937; --muted:#64748b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;
+    background:var(--light);color:var(--text);line-height:1.55;font-size:15px}
+  .header{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;
+    padding:12px 16px;position:sticky;top:0;z-index:101;display:flex;align-items:center;gap:10px;
+    box-shadow:0 2px 8px rgba(0,0,0,.1)}
+  .header h1{font-size:1.05rem;font-weight:700;flex:1}
+  .syncdot{width:10px;height:10px;border-radius:50%;background:#4ade80;flex:0 0 10px}
+  .syncdot.off{background:#f87171}.syncdot.busy{background:#fbbf24;animation:bl 1s infinite}
+  @keyframes bl{50%{opacity:.3}}
+  .appsel{background:#fff;padding:10px 14px;border-bottom:1px solid var(--border);
+    display:flex;align-items:center;gap:8px;overflow-x:auto}
+  .appsel select{flex:1;min-width:0;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:#fff}
+  .licbadge{font-size:12px;font-weight:700;color:#fff;background:var(--primary);border-radius:6px;padding:2px 8px;white-space:nowrap}
+  main{padding:12px;padding-bottom:84px;max-width:760px;margin:0 auto}
+  .card{background:var(--card);border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  .card h2{font-size:1rem;margin-bottom:8px}
+  .card h3{font-size:.9rem;color:var(--muted);margin:12px 0 6px}
+  .muted{color:var(--muted);font-size:13px}
+  .row{display:flex;gap:8px;align-items:center}
+  .row>*{min-width:0}
+  input,select,textarea{width:100%;padding:9px 10px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:#fff;color:var(--text);font-family:inherit}
+  textarea{min-height:90px;resize:vertical}
+  label{display:block;font-size:12px;color:var(--muted);margin:8px 0 3px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;
+    padding:9px 14px;border:none;border-radius:8px;font-size:14px;cursor:pointer;
+    background:var(--primary);color:#fff;min-height:40px;white-space:nowrap}
+  .btn:active{opacity:.85}
+  .btn.ghost{background:#fff;color:var(--primary);border:1px solid var(--primary)}
+  .btn.sm{padding:6px 10px;font-size:13px;min-height:34px}
+  .btn.gray{background:var(--gray)}
+  .btn.green{background:var(--success)}
+  .btn.warn{background:var(--warning)}
+  .btn.danger{background:var(--danger)}
+  .btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  /* 文档行 */
+  .doc{display:flex;align-items:flex-start;gap:10px;padding:11px 0;border-bottom:1px solid var(--border)}
+  .doc:last-child{border-bottom:none}
+  .doc-body{flex:1;min-width:0}
+  .doc-name{font-size:14px;font-weight:600}
+  .doc-cn{font-size:12px;color:var(--muted)}
+  .doc-meta{font-size:12px;color:var(--muted);margin-top:3px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .doc-meta a{color:var(--primary)}
+  .chip{flex:0 0 auto;min-width:58px;text-align:center;font-size:12px;font-weight:700;
+    border-radius:14px;padding:5px 10px;border:none;cursor:pointer}
+  .chip.s0{background:#f3f4f6;color:var(--gray)}
+  .chip.s1{background:#fef3c7;color:#92400e}
+  .chip.s2{background:#dcfce7;color:#166534}
+  .chip.s3{background:#fee2e2;color:#991b1b}
+  .doc input[type=date]{width:auto;padding:4px 6px;font-size:12px}
+  .doc input.note{width:130px;padding:4px 6px;font-size:12px}
+  /* 进度条 */
+  .pbar{height:8px;background:var(--border);border-radius:4px;overflow:hidden;margin-top:8px}
+  .pfill{height:100%;background:var(--success);width:0;transition:width .3s}
+  /* tabs */
+  .tabs{background:#fff;border-top:1px solid var(--border);position:fixed;bottom:0;left:0;right:0;z-index:100;
+    padding-bottom:env(safe-area-inset-bottom,0)}
+  .tabs-inner{display:flex;padding:6px 4px}
+  .tab{flex:1;padding:9px 2px;border:none;background:transparent;font-size:.85rem;color:var(--gray);
+    cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;border-radius:10px}
+  .tab .ti{font-size:1.1rem}
+  .tab.active{color:var(--primary);font-weight:700;background:var(--primary-light)}
+  .pane{display:none}.pane.active{display:block}
+  /* 人员列表 */
+  .person{display:flex;gap:6px;align-items:center;padding:7px 0;border-bottom:1px dashed var(--border);flex-wrap:wrap}
+  .person input{flex:1;min-width:80px;padding:6px 8px;font-size:13px}
+  .person .pct{max-width:64px}
+  .person .del{flex:0 0 auto;background:none;border:none;color:var(--danger);font-size:18px;cursor:pointer;padding:4px}
+  /* 审查 */
+  .chk{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);align-items:flex-start}
+  .chk:last-child{border-bottom:none}
+  .chk-ic{flex:0 0 22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    color:#fff;font-size:13px;font-weight:700;margin-top:1px}
+  .chk-ic.ok{background:var(--success)}.chk-ic.warn{background:var(--warning)}.chk-ic.fail{background:var(--danger)}.chk-ic.na{background:var(--gray)}
+  .chk-t{font-size:14px;font-weight:600}
+  .chk-d{font-size:12.5px;color:var(--muted)}
+  .verdict{padding:12px;border-radius:10px;font-weight:700;text-align:center;margin-top:10px}
+  .verdict.ok{background:#dcfce7;color:#166534}
+  .verdict.warn{background:#fef3c7;color:#92400e}
+  .verdict.fail{background:#fee2e2;color:#991b1b}
+  /* 坐标 */
+  .coord{display:flex;gap:6px;align-items:center;margin-bottom:6px}
+  .coord input{flex:1;padding:7px 8px;font-size:13px;font-family:ui-monospace,Consolas,monospace}
+  .coord .del{flex:0 0 auto;background:none;border:none;color:var(--danger);font-size:17px;cursor:pointer;padding:4px}
+  .coord .bad{flex:0 0 auto;color:var(--danger);font-size:11px}
+  .stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:8px}
+  .stat{background:var(--light);border-radius:8px;padding:8px 10px}
+  .stat .v{font-size:17px;font-weight:700}
+  .stat .k{font-size:11.5px;color:var(--muted)}
+  .empty{text-align:center;color:var(--muted);padding:40px 0;font-size:14px}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;display:none;
+    align-items:flex-end;justify-content:center}
+  .modal.show{display:flex}
+  .sheet{background:#fff;border-radius:14px 14px 0 0;width:100%;max-width:560px;padding:18px;max-height:86vh;overflow-y:auto}
+  .sheet h3{font-size:1rem;margin-bottom:10px}
+  .toast{position:fixed;left:50%;bottom:92px;transform:translateX(-50%);background:#111827;color:#fff;
+    padding:9px 18px;border-radius:20px;font-size:13px;z-index:300;display:none;white-space:nowrap}
+  .banner{background:#fef3c7;color:#92400e;font-size:12.5px;padding:7px 14px;border-bottom:1px solid #fde68a;display:none}
+  .banner.show{display:block}
+  .tipbox{background:var(--primary-light);border-radius:8px;padding:9px 12px;font-size:12.5px;color:#1e40af;margin-bottom:10px}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>矿权申请助手</h1>
+  <span class="syncdot" id="syncdot" title="同步状态"></span>
+</div>
+<div class="banner" id="offlineBanner">离线模式：数据只存在本机，联网后点右上角同步</div>
+<div class="appsel">
+  <select id="appSel" onchange="onAppSel()"></select>
+  <span class="licbadge" id="licBadge">—</span>
+  <button class="btn sm" onclick="newApp()">＋申请</button>
+</div>
+
+<main>
+<!-- ============ 清单 ============ -->
+<div class="pane active" id="p-docs">
+  <div class="tipbox">清单按 portal.miningcadastre.com 各证型上传栏整理。点状态圆片：缺 → 已收 → 已核 → 问题。<b>A 类 = 公司基础材料，B 类 = 支持性文件，C = 可选/兜底</b>。</div>
+  <div class="card">
+    <div class="row"><h2 style="flex:1">材料清单</h2><span class="muted" id="progTxt">0/0</span></div>
+    <div class="pbar"><div class="pfill" id="pfill"></div></div>
+    <div id="docList"></div>
+  </div>
+</div>
+
+<!-- ============ 公司 ============ -->
+<div class="pane" id="p-co">
+  <div class="card">
+    <div class="row"><h2 style="flex:1">公司档案</h2>
+      <select id="coSel" style="max-width:170px" onchange="onCoSel()"></select>
+      <button class="btn sm ghost" onclick="newCo()">＋公司</button>
+    </div>
+    <div id="coForm"></div>
+  </div>
+</div>
+
+<!-- ============ 区域 ============ -->
+<div class="pane" id="p-area">
+  <div class="card" id="areaCard"></div>
+  <div class="card">
+    <h2>坐标点（GCS_Arc1950）</h2>
+    <div class="muted" style="margin-bottom:8px">格式：<code>13°24'36"S</code> 或 <code>-13.410000</code>；经纬度按秒须能被 6 整除；形状不得跨越地籍网格线。</div>
+    <div id="coordList"></div>
+    <div class="btnrow">
+      <button class="btn sm ghost" onclick="addCoord()">＋角点</button>
+      <button class="btn sm ghost" onclick="pasteCoords()">批量粘贴</button>
+    </div>
+  </div>
+  <div class="card">
+    <h2>面积核算</h2>
+    <div class="stat-grid" id="areaStats"></div>
+    <label>实际申请地籍单位数（如为非矩形按网格数手填）</label>
+    <input id="unitsInput" type="number" min="0" oninput="onUnits()">
+  </div>
+</div>
+
+<!-- ============ 审查 ============ -->
+<div class="pane" id="p-review">
+  <div class="card">
+    <div class="row"><h2 style="flex:1">递交前审查</h2><button class="btn sm" onclick="runReview()">运行检查</button></div>
+    <div id="reviewList"><div class="empty">点「运行检查」生成审查结果</div></div>
+    <div id="verdict"></div>
+  </div>
+</div>
+
+<!-- ============ 编写 ============ -->
+<div class="pane" id="p-write">
+  <div class="card">
+    <h2>支持性文件编写</h2>
+    <label>选择文件</label>
+    <select id="genSel" onchange="renderGen()"></select>
+    <div id="genParams"></div>
+    <div class="btnrow">
+      <button class="btn sm ghost" onclick="genFromTemplate()">模板生成</button>
+      <button class="btn sm" id="aiBtn" onclick="genFromAI()">AI 编写</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="row"><h2 style="flex:1">文稿</h2><span class="muted" id="genVia"></span></div>
+    <textarea id="genOut" style="min-height:280px;font-family:ui-monospace,Consolas,monospace;font-size:13px"></textarea>
+    <div class="btnrow">
+      <button class="btn sm green" onclick="saveDraft()">存入申请</button>
+      <button class="btn sm ghost" onclick="copyDraft()">复制</button>
+      <button class="btn sm ghost" onclick="exportDoc()">导出 .doc</button>
+    </div>
+  </div>
+</div>
+</main>
+
+<div class="tabs"><div class="tabs-inner">
+  <button class="tab active" data-p="p-docs" onclick="go(this)"><span class="ti">📋</span>清单</button>
+  <button class="tab" data-p="p-co" onclick="go(this)"><span class="ti">🏢</span>公司</button>
+  <button class="tab" data-p="p-area" onclick="go(this)"><span class="ti">📐</span>区域</button>
+  <button class="tab" data-p="p-review" onclick="go(this)"><span class="ti">✅</span>审查</button>
+  <button class="tab" data-p="p-write" onclick="go(this)"><span class="ti">✍️</span>编写</button>
+</div></div>
+
+<div class="modal" id="modal"><div class="sheet" id="sheet"></div></div>
+<div class="toast" id="toast"></div>
+<input type="file" id="filePick" style="display:none" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.zip,.xlsx,.csv">
+
+<script>
+/* ================= 常量 ================= */
+// 部署后经门户访问 = 同源调用（中国团队走 mine.ecoboxmine.com，非洲团队走 workers.dev）；
+// 本地 file:// 打开时回退到绝对地址
+const API = location.protocol.startsWith('http') ? location.origin : 'https://mine-sync.frankataix.workers.dev';
+const DATA_PATH = 'data/license_apps.json';
+const UNIT_HA = 3.34;
+
+const LIC = {
+  LEL: { name:'大型勘探证', en:'Large Scale Exploration Licence', minU:301, maxU:59880, fee:3000, valid:'4 年' },
+  SEL: { name:'小型勘探证', en:'Small Scale Exploration Licence', minU:3,   maxU:300,   fee:900,  valid:'4 年' },
+  AMR: { name:'手工采矿权', en:'Artisanal Mining Right',          minU:1,   maxU:2,     fee:900,  valid:'2 年' },
+};
+
+// [key, portal英文名, 中文说明, 类别A/B/C, 需有效期, 可编写key]
+const DOC_DEFS = {
+  LEL: [
+    ['inc',  'Certificate of Incorporation', 'PACRA 公司注册证', 'A'],
+    ['cap',  'Certificate of Share Capital', '股本证书', 'A'],
+    ['art',  'Articles of Association', '公司章程', 'A'],
+    ['pacra','PACRA Print Out OR Form 2 or 3', 'PACRA 登记打印件 / Form 2/3', 'A'],
+    ['iddir','Identity of Directors', '董事身份证明（NRC/护照）', 'A'],
+    ['tax',  'Valid Tax Clearance Certificate', 'ZRA 税务清关证', 'A', 1],
+    ['form', 'Duly Filled in Application Form', '签署版申请表 Form I', 'A'],
+    ['prog', 'Proposed Programme of Exploration Operations', '勘探工作计划（含投资承诺额）', 'B', 0, 'prog'],
+    ['env',  'Environmental Management / Commitment Plan', '环境管理/承诺计划', 'B', 0, 'env'],
+    ['emp',  'Proposals for Employment and Training of Citizens of Zambia', '公民雇用与培训方案', 'B', 0, 'emp'],
+    ['local','Proposals for Promotion of Local Business Development', '本地商业促进方案', 'B', 0, 'local'],
+    ['add',  'Additional Portal Document', '补充文件（可选）', 'C'],
+  ],
+  SEL: [
+    ['inc',  'Certificate of Incorporation', 'PACRA 公司注册证', 'A'],
+    ['cap',  'Certificate of Share Capital', '股本证书', 'A'],
+    ['art',  'Articles of Association', '公司章程', 'A'],
+    ['pacra','PACRA Print Out OR Form 2 or 3', 'PACRA 登记打印件 / Form 2/3', 'A'],
+    ['idsh', 'Identity of Directors and Shareholders', '董事及股东身份证明（含赞方股东 NRC）', 'A'],
+    ['tax',  'Valid Tax Clearance Certificate', 'ZRA 税务清关证', 'A', 1],
+    ['form', 'Duly Filled in Application Form', '签署版申请表 Form I', 'A'],
+    ['prog', 'Proposed Programme of Exploration Operations', '勘探工作计划（含投资承诺额）', 'B', 0, 'prog'],
+    ['env',  'Environmental Management / Commitment Plan', '环境管理/承诺计划', 'B', 0, 'env'],
+    ['emp',  'Proposals for Employment and Training of Citizens of Zambia', '公民雇用与培训方案', 'B', 0, 'emp'],
+    ['local','Proposals for Promotion of Local Business Development', '本地商业促进方案', 'B', 0, 'local'],
+    ['add',  'Additional Portal Document', '补充文件（可选）', 'C'],
+  ],
+  AMR: [
+    ['idapp','Identity of Applicant', '申请人身份证明（公民 NRC / 合作社文件）', 'A'],
+    ['form', 'Duly Filled in Application Form', '签署版申请表', 'A'],
+    ['tax',  'Valid Tax Clearance Certificate', '税务清关证', 'A', 1],
+    ['progm','Proposed Programme of Mining Operations', '采矿作业计划', 'B', 0, 'progm'],
+    ['env',  'Environmental Commitment Plan', '环境承诺计划', 'B', 0, 'env'],
+    ['emp',  'Proposals for Employment and Training of Citizens of Zambia', '公民雇用与培训方案', 'B', 0, 'emp'],
+    ['local','Proposals for Promotion of Local Business Development', '本地商业促进方案', 'B', 0, 'local'],
+    ['any',  'Any Further Information Which the Director May Require', '兜底补充材料', 'B'],
+    ['byl',  'Cooperative Bylaws', '合作社章程（仅合作社需要）', 'C'],
+    ['coop', 'Cooperative Registration Certificate', '合作社注册证（仅合作社需要）', 'C'],
+    ['pacra','PACRA Print Out OR Form 2 or 3', 'PACRA 登记件（可选）', 'C'],
+    ['add',  'Additional Portal Document', '补充文件（可选）', 'C'],
+  ],
+};
+const ST_TXT = ['缺','已收','已核','问题'];
+
+/* ================= 状态 ================= */
+let S = { v:1, companies:[], apps:[], updatedAt:'' };
+let curAppId = null, curCoId = null, uploadDocKey = null;
+
+function loadLocal(){
+  try { const s = JSON.parse(localStorage.getItem('license_helper') || 'null'); if (s && s.apps) S = s; } catch(e){}
+}
+function persist(){ S.updatedAt = new Date().toISOString(); localStorage.setItem('license_helper', JSON.stringify(S)); scheduleSync(); }
+loadLocal();
+
+function curApp(){ return S.apps.find(a => a.id === curAppId) || null; }
+function curCo(){ return S.companies.find(c => c.id === curCoId) || null; }
+function appCo(a){ return S.companies.find(c => c.id === (a||curApp())?.companyId) || null; }
+
+/* ================= 同步（Worker → GitHub data/） ================= */
+let syncTimer = null, online = navigator.onLine;
+function scheduleSync(){
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(syncPush, 1500);
+}
+function setDot(st){ const d = document.getElementById('syncdot'); d.className = 'syncdot' + (st==='off'?' off':st==='busy'?' busy':''); }
+async function api(body){
+  const r = await fetch(API + '/', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  return await r.json();
+}
+async function syncPush(){
+  if (!navigator.onLine) { setDot('off'); document.getElementById('offlineBanner').classList.add('show'); return; }
+  setDot('busy');
+  try {
+    const res = await api({ action:'save', path:DATA_PATH, content: JSON.stringify(S), message:'license apps update' });
+    setDot(res && res.ok ? '' : 'off');
+    document.getElementById('offlineBanner').classList.toggle('show', !(res && res.ok));
+  } catch(e){ setDot('off'); document.getElementById('offlineBanner').classList.add('show'); }
+}
+async function syncPull(){
+  if (!navigator.onLine) { setDot('off'); return; }
+  setDot('busy');
+  try {
+    const res = await api({ action:'read', path:DATA_PATH });
+    if (res && res.content) {
+      const remote = JSON.parse(res.content);
+      if (remote && remote.apps && (remote.updatedAt || '') > (S.updatedAt || '')) {
+        S = remote; persist0(); renderAll(); toast('已从云端拉取最新数据');
+      }
+    }
+    setDot('');
+  } catch(e){ setDot('off'); }
+}
+function persist0(){ localStorage.setItem('license_helper', JSON.stringify(S)); }
+window.addEventListener('online', ()=>{ document.getElementById('offlineBanner').classList.remove('show'); syncPull(); });
+window.addEventListener('offline', ()=>{ setDot('off'); document.getElementById('offlineBanner').classList.add('show'); });
+
+/* ================= 工具 ================= */
+const $ = id => document.getElementById(id);
+const esc = s => String(s||'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+function toast(t){ const el=$('toast'); el.textContent=t; el.style.display='block'; clearTimeout(el._t); el._t=setTimeout(()=>el.style.display='none',2200); }
+function openSheet(html){ $('sheet').innerHTML=html; $('modal').classList.add('show'); }
+function closeSheet(){ $('modal').classList.remove('show'); }
+$('modal').addEventListener('click', e=>{ if(e.target===$('modal')) closeSheet(); });
+
+function go(btn){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.pane').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active'); $(btn.dataset.p).classList.add('active');
+}
+
+/* ================= 申请（矿证）管理 ================= */
+function newApp(){
+  openSheet(`<h3>新建申请</h3>
+    <label>证型</label>
+    <select id="naType">${Object.keys(LIC).map(k=>`<option value="${k}">${LIC[k].name} ${LIC[k].en}</option>`).join('')}</select>
+    <label>申请名称/地块代号</label><input id="naLabel" placeholder="例：Serenje 区块 A">
+    <label>申请主体</label>
+    <select id="naCo">${S.companies.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}<option value="_new">（新建公司档案…）</option><option value="person">公民个人</option><option value="coop">合作社</option></select>
+    <label>矿种 Commodity</label><input id="naCom" placeholder="例：Tantalum, Niobium, Tin">
+    <div class="btnrow"><button class="btn" onclick="doNewApp()">创建</button><button class="btn gray" onclick="closeSheet()">取消</button></div>`);
+}
+function doNewApp(){
+  const type=$('naType').value, label=$('naLabel').value.trim()||LIC[type].name, coSel=$('naCo').value, com=$('naCom').value.trim();
+  if (coSel==='_new'){ closeSheet(); newCo(()=>newApp()); return; }
+  const app={ id:uid(), type, label, commodity:com, companyId:(coSel==='person'||coSel==='coop')?null:coSel,
+    applicantKind:(coSel==='person'?'person':coSel==='coop'?'coop':'company'),
+    area:{name:'',province:'',district:'',chief:'',coords:[],units:null,datum:'GCS_Arc1950'},
+    params:{investUsd:'',years:'',staff:'',citizenPct:'',localNote:'',phases:''},
+    docs:{}, drafts:{}, createdAt:new Date().toISOString() };
+  (DOC_DEFS[type]||[]).forEach(d=>app.docs[d[0]]={status:0,fileName:'',mediaKey:'',expiry:'',note:''});
+  S.apps.push(app); curAppId=app.id; persist(); renderAll(); closeSheet(); toast('已创建申请');
+}
+function onAppSel(){ curAppId=$('appSel').value; persist0(); renderAll(); }
+function renderAppSel(){
+  const sel=$('appSel');
+  sel.innerHTML = S.apps.length ? S.apps.map(a=>`<option value="${a.id}" ${a.id===curAppId?'selected':''}>${esc(a.label)}（${LIC[a.type].name}）</option>`).join('') : '<option value="">— 还没有申请 —</option>';
+  if (!curApp() && S.apps.length) curAppId=S.apps[0].id, sel.value=curAppId;
+  $('licBadge').textContent = curApp() ? curApp().type : '—';
+}
+
+/* ================= 清单 ================= */
+function renderDocs(){
+  const a=curApp(), box=$('docList');
+  if(!a){ box.innerHTML='<div class="empty">先在顶部「＋申请」建立一个矿证申请</div>'; $('progTxt').textContent='0/0'; $('pfill').style.width='0'; return; }
+  const defs=DOC_DEFS[a.type]||[];
+  let req=defs.filter(d=>d[3]!=='C'), done=req.filter(d=>(a.docs[d[0]]?.status||0)>=1).length;
+  $('progTxt').textContent=`${done}/${req.length}`;
+  $('pfill').style.width=(req.length?done/req.length*100:0)+'%';
+  let html='', lastCat='';
+  for(const d of defs){
+    const [key,en,cn,cat,exp]=d;
+    if(cat!==lastCat){ lastCat=cat; html+=`<h3 style="margin:10px 0 2px">${cat==='A'?'A 类 · 公司基础材料':cat==='B'?'B 类 · 支持性文件':'C · 可选/兜底'}</h3>`; }
+    const st=a.docs[key]||{status:0,fileName:'',mediaKey:'',expiry:'',note:''};
+    html+=`<div class="doc">
+      <button class="chip s${st.status}" onclick="cycleStatus('${key}')">${ST_TXT[st.status]}</button>
+      <div class="doc-body">
+        <div class="doc-name">${en}</div>
+        <div class="doc-cn">${cn}</div>
+        <div class="doc-meta">
+          <a href="javascript:void(0)" onclick="pickFile('${key}')">📎 ${st.fileName?esc(st.fileName):'上传文件'}</a>
+          ${st.mediaKey?`<a href="${API}/media?key=${st.mediaKey}" target="_blank">查看</a>`:''}
+          ${exp?`到期 <input type="date" value="${st.expiry||''}" onchange="setDoc('${key}','expiry',this.value)">`:''}
+          <input class="note" placeholder="备注" value="${esc(st.note||'')}" onchange="setDoc('${key}','note',this.value)">
+        </div>
+      </div></div>`;
+  }
+  box.innerHTML=html;
+}
+function cycleStatus(key){
+  const a=curApp(), st=a.docs[key];
+  st.status=(st.status+1)%4; persist(); renderDocs();
+}
+function setDoc(key,f,v){ const a=curApp(); a.docs[key][f]=v; persist(); }
+function pickFile(key){ uploadDocKey=key; $('filePick').click(); }
+$('filePick').addEventListener('change', async e=>{
+  const f=e.target.files[0]; e.target.value=''; if(!f||!uploadDocKey) return;
+  const a=curApp(), key=uploadDocKey;
+  toast('上传中…');
+  try{
+    // 走 Worker /upload 代传 R2，避开 file:// 源被 R2 CORS 拦截
+    const fd=new FormData(); fd.append('file', f, f.name);
+    const r=await fetch(API+'/upload',{method:'POST',body:fd});
+    const j=await r.json();
+    if(!j.ok||!j.key) throw new Error(j.error||('HTTP '+r.status));
+    a.docs[key].fileName=f.name; a.docs[key].mediaKey=j.key;
+    if(a.docs[key].status===0) a.docs[key].status=1;
+    persist(); renderDocs(); toast('已上传');
+  }catch(err){ toast('上传失败：'+err.message); }
+});
+
+/* ================= 公司档案 ================= */
+function newCo(cb){
+  openSheet(`<h3>新建公司</h3><label>公司名称（英文全称）</label><input id="ncName" placeholder="例：XXXX MINING ZAMBIA LIMITED">
+    <div class="btnrow"><button class="btn" onclick="doNewCo()">创建</button><button class="btn gray" onclick="closeSheet()">取消</button></div>`);
+  window._afterCo=cb||null;
+}
+function doNewCo(){
+  const n=$('ncName').value.trim(); if(!n) return toast('填公司名');
+  const c={id:uid(),name:n,regNo:'',regDate:'',address:'',shareCapital:'',directors:[],shareholders:[]};
+  S.companies.push(c); curCoId=c.id; persist(); closeSheet(); renderCo();
+  if(window._afterCo){ window._afterCo(); window._afterCo=null; }
+}
+function onCoSel(){ curCoId=$('coSel').value; renderCo(); }
+function renderCo(){
+  const sel=$('coSel');
+  sel.innerHTML = S.companies.length ? S.companies.map(c=>`<option value="${c.id}" ${c.id===curCoId?'selected':''}>${esc(c.name)}</option>`).join('') : '<option value="">— 无公司档案 —</option>';
+  if(!curCo()&&S.companies.length) curCoId=S.companies[0].id;
+  const c=curCo(), f=$('coForm');
+  if(!c){ f.innerHTML='<div class="empty">新建一个公司档案，信息将用于所有申请和文件编写</div>'; return; }
+  const zmPct=c.shareholders.filter(s=>/赞|zambia/i.test(s.nationality||'')).reduce((t,s)=>t+(+s.pct||0),0);
+  f.innerHTML=`
+    <label>公司名称</label><input value="${esc(c.name)}" onchange="coSet('name',this.value)">
+    <div class="row"><div style="flex:1"><label>PACRA 注册号</label><input value="${esc(c.regNo)}" onchange="coSet('regNo',this.value)"></div>
+    <div style="flex:1"><label>注册日期</label><input type="date" value="${c.regDate||''}" onchange="coSet('regDate',this.value)"></div></div>
+    <label>注册办公地址</label><input value="${esc(c.address)}" onchange="coSet('address',this.value)">
+    <label>股本 Share Capital（K）</label><input value="${esc(c.shareCapital)}" onchange="coSet('shareCapital',this.value)">
+    <h3>董事 Directors</h3><div id="dirList"></div>
+    <button class="btn sm ghost" onclick="addPerson('directors')">＋董事</button>
+    <h3>股东 Shareholders（赞方合计 <b id="zmPct">${zmPct.toFixed(1)}%</b>）</h3><div id="shList"></div>
+    <button class="btn sm ghost" onclick="addPerson('shareholders')">＋股东</button>
+    <div class="tipbox" style="margin-top:10px">SEL 要求赞比亚人持股 ≥5%；AMR 仅限公民个人或纯公民合作社持有，公司主体不可申请。</div>`;
+  renderPersons();
+}
+function coSet(k,v){ const c=curCo(); c[k]=v; persist(); if(k==='name')renderAppSel(); }
+function renderPersons(){
+  const c=curCo(); if(!c) return;
+  $('dirList').innerHTML=c.directors.map((p,i)=>`<div class="person">
+    <input placeholder="姓名" value="${esc(p.name)}" onchange="pSet('directors',${i},'name',this.value)">
+    <input placeholder="NRC/护照号" value="${esc(p.idNo)}" onchange="pSet('directors',${i},'idNo',this.value)">
+    <button class="del" onclick="pDel('directors',${i})">×</button></div>`).join('');
+  $('shList').innerHTML=c.shareholders.map((p,i)=>`<div class="person">
+    <input placeholder="姓名/公司" value="${esc(p.name)}" onchange="pSet('shareholders',${i},'name',this.value)">
+    <input placeholder="国籍" value="${esc(p.nationality)}" onchange="pSet('shareholders',${i},'nationality',this.value)" style="max-width:90px">
+    <input class="pct" placeholder="%" type="number" value="${p.pct||''}" onchange="pSet('shareholders',${i},'pct',this.value)">
+    <input placeholder="NRC/护照" value="${esc(p.idNo)}" onchange="pSet('shareholders',${i},'idNo',this.value)">
+    <button class="del" onclick="pDel('shareholders',${i})">×</button></div>`).join('');
+}
+function addPerson(k){ const c=curCo(); c[k].push(k==='directors'?{name:'',idNo:''}:{name:'',nationality:'',pct:'',idNo:''}); persist(); renderPersons(); }
+function pSet(k,i,f,v){ curCo()[k][i][f]=v; persist(); if(k==='shareholders'){ const zm=curCo().shareholders.filter(s=>/赞|zambia/i.test(s.nationality||'')).reduce((t,s)=>t+(+s.pct||0),0); $('zmPct').textContent=zm.toFixed(1)+'%'; } }
+function pDel(k,i){ curCo()[k].splice(i,1); persist(); renderCo(); }
+
+/* ================= 区域与坐标 ================= */
+function renderArea(){
+  const a=curApp(), c=$('areaCard');
+  if(!a){ c.innerHTML='<div class="empty">先建立申请</div>'; $('coordList').innerHTML=''; $('areaStats').innerHTML=''; return; }
+  const ar=a.area;
+  c.innerHTML=`<h2>区域信息</h2>
+    <label>区域/地块名称</label><input value="${esc(ar.name)}" onchange="aSet('name',this.value)">
+    <div class="row"><div style="flex:1"><label>省 Province</label><input value="${esc(ar.province)}" onchange="aSet('province',this.value)"></div>
+    <div style="flex:1"><label>县 District</label><input value="${esc(ar.district)}" onchange="aSet('district',this.value)"></div></div>
+    <label>酋长地/地主 Chief / Landowner</label><input value="${esc(ar.chief)}" onchange="aSet('chief',this.value)">
+    <label>矿种 Commodity（门户必选）</label><input value="${esc(a.commodity)}" onchange="appSet('commodity',this.value)">
+    <label>申请主体类型</label>
+    <select onchange="appSet('applicantKind',this.value)">
+      <option value="company" ${a.applicantKind==='company'?'selected':''}>公司</option>
+      <option value="person" ${a.applicantKind==='person'?'selected':''}>公民个人</option>
+      <option value="coop" ${a.applicantKind==='coop'?'selected':''}>合作社</option>
+    </select>`;
+  renderCoords(); renderAreaStats();
+}
+function aSet(k,v){ curApp().area[k]=v; persist(); }
+function appSet(k,v){ curApp()[k]=v; persist(); renderAppSel(); }
+function parseCoord(s){
+  s=String(s||'').trim(); if(!s) return null;
+  let m=s.match(/^(-?\d+(?:\.\d+)?)\s*([NSEW])?$/i);
+  if(m){ const dec=parseFloat(m[1]); const h=(m[2]||'').toUpperCase();
+    const sec=Math.round(Math.abs(dec)*3600); return {dec: h==='S'||h==='W'?-Math.abs(dec):dec, totSec:sec, ok: sec%6===0, raw:s}; }
+  m=s.match(/(\d+)[°\s]+(\d+)?['\s]*(\d+(?:\.\d+)?)?["\s]*([NSEW])?/i);
+  if(m){ const d=+m[1]||0,mi=+m[2]||0,se=+m[3]||0,h=(m[4]||'').toUpperCase();
+    const totSec=d*3600+mi*60+se;
+    if(se%1!==0) return null;
+    const dec=totSec/3600*(h==='S'||h==='W'?-1:1);
+    return {dec, totSec, ok: se%6===0, raw:s, dms:`${d}°${mi}'${se}"${h}`}; }
+  return null;
+}
+function renderCoords(){
+  const a=curApp(), box=$('coordList'); if(!a){box.innerHTML='';return;}
+  box.innerHTML=a.area.coords.map((c,i)=>{
+    const p=parseCoord(c);
+    return `<div class="coord"><span class="muted" style="flex:0 0 20px">${i+1}</span>
+      <input value="${esc(c)}" onchange="coordSet(${i},this.value)">
+      ${c?(p?`<span class="muted" style="flex:0 0 auto;font-size:11px">${p.ok?'✓6″':'✗不能被6整除'}</span>`:'<span class="bad">无法解析</span>'):''}
+      <button class="del" onclick="coordDel(${i})">×</button></div>`;
+  }).join('')||'<div class="muted">还没有角点</div>';
+}
+function addCoord(){ curApp().area.coords.push(''); persist(); renderCoords(); }
+function coordSet(i,v){ curApp().area.coords[i]=v; persist(); renderCoords(); renderAreaStats(); }
+function coordDel(i){ curApp().area.coords.splice(i,1); persist(); renderCoords(); renderAreaStats(); }
+function pasteCoords(){
+  openSheet(`<h3>批量粘贴坐标</h3>
+    <div class="muted" style="margin-bottom:6px">每行一个点：纬度 经度（同一行用空格或逗号分隔），或一行一个坐标值。</div>
+    <textarea id="pcText" style="min-height:160px" placeholder="13°24'36&quot;S  27°45'00&quot;E&#10;13°24'36&quot;S  27°50'00&quot;E"></textarea>
+    <div class="btnrow"><button class="btn" onclick="doPasteCoords()">导入</button><button class="btn gray" onclick="closeSheet()">取消</button></div>`);
+}
+function doPasteCoords(){
+  const t=$('pcText').value, a=curApp(), pts=[];
+  for(const line of t.split('\n')){
+    const l=line.trim(); if(!l) continue;
+    // 尝试一行两个坐标：找 DMS 对或两个十进制数
+    const pair=l.match(/(\d+\s*°\s*\d+\s*['′]?\s*\d+(?:\.\d+)?\s*["″]?\s*[NS])\s*[,;\s]+\s*(\d+\s*°\s*\d+\s*['′]?\s*\d+(?:\.\d+)?\s*["″]?\s*[EW])/i)
+      || l.match(/(-?\d+\.\d+)\s*[,;\s]\s*(-?\d+\.\d+)/);
+    if(pair){ pts.push(pair[1].replace(/\s+/g,''), pair[2].replace(/\s+/g,'')); }
+    else if(l.split(/[,;\s]+/).length===1) pts.push(l);
+    else { const half=l.split(/[,;]\s*|\s{2,}/); half.forEach(h=>h.trim()&&pts.push(h.trim())); }
+  }
+  if(pts.length){ a.area.coords=a.area.coords.filter(c=>c.trim()).concat(pts); persist(); renderCoords(); renderAreaStats(); closeSheet(); toast(`导入 ${pts.length} 个坐标值`); }
+  else toast('没解析到坐标');
+}
+function onUnits(){ curApp().area.units=$('unitsInput').value?+$('unitsInput').value:null; persist(); }
+function gridUnits(){
+  const a=curApp(); if(!a) return null;
+  const lats=[],lons=[];
+  a.area.coords.forEach(c=>{ const p=parseCoord(c); if(p){ if(p.dec<0||/[sS]/.test(c)) lats.push(p.totSec); else lons.push(p.totSec); }});
+  // 纬度为负（南半球）；经度为正（东经）。若解析不出半球，按绝对值分：13°<lat<18°范围→纬，22°<lon<34°→经
+  if(!lats.length||!lons.length){
+    const vals=a.area.coords.map(parseCoord).filter(Boolean).map(p=>p.totSec);
+    vals.forEach(s=>{ const d=s/3600; if(d>=7&&d<=19) lats.push(s); else if(d>=21&&d<=35) lons.push(s); });
+  }
+  if(!lats.length||!lons.length) return null;
+  const uLat=Math.round((Math.max(...lats)-Math.min(...lats))/6);
+  const uLon=Math.round((Math.max(...lons)-Math.min(...lons))/6);
+  return {uLat,uLon,units:uLat*uLon||Math.max(uLat,uLon)};
+}
+function renderAreaStats(){
+  const a=curApp(), box=$('areaStats'); if(!a){box.innerHTML='';return;}
+  const g=gridUnits(), lic=LIC[a.type];
+  const units=a.area.units ?? g?.units ?? null;
+  $('unitsInput').value=a.area.units??'';
+  box.innerHTML=`
+    <div class="stat"><div class="v">${a.area.coords.filter(c=>c.trim()).length}</div><div class="k">坐标点</div></div>
+    <div class="stat"><div class="v">${units??'—'}</div><div class="k">地籍单位（${g?`网格估算 ${g.units}`:'手填'}）</div></div>
+    <div class="stat"><div class="v">${units?(units*UNIT_HA).toFixed(1)+' ha':'—'}</div><div class="k">面积（1 单位≈3.34 ha）</div></div>
+    <div class="stat"><div class="v" style="color:${units&&units>=lic.minU&&units<=lic.maxU?'var(--success)':'var(--danger)'}">${lic.minU}–${lic.maxU}</div><div class="k">${a.type} 允许范围（单位）</div></div>`;
+}
+
+/* ================= 审查 ================= */
+function runReview(){
+  const a=curApp(), box=$('reviewList'), vbox=$('verdict');
+  if(!a){ box.innerHTML='<div class="empty">先建立申请</div>'; vbox.innerHTML=''; return; }
+  const lic=LIC[a.type], co=appCo(a), defs=DOC_DEFS[a.type], out=[];
+  const push=(ok,lv,t,d)=>out.push({lv,t,d});
+  // 1. 必传文件
+  const req=defs.filter(d=>d[3]!=='C');
+  const missing=req.filter(d=>(a.docs[d[0]]?.status||0)<1);
+  const problematic=req.filter(d=>(a.docs[d[0]]?.status||0)===3);
+  push(0, missing.length?'fail':'ok','必传文件齐备',
+    missing.length?`缺 ${missing.length} 项：${missing.map(d=>d[1]).join('、')}`:`${req.length} 项必传文件均已收到`);
+  if(problematic.length) push(0,'warn','存在标记"问题"的文件', problematic.map(d=>d[1]).join('、'));
+  // 2. 税务清关证有效期
+  const tax=a.docs['tax'];
+  if(tax){ if(!tax.expiry) push(0,'warn','税务清关证未填到期日','门户要求 Valid TCC，递交前确认在有效期内');
+    else if(tax.expiry<new Date().toISOString().slice(0,10)) push(0,'fail','税务清关证已过期',`到期 ${tax.expiry}`);
+    else push(0,'ok','税务清关证有效',`到期 ${tax.expiry}`); }
+  // 3. 资格
+  if(a.type==='SEL'){
+    const zm=co?co.shareholders.filter(s=>/赞|zambia/i.test(s.nationality||'')).reduce((t,s)=>t+(+s.pct||0),0):0;
+    push(0, zm>=5?'ok':'fail','赞比亚人持股 ≥5%（SEL 门槛）', co?`当前赞方持股 ${zm.toFixed(1)}%`:'未填公司股东信息');
+  }
+  if(a.type==='AMR'){
+    push(0, a.applicantKind!=='company'?'ok':'fail','AMR 仅限公民个人/纯公民合作社',
+      a.applicantKind==='company'?'当前主体为公司，按 2024 年新法不能持有手工采矿权':(a.applicantKind==='coop'?'合作社主体':'公民个人主体'));
+  }
+  // 4. 矿种
+  push(0, a.commodity?'ok':'fail','矿种 Commodity', a.commodity||'门户必选，未填');
+  // 5. 坐标
+  const pts=a.area.coords.filter(c=>c.trim());
+  if(pts.length<3) push(0,'fail','坐标角点数量',`只有 ${pts.length} 个，至少 3 个角点（门户要求闭合地块）`);
+  else{
+    const bad=pts.map((c,i)=>({c,i,p:parseCoord(c)})).filter(x=>!x.p||!x.p.ok);
+    push(0, bad.length?'fail':'ok','坐标格式（纬度/经度，秒÷6，Arc1950）',
+      bad.length?`第 ${bad.map(x=>x.i+1).join('、')} 点不合规（无法解析或秒不能被 6 整除）`:`${pts.length} 个点均可解析且秒数合规；请确认数据为 GCS_Arc1950 基准`);
+  }
+  const g=gridUnits(), units=a.area.units??g?.units??null;
+  if(units==null) push(0,'warn','地籍单位数','未能从坐标算出，请手填实际单位数');
+  else push(0, units>=lic.minU&&units<=lic.maxU?'ok':'fail','面积范围',
+    `${units} 单位 ≈ ${(units*UNIT_HA).toFixed(1)} ha；${a.type} 要求 ${lic.minU}–${lic.maxU} 单位`);
+  push(0,'warn','地块不重叠/不跨网格线','本工具无法查重叠——递交前在 Mining Cadastre Map 上核实，系统验证时也会自动检查');
+  // 6. 支持性文件文稿
+  const genKeys=req.map(d=>d[5]).filter(Boolean);
+  const genMissing=genKeys.filter(k=>!(a.drafts[k]||'').trim());
+  push(0, genMissing.length?'warn':'ok','支持性文件文稿已起草',
+    genMissing.length?`未起草：${genMissing.join('、')}（到「编写」页生成）`:'均已起草并存入申请');
+  // 7. 费用
+  push(0,'na','申请费参考',`${a.type} 申请费 K${lic.fee}（另加按 ha 计的年面积费，缴费后才锁定地块）`);
+  push(0,'na','有效期',`${lic.valid}`);
+  // 渲染
+  box.innerHTML=out.map(x=>`<div class="chk"><div class="chk-ic ${x.lv}">${x.lv==='ok'?'✓':x.lv==='fail'?'✕':x.lv==='warn'?'!':'i'}</div>
+    <div><div class="chk-t">${x.t}</div><div class="chk-d">${esc(x.d)}</div></div></div>`).join('');
+  const fails=out.filter(x=>x.lv==='fail').length, warns=out.filter(x=>x.lv==='warn').length;
+  vbox.innerHTML=`<div class="verdict ${fails?'fail':warns?'warn':'ok'}">${fails?`不可递交：${fails} 项未通过`:warns?`可递交但请处理 ${warns} 项提醒`:'全部通过，可递交'}</div>`;
+}
+
+/* ================= 支持性文件编写 ================= */
+const GEN_DOCS={
+  prog:{name:'Proposed Programme of Exploration Operations',cn:'勘探工作计划'},
+  progm:{name:'Proposed Programme of Mining Operations',cn:'采矿作业计划'},
+  env:{name:'Environmental Commitment Plan',cn:'环境承诺计划'},
+  emp:{name:'Proposals for Employment and Training of Citizens of Zambia',cn:'公民雇用与培训方案'},
+  local:{name:'Proposals for Promotion of Local Business Development',cn:'本地商业促进方案'},
+};
+function renderGen(){
+  const a=curApp(), sel=$('genSel'), box=$('genParams');
+  const keys=Object.keys(GEN_DOCS).filter(k=>!a||k!=='progm'||a.type==='AMR').filter(k=>!a||k!=='prog'||a.type!=='AMR');
+  sel.innerHTML=keys.map(k=>`<option value="${k}">${GEN_DOCS[k].cn}（${GEN_DOCS[k].name}）</option>`).join('');
+  const p=a?a.params:{};
+  box.innerHTML=`
+    <div class="row"><div style="flex:1"><label>承诺投资额（USD）</label><input id="gpInvest" value="${esc(p.investUsd||'')}" onchange="pSave('investUsd',this.value)"></div>
+    <div style="flex:1"><label>计划年限</label><input id="gpYears" value="${esc(p.years||'4')}" onchange="pSave('years',this.value)"></div></div>
+    <div class="row"><div style="flex:1"><label>拟雇人数</label><input id="gpStaff" value="${esc(p.staff||'')}" onchange="pSave('staff',this.value)"></div>
+    <div style="flex:1"><label>其中赞比亚公民 %</label><input id="gpCit" value="${esc(p.citizenPct||'90')}" onchange="pSave('citizenPct',this.value)"></div></div>
+    <label>工作阶段/方法说明（逗号分隔，可留空用默认）</label><input id="gpPhases" value="${esc(p.phases||'')}" onchange="pSave('phases',this.value)" placeholder="desk study, geological mapping, soil sampling, trenching, drilling">
+    <label>本地商业承诺要点（可留空）</label><input id="gpLocal" value="${esc(p.localNote||'')}" onchange="pSave('localNote',this.value)">`;
+  $('genOut').value=a?(a.drafts[sel.value]||''):'';
+  $('genVia').textContent='';
+}
+function pSave(k,v){ const a=curApp(); if(!a)return; a.params[k]=v; persist(); }
+$('genSel'); // noop
+function genCtx(){
+  const a=curApp(), co=appCo(a), lic=a?LIC[a.type]:null;
+  const units=a?(a.area.units??gridUnits()?.units??null):null;
+  return {a,co,lic,units,
+    coName:co?co.name:'[Company Name]',
+    licEn:lic?lic.en:'',
+    areaName:a?.area.name||'[Area Name]', prov:a?.area.province||'[Province]', dist:a?.area.district||'[District]',
+    commodity:a?.commodity||'[Commodity]',
+    areaTxt:units?`${units} cadastre units (approx. ${(units*UNIT_HA).toFixed(0)} hectares)`:'[area]',
+    invest:a?.params.investUsd||'[amount]',years:a?.params.years||'4',staff:a?.params.staff||'[number]',cit:a?.params.citizenPct||'90'};
+}
+function tpl(key){
+  const x=genCtx(), D=new Date().toISOString().slice(0,10);
+  if(key==='prog') return `PROPOSED PROGRAMME OF EXPLORATION OPERATIONS
+${x.coName}
+Application for a ${x.licEn} — ${x.areaName}, ${x.dist} District, ${x.prov} Province, Zambia
+Date: ${D}
+
+1. INTRODUCTION
+${x.coName} ("the Company") hereby submits its proposed programme of exploration operations over the area described as ${x.areaName}, covering ${x.areaTxt}, for the exploration of ${x.commodity}.
+
+2. OBJECTIVES
+The objectives of the exploration programme are to: (a) confirm the presence and extent of ${x.commodity} mineralisation within the licence area; (b) define the grade, tonnage and geometry of any mineralised bodies; and (c) establish the economic potential of the deposit to support an application for a mining licence.
+
+3. WORK PROGRAMME
+Phase 1 (Year 1): Desktop study of existing geological data, reconnaissance geological mapping, and stream sediment / soil geochemical sampling.
+Phase 2 (Years 1-2): Detailed geological mapping, ground geophysical surveys where appropriate, and trenching/pitting of anomalous zones.
+Phase 3 (Years 2-3): Exploratory drilling (RC/DDH as warranted), sample preparation and laboratory assaying.
+Phase 4 (Years 3-${x.years}): Resource evaluation, geological modelling, and preparation of a comprehensive statement of mineral deposits in support of a mining licence application.
+
+4. ESTIMATED EXPENDITURE
+The Company commits an estimated exploration expenditure of US$${x.invest} over the licence period, apportioned approximately as follows: Year 1 – 25%; Year 2 – 30%; Year 3 – 30%; Year ${x.years} – 15%. This estimated expenditure is compatible with the proposed work programme, the size of the exploration area and the duration of the licence.
+
+5. PERSONNEL AND EQUIPMENT
+The programme will be supervised by a qualified geologist. Field crews of approximately ${x.staff} persons will be engaged, the majority being citizens of Zambia. Equipment will include handheld GPS units, XRF analysers, sampling tools and contracted drilling services.
+
+6. ENVIRONMENTAL PROTECTION
+All exploration activities will be conducted in accordance with the Environmental Management Act No. 12 of 2011. The Company's Environmental Commitment Plan is attached and forms part of this programme.
+
+7. EMPLOYMENT AND LOCAL BUSINESS
+The Company will give preference to Zambian citizens for employment and to local businesses for goods and services, as detailed in the accompanying proposals.
+
+Signed for and on behalf of ${x.coName}
+Name: ____________________  Title: ____________________  Signature: ____________________`;
+  if(key==='progm') return `PROPOSED PROGRAMME OF MINING OPERATIONS
+${x.coName}
+Application for an Artisanal Mining Right — ${x.areaName}, ${x.dist} District, ${x.prov} Province, Zambia
+Date: ${D}
+
+1. INTRODUCTION
+This programme sets out the intended artisanal mining operations for ${x.commodity} over an area of ${x.areaTxt}.
+
+2. CONSERVATION AND USE OF MINERAL RESOURCES
+Mining will be carried out in an orderly manner so as to ensure the proper conservation and use of mineral resources in the national interest. Overburden and ore will be handled separately; no mineralised material will be selectively high-graded or wasted.
+
+3. MINING METHOD
+Open-cast/pit mining by hand and light equipment. Excavation will proceed in benches; pit depth will be limited for safety. Ore will be sorted, bagged and sold to licensed mineral traders/processors.
+
+4. WORK SCHEDULE AND EXPENDITURE
+Estimated investment of US$${x.invest} over the 2-year licence period covering tools, safety equipment, site works and rehabilitation.
+
+5. SAFETY
+Pit edges will be demarcated; workers will be provided with basic PPE (helmets, gloves, boots); no work will be conducted during heavy rain in unstable ground.
+
+6. ENVIRONMENTAL PROTECTION
+Operations will comply with the attached Environmental Commitment Plan including progressive backfilling and rehabilitation of worked-out pits.
+
+Signed: ____________________  Date: ${D}`;
+  if(key==='env') return `ENVIRONMENTAL COMMITMENT PLAN
+${x.coName} — ${x.areaName}, ${x.dist} District, ${x.prov} Province, Zambia
+Date: ${D}
+
+The Company commits to the following environmental protection measures for its operations at ${x.areaName}:
+
+1. PREVENTION OF POLLUTION
+- No discharge of chemicals, fuels or process water to soils or watercourses.
+- Fuel and lubricants stored in bunded containers on impermeable surfaces.
+- Machinery maintained to prevent oil leaks; spill kits kept on site.
+
+2. WASTE MANAGEMENT
+- Domestic and general waste collected and removed to an approved disposal site; no open burning.
+- Scrap and used oil returned to suppliers or licensed recyclers.
+
+3. PROTECTION OF LAND AND WATER RESOURCES
+- Clearing limited to the footprint of approved workings; topsoil stripped and stockpiled separately for reuse in rehabilitation.
+- Buffer maintained from rivers and streams; no washing of equipment or materials in watercourses.
+- Dust suppression on access tracks during dry season.
+
+4. RECLAMATION AND REHABILITATION
+- Progressive rehabilitation: worked-out pits/trenches backfilled, re-profiled and topsoiled.
+- Disturbed areas re-vegetated with local grass/tree species.
+- On closure, all structures and waste removed and the site left safe.
+
+5. MONITORING AND REPORTING
+- A responsible person designated for environmental compliance; site inspections each field campaign.
+- Any incident (spill, land damage) reported to ZEMA and the Mines Safety Department as required.
+
+Signed for and on behalf of ${x.coName}
+Name: ____________________  Title: ____________________  Signature: ____________________`;
+  if(key==='emp') return `PROPOSALS FOR EMPLOYMENT AND TRAINING OF CITIZENS OF ZAMBIA
+${x.coName} — ${x.areaName}
+Date: ${D}
+
+1. EMPLOYMENT
+The Company intends to employ approximately ${x.staff} persons during the licence period, of whom not less than ${x.cit}% will be citizens of Zambia. Preference will be given to residents of ${x.dist} District and surrounding chiefdoms.
+
+2. POSITIONS
+- Field supervisor / senior geologist (expatriate or citizen, as available)
+- Geological technicians and samplers (citizens)
+- Field assistants, drivers and camp staff (citizens, recruited locally)
+- Security and casual labour (citizens, recruited locally)
+
+3. TRAINING
+- On-the-job training in sampling, surveying, GPS use, XRF operation and safety procedures for citizen employees.
+- Skills transfer: Zambian technicians will work alongside senior staff with a view to assuming supervisory roles.
+- Basic literacy, health & safety and first-aid instruction provided at the start of each campaign.
+- The Company will support at least one citizen employee per year in further studies relevant to mining/geology where operations continue.
+
+4. COMPLIANCE
+Employment will comply with the Employment Code Act, 2019, including written contracts, minimum wages, and statutory contributions (NAPSA, workers' compensation).
+
+Signed: ____________________  Date: ${D}`;
+  if(key==='local') return `PROPOSALS FOR PROMOTION OF LOCAL BUSINESS DEVELOPMENT
+${x.coName} — ${x.areaName}
+Date: ${D}
+
+The Company commits to promoting local business development in the area of its operations as follows:
+
+1. LOCAL PROCUREMENT
+- Preference to suppliers and contractors based in ${x.dist} District / ${x.prov} Province for: camp catering and food supplies, vehicle hire and fuel, building materials, borehole/water services, security and general labour.
+- Where goods are unavailable locally, preference to Zambian-registered suppliers in provincial or national markets.
+
+2. LOCAL CONTRACTING
+- Trenching, pitting, road maintenance and camp construction will be tendered first to local contractors and registered cooperatives.
+- Drilling and specialist services contracted to Zambian-registered service companies where capacity exists.
+
+3. ENTERPRISE SUPPORT
+- Advance notice of procurement needs shared with local suppliers via the ward councillors and the district administration.
+- Where feasible, the Company will mentor local contractors on safety, quoting and record-keeping so they can take on larger scopes of work.
+
+4. COMMUNITY
+- Engagement with the local Chief and community leadership before field campaigns.
+- The Company will give first consideration to community-recommended casual workers and local service providers.
+
+Signed: ____________________  Date: ${D}`;
+  return '';
+}
+function genFromTemplate(){ $('genOut').value=tpl($('genSel').value); $('genVia').textContent='模板生成'; }
+async function genFromAI(){
+  const key=$('genSel').value, x=genCtx();
+  if(!x.a) return toast('先建立申请');
+  $('aiBtn').disabled=true; $('aiBtn').textContent='编写中…'; $('genVia').textContent='';
+  const sys='You are a professional mining licence documentation writer familiar with Zambia\'s Minerals Regulation Commission requirements. Write formal English documents suitable for submission to the Zambia Ministry of Mines mining cadastre portal. Use clear numbered sections, be specific to the facts given, and keep it 400-800 words.';
+  const prompt=`Draft the document "${GEN_DOCS[key].name}" for a mining rights application in Zambia.
+
+Facts:
+- Applicant/company: ${x.coName}
+- Licence type: ${x.licEn}
+- Area: ${x.areaName}, ${x.dist} District, ${x.prov} Province, Zambia
+- Area size: ${x.areaTxt}
+- Commodity: ${x.commodity}
+- Committed investment: US$${x.invest} over ${x.years} years
+- Planned employment: ${x.staff} persons, ≥${x.cit}% Zambian citizens
+${x.a.params.localNote?('- Local business notes: '+x.a.params.localNote):''}
+${x.a.params.phases?('- Work phases: '+x.a.params.phases):''}
+${x.a.area.chief?('- Chief/landowner: '+x.a.area.chief):''}
+
+Requirements: official tone, numbered sections, include a signature block, comply with the document's purpose under the Mines and Minerals framework (environmental documents must cover pollution prevention, waste, land & water protection and reclamation).`;
+  try{
+    const r=await api({action:'draft',prompt,system:sys});
+    if(r&&r.ok&&r.text){ $('genOut').value=r.text; $('genVia').textContent='AI · '+(r.via||''); }
+    else { $('genOut').value=tpl(key); $('genVia').textContent='AI 不可用，已用模板（'+(r&&r.error||'')+'）'; }
+  }catch(e){ $('genOut').value=tpl(key); $('genVia').textContent='AI 调用失败，已用模板'; }
+  $('aiBtn').disabled=false; $('aiBtn').textContent='AI 编写';
+}
+function saveDraft(){ const a=curApp(); if(!a)return toast('先建立申请'); a.drafts[$('genSel').value]=$('genOut').value; persist(); toast('已存入申请'); }
+function copyDraft(){ navigator.clipboard.writeText($('genOut').value).then(()=>toast('已复制')); }
+function exportDoc(){
+  const key=$('genSel').value, text=$('genOut').value;
+  if(!text.trim()) return toast('文稿为空');
+  const html=`<html xmlns:o="urn:schemas-microsoft-com:office:office"><head><meta charset="UTF-8"><style>body{font-family:'Times New Roman',serif;font-size:12pt;line-height:1.5}pre{white-space:pre-wrap;font-family:'Times New Roman',serif}</style></head><body><pre>${esc(text)}</pre></body></html>`;
+  const blob=new Blob(['﻿'+html],{type:'application/msword'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=GEN_DOCS[key].name.replace(/[^\w ]/g,'').replace(/ +/g,'_')+'.doc'; a.click();
+}
+
+/* ================= 渲染 ================= */
+function renderAll(){ renderAppSel(); renderDocs(); renderCo(); renderArea(); renderGen(); }
+renderAll();
+syncPull();
+</script>
+</body>
+</html>

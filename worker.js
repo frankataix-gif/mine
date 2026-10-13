@@ -12,6 +12,7 @@
 //   POST /  {action:read/save}   → GitHub data/ 读写（生产统计）
 //   POST /  {action:up_photo}    → GitHub photos/ 上传（生产统计）
 //   POST /  {action:ocr}         → OCR.space XRF 读数（生产统计）
+//   POST /  {action:draft}       → 通用 AI 文本起草（矿权申请助手）
 //   GET  /ping                   → 取样工具连通测试
 //   POST /sample                 → D1 存样品（取样工具）
 //   GET  /samples  /sample/<id>  → D1 样品列表 / 详情
@@ -54,7 +55,8 @@ const HTML_PAGES = {
   '/index.html':      { file: 'index.html',            app: null },
   '/mine_production.html': { file: 'mine_production.html', app: 'mine' },
   '/sampling_helper.html': { file: 'sampling_helper.html', app: 'sampling' },
-  '/field_album.html': { file: 'field_album.html', app: 'field' }
+  '/field_album.html': { file: 'field_album.html', app: 'field' },
+  '/license_helper.html': { file: 'license_helper.html', app: 'licence' }
 };
 
 const DATA_PREFIX = 'data/';           // 只允许读写 data/ 目录
@@ -902,6 +904,39 @@ export default {
           await writeFile(env, hp, JSON.stringify(hist, null, 1), 'smm history', hf && hf.sha);
         } catch (e) {}
         return json(wr.ok ? { ok: true } : { error: wr.error || 'save failed' });
+      }
+
+      // 通用 AI 文本起草（矿权申请助手等）：OpenAI 优先，回退 Workers AI
+      if (body.action === 'draft') {
+        const prompt = String(body.prompt || '').slice(0, 20000);
+        const system = String(body.system || 'You are a professional document writer.').slice(0, 3000);
+        if (!prompt) return json({ error: 'no prompt' }, 400);
+        if (env.OPENAI_KEY) {
+          try {
+            const r = await fetch('https://api.openai.com/v1/chat/completions', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + env.OPENAI_KEY },
+              body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'system', content: system }, { role: 'user', content: prompt }], max_tokens: 3000 })
+            });
+            const j = await r.json();
+            if (r.ok && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content)
+              return json({ ok: true, text: j.choices[0].message.content, via: 'openai' });
+          } catch (e) {}
+        }
+        if (env.AI) {
+          const MODELS = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/meta/llama-4-scout-17b-16e-instruct'];
+          let lastErr = '';
+          for (const mdl of MODELS) {
+            try {
+              const ar = await env.AI.run(mdl, { messages: [{ role: 'system', content: system }, { role: 'user', content: prompt }], max_tokens: 3000 });
+              const t = ((ar && (ar.response || ar.result)) || '').trim();
+              if (t.length > 0) return json({ ok: true, text: t, via: mdl });
+              lastErr = mdl + ' 输出过短';
+            } catch (e) { lastErr = mdl + ': ' + e.message; }
+          }
+          return json({ error: lastErr || 'ai failed' }, 502);
+        }
+        return json({ error: 'no ai configured' }, 500);
       }
 
       // 数据读写（只允许 data/ 目录）
