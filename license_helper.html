@@ -461,6 +461,44 @@ function doNewApp(){
   S.apps.push(app); curAppId=null; persist(); renderAll(); closeSheet(); toast('已创建，点列表进入该申请');
 }
 function onAppSel(){ curAppId=$('appSel').value; persist0(); renderAll(); }
+// 申请行 ⋯ → 操作单：修改信息 / 删除申请
+function appMenu(id){
+  const a=S.apps.find(x=>x.id===id); if(!a) return;
+  openSheet(`<h3>${esc(a.label)}</h3>
+    <div class="btnrow" style="flex-direction:column;align-items:stretch">
+      <button class="btn" onclick="closeSheet();editApp('${a.id}')">✏️ 修改信息</button>
+      <button class="btn gray" onclick="closeSheet()">取消</button>
+      <button class="btn" style="background:var(--danger)" onclick="closeSheet();delApp('${a.id}')">🗑 删除申请</button>
+    </div>`);
+}
+function editApp(id){
+  const a=S.apps.find(x=>x.id===id); if(!a) return;
+  openSheet(`<h3>修改申请</h3>
+    <label>名称</label><input id="eaLabel" value="${esc(a.label)}">
+    <label>证型</label><select id="eaType">${Object.keys(LIC).map(k=>`<option value="${k}" ${a.type===k?'selected':''}>${LIC[k].name} ${LIC[k].en}</option>`).join('')}</select>
+    <label>矿种</label><input id="eaCom" value="${esc(a.commodity||'')}">
+    <div class="row"><div style="flex:1"><label>省份</label><input id="eaProv" value="${esc(a.area.province||'')}"></div>
+    <div style="flex:1"><label>县/区</label><input id="eaDist" value="${esc(a.area.district||'')}"></div></div>
+    <label>面积 km²</label><input id="eaKm2" type="number" step="0.01" value="${a.area.km2||''}">
+    <div class="btnrow"><button class="btn" onclick="saveAppEdit('${a.id}')">保存</button><button class="btn gray" onclick="closeSheet()">取消</button></div>`);
+}
+function saveAppEdit(id){
+  const a=S.apps.find(x=>x.id===id); if(!a) return;
+  a.label=$('eaLabel').value.trim()||a.label;
+  a.type=$('eaType').value; a.commodity=$('eaCom').value.trim();
+  a.area.province=$('eaProv').value.trim(); a.area.district=$('eaDist').value.trim();
+  a.area.km2=parseFloat($('eaKm2').value)||null;
+  if(a.area.km2&&!a.area.units) a.area.units=Math.round(a.area.km2/UNIT_HA);
+  (DOC_DEFS[a.type]||[]).forEach(d=>{ if(!a.docs[d[0]]) a.docs[d[0]]={status:0,fileName:'',mediaKey:'',expiry:'',note:''}; });
+  persist(); renderAll(); closeSheet(); toast('已保存');
+}
+function delApp(id){
+  const a=S.apps.find(x=>x.id===id); if(!a) return;
+  if(!confirm(`删除申请「${a.label}」？其材料记录和时间线一并清除`)) return;
+  S.apps=S.apps.filter(x=>x.id!==id);
+  if(curAppId===id) curAppId=null;
+  persist(); renderAll(); toast('已删除申请');
+}
 function renderAppSel(){
   const sel=$('appSel');
   sel.innerHTML = S.apps.length ? `<option value="" ${!curApp()?'selected':''}>— 选择申请 —</option>`+S.apps.map(a=>`<option value="${a.id}" ${a.id===curAppId?'selected':''}>${esc(a.label)}（${LIC[a.type].name}）</option>`).join('') : '<option value="">— 还没有申请 —</option>';
@@ -491,10 +529,14 @@ function renderAppList(){
     const stTxt={prep:'准备中',submitted:'已递交',paid:'已缴费',granted:'已获批',rejected:'被拒',abandoned:'放弃'}[a.status||'prep'];
     const loc=[a.area.district,a.area.province].filter(Boolean).join(', ')||'—';
     const size=a.area.km2?a.area.km2+' km²':(a.area.units?a.area.units+' 单位':'—');
-    return `<div class="doc" style="cursor:pointer" onclick="curAppId='${a.id}';saveUI();renderAll()">
-      <div class="doc-body"><div class="doc-name">${LIC[a.type]?LIC[a.type].name:''} <span class="muted" style="font-weight:400;font-size:12px">${esc(a.label)}</span></div>
-      <div class="doc-cn">${co?esc(co.name):'—'}<br>${esc(loc)} · ${size} · ${esc(a.commodity||'—')}<br><span class="muted">材料 ${done}/${req} · ${stTxt}</span></div></div>
-      <span class="muted">›</span></div>`;
+    const stCls={granted:'s2',rejected:'s3',abandoned:'s3'}[a.status]||'s0';
+    return `<div class="doc" style="cursor:pointer;align-items:center" onclick="curAppId='${a.id}';saveUI();renderAll()">
+      <div class="doc-body">
+        <div class="doc-name" style="display:flex;align-items:center;gap:8px">${LIC[a.type]?LIC[a.type].name:''}
+          <span class="chip ${stCls}" style="min-width:0;padding:1px 8px;font-size:11px">${stTxt}</span>
+          <span class="muted" style="font-weight:400;font-size:12px">材料 ${done}/${req}</span></div>
+        <div class="doc-cn" style="margin-top:2px">${co?esc(co.name):'—'}<br>${esc(loc)} · ${size} · ${esc(a.commodity||'—')}</div></div>
+      <button class="del" style="color:var(--muted)" title="设置" onclick="event.stopPropagation();appMenu('${a.id}')">⋯</button></div>`;
   }).join('')||'<div class="empty">还没有申请，点右上角「＋申请」创建</div>';
 }
 function renderDocs(){
