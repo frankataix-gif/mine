@@ -736,13 +736,15 @@ function renderCo(){
     <div class="row"><h2 style="flex:1;font-size:1.05rem">${esc(c.name)}</h2>
       ${coSrcDir(c)?`<button class="btn sm ghost" onclick="openSrcDir('${jsq(coSrcDir(c)+'/x')}')">📁 打开文件夹</button>`:''}
       <button class="btn sm" onclick="analyzeCo()">解析文件提取股东</button></div>
-    <h3>股东 Shareholders（赞方合计 <b style="color:${Math.round(zm)>=5?'var(--success)':'var(--danger)'}">${Math.round(zm)}%</b>）</h3>
+    <h3 style="display:flex;align-items:center;gap:8px">股东 Shareholders（赞方合计 <b style="color:${Math.round(zm)>=5?'var(--success)':'var(--danger)'}">${Math.round(zm)}%</b>）
+      <a href="javascript:void(0)" style="font-size:12px;font-weight:400" onclick="window._shEdit=window._shEdit===c.id?null:c.id;renderCo()">${window._shEdit===c.id?'收起':'编辑'}</a></h3>
     <div id="shList"></div>
-    <button class="btn sm ghost" onclick="shAdd()">＋股东</button>
+    ${window._shEdit===c.id?'<button class="btn sm ghost" onclick="shAdd()">＋股东</button>':''}
     <h3>基础文件（所有公司必备标准件）</h3><div id="coDocs"></div>
-    <h3>其他文件（本公司特有：矿证、出口许可证等）</h3>
+    <h3 style="display:flex;align-items:center;gap:8px">其他文件（本公司特有：矿证、出口许可证等）
+      <a href="javascript:void(0)" style="font-size:12px;font-weight:400" onclick="window._exEdit=window._exEdit===c.id?null:c.id;renderCo()">${window._exEdit===c.id?'收起':'编辑'}</a></h3>
     <div id="coExtra"></div>
-    <button class="btn sm ghost" onclick="addExtraDoc()">＋文件</button>`;
+    ${window._exEdit===c.id?'<button class="btn sm ghost" onclick="addExtraDoc()">＋文件</button>':''}`;
   renderSh(); renderCoDocs(); renderCoExtra();
 }
 // 自定义文件：本公司特有的矿证、许可证等
@@ -766,7 +768,7 @@ function renderCoExtra(){
       ${(d.srcPath||coSrcDir(c))?`<a href="javascript:void(0)" onclick="openSrcDir('${jsq(d.srcPath||(coSrcDir(c)+'/x'))}')" title="打开来源文件夹">📁</a>`:''}
       ${docDate(d)?`<span class="muted" style="font-size:11px">传于 ${docDate(d)}</span>`:''}
     </div></div>
-    <button class="del" onclick="delExtraDoc('${d.id}')">×</button></div>`).join('')
+    ${window._exEdit===c.id?`<button class="del" onclick="delExtraDoc('${d.id}')">×</button>`:''}</div>`).join('')
     ||'<div class="muted" style="padding:2px 0 6px">暂无，点下方＋文件添加</div>';
 }
 function delExtraDoc(id){
@@ -781,9 +783,14 @@ function renderSh(){
   }
   const sum=(c.shareholders||[]).reduce((s,x)=>s+(+x.pct||0),0);
   const warn=c.shareholders.length&&Math.abs(sum-100)>1?`<div style="color:var(--danger);font-size:12px;padding:2px 0">⚠ 占比合计 ${Math.round(sum)}% ≠100%，请核对股数</div>`:'';
-  const hd='<div class="doc" style="padding:2px 0;color:var(--muted);font-size:11px"><span style="width:30px"></span><div class="doc-body" style="display:flex;gap:6px"><span style="flex:3">姓名</span><span style="flex:1.4">国籍</span><span style="flex:1.4;text-align:right">股份数</span><span style="width:56px;text-align:right">占比</span></div><span style="width:26px"></span></div>';
-  $('shList').innerHTML=hd+warn+c.shareholders.map((p,i)=>{
+  const shEd=window._shEdit===c.id;
+  const hd=shEd?'<div class="doc" style="padding:2px 0;color:var(--muted);font-size:11px"><span style="width:30px"></span><div class="doc-body" style="display:flex;gap:6px"><span style="flex:3">姓名</span><span style="flex:1.4">国籍</span><span style="flex:1.4;text-align:right">股份数</span><span style="width:56px;text-align:right">占比</span></div><span style="width:26px"></span></div>':'';
+  $('shList').innerHTML=hd+warn+(c.shareholders.map((p,i)=>{
     const zm=/zambia|赞/i.test(p.nationality||'');
+    if(!shEd) return `<div class="doc" style="padding:6px 0">
+      <span style="font-size:14px;color:${zm?'var(--success)':'var(--text)'}">${zm?'赞':'外'}</span>
+      <div class="doc-body"><div class="doc-name" style="font-weight:400">${esc(p.name)}${p.nationality?`（${esc(p.nationality)}）`:''}</div></div>
+      <b style="color:${zm?'var(--success)':'var(--text)'}">${p.pct!=null?Math.round(p.pct)+'%':''}</b></div>`;
     return `<div class="doc" style="padding:4px 0">
       <span style="font-size:14px;width:30px;color:${zm?'var(--success)':'var(--text)'}">${zm?'赞':'外'}</span>
       <div class="doc-body" style="display:flex;gap:6px">
@@ -793,7 +800,9 @@ function renderSh(){
         <b style="width:56px;text-align:right;align-self:center;color:${zm?'var(--success)':'var(--text)'}">${p.pct!=null?Math.round(p.pct)+'%':''}</b>
       </div>
       <button class="del" onclick="shDel(${i})">×</button></div>`;
-  }).join('')||'<div class="muted" style="padding:4px 0">还没有股东记录，＋股东手填 或 点「解析文件提取股东」从 PACRA Print Out 读取</div>';
+  }).join('')||'<div class="muted" style="padding:4px 0">还没有股东记录，＋股东手填 或 点「解析文件提取股东」从 PACRA Print Out 读取</div>')
+  +(shEd?'':'')
+  ;
 }
 function shAdd(){ const c=curCo(); (c.shareholders=c.shareholders||[]).push({name:'',nationality:'',amount:0,pct:null}); persist(); renderCo(); }
 function shSet(i,f,v){
