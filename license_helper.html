@@ -431,6 +431,7 @@ function renderDocs(){
         <div class="doc-meta">
           <a href="javascript:void(0)" onclick="pickFile('${key}')">📎 ${st.fileName?esc(st.fileName):'上传文件'}</a>
           ${st.mediaKey?`<a href="${API}/media?key=${st.mediaKey}" target="_blank">查看</a>`:''}
+          ${docDate(st)?`<span class="muted" style="font-size:11px">传于 ${docDate(st)}</span>`:''}
           ${exp?`到期 <input type="date" value="${st.expiry||''}" onchange="setDoc('${key}','expiry',this.value)">`:''}
           <input class="note" placeholder="备注" value="${esc(st.note||'')}" onchange="setDoc('${key}','note',this.value)">
         </div>
@@ -438,6 +439,13 @@ function renderDocs(){
   }
   box.innerHTML=html;
   renderTl();
+}
+// 文件上传日期：优先 d.at，其次从 mediaKey 自带毫秒时间戳解析
+function docDate(d){
+  if(d.at) return d.at;
+  const m=(d.mediaKey||'').match(/(\d{10,13})/);
+  if(m) return new Date(+m[1]).toISOString().slice(0,10);
+  return '';
 }
 /* ---- 跟进时间线 ---- */
 const STATUS_TXT={prep:'准备中',submitted:'已递交',paid:'已缴费',granted:'已获批',rejected:'被拒',abandoned:'放弃'};
@@ -484,14 +492,14 @@ $('filePick').addEventListener('change', async e=>{
     if(!j.ok||!j.key) throw new Error(j.error||('HTTP '+r.status));
     if(uploadScope==='co'&&co){
       if(!co.docs) co.docs={};
-      co.docs[key]={...(co.docs[key]||{}),fileName:f.name,mediaKey:j.key,status:1};
+      co.docs[key]={...(co.docs[key]||{}),fileName:f.name,mediaKey:j.key,status:1,at:new Date().toISOString().slice(0,10)};
       if(/\.pdf$/i.test(f.name)){
         try{ const t=await extractPdfText(f); mergeProfile(co,analyzeText(t,{people:['pacra','iddir','idsh'].includes(key)})); toast('已上传并解析字段'); }
         catch(e2){ toast('已上传（PDF 文本解析失败，可能是扫描件）'); }
       }else toast('已上传到公司档');
       persist(); renderCo();
     }else{
-      a.docs[key].fileName=f.name; a.docs[key].mediaKey=j.key;
+      a.docs[key].fileName=f.name; a.docs[key].mediaKey=j.key; a.docs[key].at=new Date().toISOString().slice(0,10);
       if(a.docs[key].status===0) a.docs[key].status=1;
       persist(); renderDocs(); toast('已上传');
     }
@@ -675,6 +683,7 @@ function renderCoDocs(){
       <div class="doc-meta">
         <a href="javascript:void(0)" onclick="pickFile('${key}','co')">${d.mediaKey?'替换':'上传'}</a>
         ${d.mediaKey?`<a href="${API}/media?key=${d.mediaKey}" target="_blank">查看</a>`:''}
+        ${docDate(d)?`<span class="muted" style="font-size:11px">传于 ${docDate(d)}</span>`:''}
         ${exp?`到期 <input type="date" value="${d.expiry||''}" onchange="coDocSet('${key}','expiry',this.value)">`:''}
       </div></div></div>`;
   }).join('');
