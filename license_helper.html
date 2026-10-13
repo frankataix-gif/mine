@@ -484,10 +484,11 @@ function statusSet(v){
   persist();
 }
 function cycleStatus(key){
-  const a=curApp(), st=a.docs[key];
+  const a=curApp(); if(!a) return;
+  const st=a.docs[key]=a.docs[key]||{status:0};
   st.status=(st.status+1)%4; persist(); renderDocs();
 }
-function setDoc(key,f,v){ const a=curApp(); a.docs[key][f]=v; persist(); }
+function setDoc(key,f,v){ const a=curApp(); if(!a) return; (a.docs[key]=a.docs[key]||{status:0})[f]=v; persist(); }
 let uploadScope='app';
 function pickFile(key, scope){ uploadDocKey=key; uploadScope=scope||'app'; $('filePick').click(); }
 $('filePick').addEventListener('change', async e=>{
@@ -509,6 +510,8 @@ $('filePick').addEventListener('change', async e=>{
       }else toast('已上传到公司档');
       persist(); renderCo();
     }else{
+      if(!a) return toast('先建立申请');
+      a.docs[key]=a.docs[key]||{status:0};
       a.docs[key].fileName=f.name; a.docs[key].mediaKey=j.key; a.docs[key].at=new Date().toISOString().slice(0,10);
       if(a.docs[key].status===0) a.docs[key].status=1;
       persist(); renderDocs(); toast('已上传');
@@ -587,7 +590,7 @@ function mergeProfile(c,v){
   for(const k of ['regNo','regDate','address','capital','taxTo']) if(v[k]&&!c.profile[k]) c.profile[k]=v[k];
   if((v.shareholders||[]).length>(c.shareholders||[]).length) c.shareholders=v.shareholders;
   if(v.hasNrc) c.profile.hasNrc=true;
-  if(v.taxTo){ (c.docs.tax=c.docs.tax||{}).expiry=normDate(v.taxTo)||c.docs.tax.expiry; }
+  if(v.taxTo){ c.docs=c.docs||{}; (c.docs.tax=c.docs.tax||{}).expiry=normDate(v.taxTo)||c.docs.tax.expiry; }
 }
 // 解析某家公司全部已传文件 → 写入 co.profile（可重复跑）
 async function analyzeCo(){
@@ -605,7 +608,7 @@ async function analyzeCo(){
       notes.push(en+':ok');
     }catch(e){ notes.push(en+':失败'); }
   }
-  persist(); renderCo(); toast('解析完成，请核对自动识别字段');
+  persist(); renderCo(); toast('解析完成：'+notes.join('，')||'无可解析文件');
 }
 function normDate(s){ // DD/MM/YYYY 或 DD-MM-YYYY → ISO
   const m=String(s||'').match(/(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})/);
@@ -670,8 +673,7 @@ function renderSh(){
     return `<div class="doc" style="padding:6px 0">
       <span style="font-size:14px;color:${zm?'var(--success)':'var(--text)'}">${zm?'赞':'外'}</span>
       <div class="doc-body"><div class="doc-name" style="font-weight:400">${esc(p.name)}${p.nationality?`（${esc(p.nationality)}）`:''}</div></div>
-      <b style="color:${zm?'var(--success)':'var(--text)'}">${p.pct!=null?Math.round(p.pct)+'%':''}</b>
-      <button class="del" onclick="shDel(${i})">×</button></div>`;
+      <b style="color:${zm?'var(--success)':'var(--text)'}">${p.pct!=null?Math.round(p.pct)+'%':''}</b></div>`;
   }).join('')||'<div class="muted" style="padding:4px 0">还没有股东记录，点「解析文件提取股东」或＋股东添加</div>';
 }
 function shAdd(){
