@@ -155,7 +155,6 @@
 <div class="pane" id="p-co">
   <div class="card">
     <div class="row"><h2 style="flex:1">公司档案</h2>
-      <select id="coSel" style="max-width:170px" onchange="onCoSel()"></select>
       <button class="btn sm ghost" onclick="newCo()">＋公司</button>
     </div>
     <div id="coForm"></div>
@@ -486,7 +485,11 @@ $('filePick').addEventListener('change', async e=>{
     if(uploadScope==='co'&&co){
       if(!co.docs) co.docs={};
       co.docs[key]={...(co.docs[key]||{}),fileName:f.name,mediaKey:j.key,status:1};
-      persist(); renderCo(); toast('已上传到公司档');
+      if(/\.pdf$/i.test(f.name)){
+        try{ const t=await extractPdfText(f); mergeProfile(co,analyzeText(t)); toast('已上传并解析字段'); }
+        catch(e2){ toast('已上传（PDF 文本解析失败，可能是扫描件）'); }
+      }else toast('已上传到公司档');
+      persist(); renderCo();
     }else{
       a.docs[key].fileName=f.name; a.docs[key].mediaKey=j.key;
       if(a.docs[key].status===0) a.docs[key].status=1;
@@ -494,6 +497,88 @@ $('filePick').addEventListener('change', async e=>{
     }
   }catch(err){ toast('上传失败：'+err.message); }
 });
+
+/* ================= 文件解析（pdf.js 按需加载） ================= */
+let _pdfjsReady=null;
+function ensurePdfjs(){
+  if(window.pdfjsLib) return Promise.resolve();
+  if(_pdfjsReady) return _pdfjsReady;
+  _pdfjsReady=new Promise((res,rej)=>{
+    const s=document.createElement('script');
+    s.src='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js';
+    s.onload=()=>{ pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js'; res(); };
+    s.onerror=()=>rej(new Error('pdf.js 加载失败'));
+    document.head.appendChild(s);
+  });
+  return _pdfjsReady;
+}
+async function extractPdfText(blob){
+  await ensurePdfjs();
+  const pdf=await pdfjsLib.getDocument({data:await blob.arrayBuffer()}).promise;
+  let t='';
+  for(let p=1;p<=pdf.numPages;p++){
+    const tc=await (await pdf.getPage(p)).getTextContent();
+    t+=tc.items.map(i=>i.str).join(' ')+'\n';
+  }
+  return t;
+}
+// 从上传件全文提取字段；vals 为 {regNo,regDate,address,capital,taxTo,shareholders[],directors[]}
+function analyzeText(t){
+  const v={shareholders:[],directors:[]};
+  let m;
+  if(m=t.match(/(?:company|entity|enterprise|registration)\s*(?:no\.?|number|#)[:.\s]*([A-Z0-9\-\/]{4,})/i)) v.regNo=m[1];
+  if(!v.regNo&&(m=t.match(/\b(\d{9,})\b/))) v.regNo=m[1]; // PACRA 号通常为 9+ 位
+  if(m=t.match(/date of incorporation[:.\s]*(\d{1,2}[\-\/\s](?:\w{3,9}|\d{1,2})[\-\/\s]\d{2,4})/i)) v.regDate=m[1];
+  else if(m=t.match(/incorporated[^\d]*(\d{1,2}[\-\/\s](?:\w{3,9}|\d{1,2})[\-\/\s]\d{2,4})/i)) v.regDate=m[1];
+  if(m=t.match(/registered office[^a-z]{0,10}([A-Z0-9][^\n]{10,150})/i)) v.address=m[1].trim();
+  if(m=t.match(/share capital[^\dKk]{0,30}K?\s*([\d,]+(?:\.\d+)?)/i)) v.capital=m[1];
+  else if(m=t.match(/nominal capital[^\d]{0,20}([\d,]+)/i)) v.capital=m[1];
+  // 税务清关证：ZRA 格式 "Valid From DD/MM/YYYY To DD/MM/YYYY" 或 Expiry
+  if(m=t.match(/(?:valid\s*(?:from|to|until|thru)|expir\w*)[^\d]{0,20}(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i)) v.taxTo=m[1];
+  if(m=t.match(/clearance.*?to[^\d]{0,10}(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})/i)) v.taxTo=m[1];
+  // 股东行："NAME ... 50%" 或 "NAME | 500 | 50.00%"
+  const shRe=/([A-Z][A-Za-z'&.,\-\s]{3,60}?)\s{2,}[\d,]*\s*(\d{1,3}(?:\.\d+)?)\s*%/g;
+  while((m=shRe.exec(t))){ const nm=m[1].replace(/\s+/g,' ').trim(); if(!/total|address|name|date/i.test(nm)) v.shareholders.push({name:nm,pct:+m[2]}); }
+  // NRC 号出现 → 视为赞比亚人证据
+  v.hasNrc=/\b\d{6}\s*\/\s*\d{2}\s*\/\s*\d\b/.test(t)||/national registration card|zambian/i.test(t);
+  // 董事：Director 行
+  const dRe=/director[s]?[:\s]+([A-Z][A-Za-z'&.,\-\s]{3,60})/gi;
+  while((m=dRe.exec(t))){ const nm=m[1].replace(/\s+/g,' ').trim(); if(nm.length>4&&!v.directors.includes(nm)) v.directors.push(nm); }
+  return v;
+}
+// 解析出的字段并入公司档案（已有字段不覆盖）
+function mergeProfile(c,v){
+  c.profile=c.profile||{};
+  for(const k of ['regNo','regDate','address','capital','taxTo']) if(v[k]&&!c.profile[k]) c.profile[k]=v[k];
+  if((v.shareholders||[]).length>(c.profile.shareholders||[]).length) c.profile.shareholders=v.shareholders;
+  if((v.directors||[]).length>(c.profile.directors||[]).length) c.profile.directors=v.directors;
+  if(v.hasNrc) c.profile.hasNrc=true;
+  if(v.taxTo){ (c.docs.tax=c.docs.tax||{}).expiry=normDate(v.taxTo)||c.docs.tax.expiry; }
+}
+// 解析某家公司全部已传文件 → 写入 co.profile（可重复跑）
+async function analyzeCo(){
+  const c=curCo(); if(!c) return;
+  toast('解析中（逐份读 PDF 文本层）…');
+  c.profile={};
+  const notes=[];
+  for(const [key,en,cn] of CO_DOCS){
+    const d=(c.docs||{})[key]; if(!d||!d.mediaKey||!/pdf$/i.test(d.fileName||'')) continue;
+    try{
+      const r=await fetch(`${API}/media?key=${d.mediaKey}`);
+      if(!r.ok) throw 0;
+      const t=await extractPdfText(await r.blob());
+      mergeProfile(c,analyzeText(t));
+      notes.push(en+':ok');
+    }catch(e){ notes.push(en+':失败'); }
+  }
+  persist(); renderCo(); toast('解析完成，请核对自动识别字段');
+}
+function normDate(s){ // DD/MM/YYYY 或 DD-MM-YYYY → ISO
+  const m=String(s||'').match(/(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})/);
+  if(!m) return '';
+  let[,d,mo,y]=m; y=y.length===2?'20'+y:y;
+  return `${y}-${mo.padStart(2,'0')}-${d.padStart(2,'0')}`;
+}
 
 /* ================= 公司档案 ================= */
 function newCo(cb){
@@ -507,30 +592,59 @@ function doNewCo(){
   S.companies.push(c); curCoId=c.id; persist(); closeSheet(); renderCo();
   if(window._afterCo){ window._afterCo(); window._afterCo=null; }
 }
-function onCoSel(){ curCoId=$('coSel').value; renderCo(); }
+function onCoSel(){ /* 公司选择改为列表点击进入（curCoId） */ }
 function renderCo(){
-  const sel=$('coSel');
-  sel.innerHTML = S.companies.length ? S.companies.map(c=>`<option value="${c.id}" ${c.id===curCoId?'selected':''}>${esc(c.name)}</option>`).join('') : '<option value="">— 无公司档案 —</option>';
-  if(!curCo()&&S.companies.length) curCoId=S.companies[0].id;
-  const c=curCo(), f=$('coForm');
-  if(!c){ f.innerHTML='<div class="empty">新建一个公司档案，信息将用于所有申请和文件编写</div>'; return; }
-  const zmPct=c.shareholders.filter(s=>/赞|zambia/i.test(s.nationality||'')).reduce((t,s)=>t+(+s.pct||0),0);
-  f.innerHTML=`
-    <label>公司名称</label><input value="${esc(c.name)}" onchange="coSet('name',this.value)">
-    <div class="row"><div style="flex:1"><label>PACRA 注册号</label><input value="${esc(c.regNo)}" onchange="coSet('regNo',this.value)"></div>
-    <div style="flex:1"><label>注册日期</label><input type="date" value="${c.regDate||''}" onchange="coSet('regDate',this.value)"></div></div>
-    <label>注册办公地址</label><input value="${esc(c.address)}" onchange="coSet('address',this.value)">
-    <label>股本 Share Capital（K）</label><input value="${esc(c.shareCapital)}" onchange="coSet('shareCapital',this.value)">
-    <h3>董事 Directors</h3><div id="dirList"></div>
-    <button class="btn sm ghost" onclick="addPerson('directors')">＋董事</button>
-    <h3>股东 Shareholders（赞方合计 <b id="zmPct">${zmPct.toFixed(1)}%</b>）</h3><div id="shList"></div>
-    <button class="btn sm ghost" onclick="addPerson('shareholders')">＋股东</button>
-    <div class="row" style="margin-top:8px"><div style="flex:1"><label>存量已获批矿证数（本工具外、批复上限 5 个）</label>
+  const f=$('coForm'), today=new Date().toISOString().slice(0,10);
+  // 列表模式
+  if(!curCoId){
+    f.innerHTML=(S.companies.length?'':'<div class="empty">还没有公司，点上方「＋公司」新建</div>')
+      +S.companies.map(c=>{
+        const dn=CO_DOCS.filter(([k])=>(c.docs||{})[k]&&c.docs[k].mediaKey).length;
+        const te=(c.docs&&c.docs.tax&&c.docs.tax.expiry)||normDate((c.profile||{}).taxTo)||'';
+        const flag=te&&te<today?`<span style="color:var(--danger);font-weight:700">税证 ${te} 已过期</span>`:te?`税证至 ${te}`:'文件未解析';
+        return `<div class="doc" style="cursor:pointer" onclick="curCoId='${c.id}';renderCo()">
+          <span class="chip ${dn>=7?'s2':dn?'s1':'s0'}">${dn}/${CO_DOCS.length}</span>
+          <div class="doc-body"><div class="doc-name">${esc(c.name)}</div>
+          <div class="doc-cn">${flag}${c.profile&&c.profile.hasNrc?' · 含赞方材料':''}</div></div><span class="muted">›</span></div>`;
+      }).join('');
+    return;
+  }
+  // 详情模式
+  const c=curCo();
+  if(!c){ curCoId=null; return renderCo(); }
+  const p=c.profile||{};
+  const taxExp=(c.docs&&c.docs.tax&&c.docs.tax.expiry)||normDate(p.taxTo)||'';
+  const taxBad=taxExp&&taxExp<today;
+  const prof=Object.keys(p).length?`
+    <h3>自动解析结果（请与原件核对）</h3>
+    <div class="doc-meta" style="display:block;line-height:1.9">
+      ${p.regNo?`PACRA 注册号：<b>${esc(p.regNo)}</b><br>`:''}
+      ${p.regDate?`注册日期：<b>${esc(p.regDate)}</b><br>`:''}
+      ${p.address?`注册地址：${esc(p.address)}<br>`:''}
+      ${p.capital?`股本：K ${esc(p.capital)}<br>`:''}
+      ${taxExp?`税务清关证到期：<b style="color:${taxBad?'var(--danger)':'inherit'}">${taxExp}${taxBad?'（已过期！）':''}</b><br>`:''}
+      ${(p.shareholders||[]).length?`股东：${p.shareholders.map(s=>esc(s.name)+' '+s.pct+'%').join('；')}<br>`:''}
+      ${(p.directors||[]).length?`董事：${p.directors.map(esc).join('；')}<br>`:''}
+      ${p.hasNrc?'识别到 NRC/赞比亚人材料（SEL 资格仍需人工确认 ≥5%）<br>':''}
+    </div>`:'';
+  f.innerHTML=`<div class="row"><button class="btn sm gray" onclick="curCoId=null;renderCo()">‹ 列表</button>
+      <h2 style="flex:1">${esc(c.name)}</h2>
+      <button class="btn sm" onclick="analyzeCo()">解析全部文件</button>
+      <button class="del" title="删除公司" onclick="delCo()">✕</button></div>
+    ${prof}
+    <h3>基础文件（传一次，名下申请自动引用）</h3><div id="coDocs"></div>
+    <div class="row" style="margin-top:10px"><div style="flex:1"><label>存量已获批矿证数（批复上限 5 个）</label>
     <input type="number" min="0" value="${c.heldLicences||0}" onchange="coSet('heldLicences',+this.value||0)"></div>
     <div style="flex:1"><label>在办 / 已获批（本工具内）</label><input value="${S.apps.filter(x=>x.companyId===c.id&&!['rejected','abandoned','granted'].includes(x.status)).length} / ${S.apps.filter(x=>x.companyId===c.id&&x.status==='granted').length}" disabled></div></div>
-    <h3>公司基础文件（一次上传，名下申请自动引用）</h3><div id="coDocs"></div>
-    <div class="tipbox" style="margin-top:10px">SEL 要求赞比亚人持股 ≥5%；AMR 仅限公民个人或纯公民合作社持有；同一主体获批矿权上限 5 个（申请数不限，被拒/放弃不缴费不计入）。</div>`;
-  renderPersons(); renderCoDocs();
+    <div class="tipbox" style="margin-top:10px">上传 PDF 自动提取注册号/日期/股东/税证到期（扫描件无文本层则识别不出）；SEL 需赞比亚人持股 ≥5%，以股东文件为准人工确认；获批矿权上限 5 个。</div>`;
+  renderCoDocs();
+}
+function delCo(){
+  const c=curCo(); if(!c) return;
+  if(!confirm(`删除公司「${c.name}」？云端已传文件保留，仅移除记录。`)) return;
+  S.companies=S.companies.filter(x=>x.id!==c.id);
+  S.apps.forEach(a=>{ if(a.companyId===c.id) a.companyId=null; });
+  curCoId=null; persist(); renderCo();
 }
 function renderCoDocs(){
   const c=curCo(); if(!c) return;
@@ -549,22 +663,7 @@ function renderCoDocs(){
 }
 function coDocSet(k,f,v){ const c=curCo(); if(!c.docs)c.docs={}; c.docs[k]={...(c.docs[k]||{}),[f]:v}; persist(); }
 function coSet(k,v){ const c=curCo(); c[k]=v; persist(); if(k==='name')renderAppSel(); }
-function renderPersons(){
-  const c=curCo(); if(!c) return;
-  $('dirList').innerHTML=c.directors.map((p,i)=>`<div class="person">
-    <input placeholder="姓名" value="${esc(p.name)}" onchange="pSet('directors',${i},'name',this.value)">
-    <input placeholder="NRC/护照号" value="${esc(p.idNo)}" onchange="pSet('directors',${i},'idNo',this.value)">
-    <button class="del" onclick="pDel('directors',${i})">×</button></div>`).join('');
-  $('shList').innerHTML=c.shareholders.map((p,i)=>`<div class="person">
-    <input placeholder="姓名/公司" value="${esc(p.name)}" onchange="pSet('shareholders',${i},'name',this.value)">
-    <input placeholder="国籍" value="${esc(p.nationality)}" onchange="pSet('shareholders',${i},'nationality',this.value)" style="max-width:90px">
-    <input class="pct" placeholder="%" type="number" value="${p.pct||''}" onchange="pSet('shareholders',${i},'pct',this.value)">
-    <input placeholder="NRC/护照" value="${esc(p.idNo)}" onchange="pSet('shareholders',${i},'idNo',this.value)">
-    <button class="del" onclick="pDel('shareholders',${i})">×</button></div>`).join('');
-}
-function addPerson(k){ const c=curCo(); c[k].push(k==='directors'?{name:'',idNo:''}:{name:'',nationality:'',pct:'',idNo:''}); persist(); renderPersons(); }
-function pSet(k,i,f,v){ curCo()[k][i][f]=v; persist(); if(k==='shareholders'){ const zm=curCo().shareholders.filter(s=>/赞|zambia/i.test(s.nationality||'')).reduce((t,s)=>t+(+s.pct||0),0); $('zmPct').textContent=zm.toFixed(1)+'%'; } }
-function pDel(k,i){ curCo()[k].splice(i,1); persist(); renderCo(); }
+function renderPersons(){ /* 人员信息改由文件自动解析，见 co.profile */ }
 
 /* ================= 区域与坐标 ================= */
 function renderArea(){
@@ -688,8 +787,11 @@ function runReview(){
     else push(0,'ok','税务清关证有效',`到期 ${tax.expiry}`); }
   // 3. 资格
   if(a.type==='SEL'){
-    const zm=co?co.shareholders.filter(s=>/赞|zambia/i.test(s.nationality||'')).reduce((t,s)=>t+(+s.pct||0),0):0;
-    push(0, zm>=5?'ok':'fail','赞比亚人持股 ≥5%（SEL 门槛）', co?`当前赞方持股 ${zm.toFixed(1)}%`:'未填公司股东信息');
+    const zm=co?(co.shareholders||[]).filter(s=>/赞|zambia/i.test(s.nationality||'')).reduce((t,s)=>t+(+s.pct||0),0):0;
+    if(!co) push(0,'fail','赞比亚人持股 ≥5%（SEL 门槛）','未关联公司档案');
+    else if((co.shareholders||[]).length) push(0, zm>=5?'ok':'fail','赞比亚人持股 ≥5%（SEL 门槛）',`当前赞方持股 ${zm.toFixed(1)}%`);
+    else if(co.profile&&co.profile.hasNrc) push(0,'warn','赞比亚人持股 ≥5%（SEL 门槛）','文件识别到 NRC/赞方材料，请人工确认持股比例 ≥5%');
+    else push(0,'fail','赞比亚人持股 ≥5%（SEL 门槛）','未识别到股东结构，上传 PACRA/股东文件后点「解析全部文件」');
   }
   if(a.type==='AMR'){
     push(0, a.applicantKind!=='company'?'ok':'fail','AMR 仅限公民个人/纯公民合作社',
