@@ -1700,8 +1700,8 @@ function form1Values(a){
   const dir=(co.directors&&co.directors.length?co.directors:sh); // 董事缺省=股东
   const zm=sh.find(s=>/ZAMBIA/i.test(s.nationality||''));
   const v={
-    MINERALS:a.commodity||'', APPLICANT:co.name||a.applicantName||'', ADDR:co.address||'',
-    TEL:co.tel||'/', MOBILE:co.phone||'/', FAX:co.fax||'/', EMAIL:co.email||'',
+    MINERALS:a.commodity||'Copper', APPLICANT:co.name||a.applicantName||'', ADDR:co.address||'',
+    TEL:co.tel||'/', MOBILE:co.phone||'/', FAX:co.fax||'/', EMAIL:'frankataix@gmail.com',
     REGNO:co.regNo||'', DOB:'', NAT:'', IDNO:'',
     PROVINCE:a.area.province||'', DISTRICT:a.area.district||'', LOCALITY:a.area.name||a.area.locRaw||'',
     SIZEKM2:a.area.km2||'', FEE:'', SIGN_NAME:(co.ceo||sh[0]?.name||''),
@@ -1725,17 +1725,16 @@ function form1Values(a){
   });
   return v;
 }
-function form1Checks(a){ // 勾选标记：type+scale
-  const chk={};
+function form1Checks(a){ // 勾选标记（规则：本系统一律申请勘探权 Exploration；规模按证型）
   const T=a.type;
-  chk.CB_EXPLORE = T==='LEL'||T==='SEL';
-  chk.CB_MINING  = T==='AMR';
-  chk.CB_EXPL_LARGE = T==='LEL'; chk.CB_EXPL_SMALL = T==='SEL';
-  chk.CB_MINE_LARGE = false; chk.CB_MINE_SMALL=false; chk.CB_ARTISANAL = T==='AMR';
-  chk.CB_INDIV = a.applicantKind==='person'; chk.CB_COOP = a.applicantKind==='coop';
-  chk.CB_EXPL_ACT = T==='LEL'||T==='SEL'; chk.CB_MINE_ACT = T==='AMR';
-  chk.CB_PENDING=true;
-  return chk;
+  return {
+    CB_EXPLORE:true, CB_MINING:false,                    // 固定勾 Exploration
+    CB_EXPL_LARGE:T==='LEL', CB_EXPL_SMALL2:T==='SEL',   // 大型勘探证→Large scale；小型→Small-Scale（合并格）
+    CB_MINE_LARGE:false, CB_MINE_SMALL:false, CB_ARTISANAL:false,
+    CB_INDIV:a.applicantKind==='person', CB_COOP:a.applicantKind==='coop',
+    CB_EXPL_ACT:true, CB_MINE_ACT:false,                 // 活动区域按勘探勾选
+    CB_PENDING:true,                                     // Q13 状态默认 Pending
+  };
 }
 async function genForm1(){
   const a=curApp(); if(!a) return toast('先选择申请');
