@@ -139,7 +139,11 @@
 <main>
 <!-- ============ 清单 ============ -->
 <div class="pane active" id="p-docs">
-  <div class="tipbox">清单按 portal.miningcadastre.com 各证型上传栏整理。点状态圆片：缺 → 已收 → 已核 → 问题。<b>A 类 = 公司基础材料，B 类 = 支持性文件，C = 可选/兜底</b>。</div>
+  <div class="card" id="appListCard"><div class="row"><h2 style="flex:1">申请列表</h2>
+    <button class="btn sm" onclick="newApp()">＋申请</button></div>
+    <div id="appList"></div></div>
+  <div id="appDetailWrap">
+  <div class="tipbox"><a href="javascript:void(0)" onclick="curAppId=null;saveUI();renderAll()">‹ 返回申请列表</a> · 清单按 portal.miningcadastre.com 各证型上传栏整理。点状态圆片：缺 → 已收 → 已核 → 问题。<b>A 类 = 公司基础材料，B 类 = 支持性文件，C = 可选/兜底</b>。</div>
   <div class="card">
     <h2>申请说明（把要求粘贴到这里，AI 提取要点并填进申请）</h2>
     <textarea id="briefTxt" style="min-height:90px" placeholder="粘贴地块/申请要求的文字（中英文都行）：比如地块名、位置、矿种、投资额、雇工规模、历史矿证情况…" oninput="saveBrief(this.value)" onchange="persist()"></textarea>
@@ -166,6 +170,7 @@
       <input id="tlNote" placeholder="记录内容，例：MRC 要求补充 PACRA 最新打印件" style="flex:1">
       <button class="btn sm" onclick="addTl()">记一笔</button>
     </div>
+  </div>
   </div>
 </div>
 
@@ -453,13 +458,12 @@ function doNewApp(){
     params:{investUsd:'',years:'',staff:'',citizenPct:'',localNote:'',phases:''},
     docs:{}, drafts:{}, status:'prep', timeline:[{t:new Date().toISOString().slice(0,10),type:'创建',note:'建立申请'}], createdAt:new Date().toISOString() };
   (DOC_DEFS[type]||[]).forEach(d=>app.docs[d[0]]={status:0,fileName:'',mediaKey:'',expiry:'',note:''});
-  S.apps.push(app); curAppId=app.id; persist(); renderAll(); closeSheet(); toast('已创建申请');
+  S.apps.push(app); curAppId=null; persist(); renderAll(); closeSheet(); toast('已创建，点列表进入该申请');
 }
 function onAppSel(){ curAppId=$('appSel').value; persist0(); renderAll(); }
 function renderAppSel(){
   const sel=$('appSel');
-  sel.innerHTML = S.apps.length ? S.apps.map(a=>`<option value="${a.id}" ${a.id===curAppId?'selected':''}>${esc(a.label)}（${LIC[a.type].name}）</option>`).join('') : '<option value="">— 还没有申请 —</option>';
-  if (!curApp() && S.apps.length) curAppId=S.apps[0].id, sel.value=curAppId;
+  sel.innerHTML = S.apps.length ? `<option value="" ${!curApp()?'selected':''}>— 选择申请 —</option>`+S.apps.map(a=>`<option value="${a.id}" ${a.id===curAppId?'selected':''}>${esc(a.label)}（${LIC[a.type].name}）</option>`).join('') : '<option value="">— 还没有申请 —</option>';
   $('licBadge').textContent = curApp() ? curApp().type : '—';
 }
 
@@ -475,9 +479,28 @@ function effDoc(a, key, cat){
   }
   return { d: ad, src: null };
 }
+// 申请列表（每个申请独立任务，点行进入该申请的材料页）
+function renderAppList(){
+  const box=$('appList');
+  if(!box) return;
+  box.innerHTML=S.apps.map(a=>{
+    const defs=DOC_DEFS[a.type]||[];
+    const req=defs.filter(d=>d[3]!=='C').length;
+    const done=defs.filter(d=>d[3]!=='C'&&effDoc(a,d[0],d[3]).d.status>=1).length;
+    const co=appCo(a);
+    const stTxt={prep:'准备中',submitted:'已递交',paid:'已缴费',granted:'已获批',rejected:'被拒',abandoned:'放弃'}[a.status||'prep'];
+    return `<div class="doc" style="cursor:pointer" onclick="curAppId='${a.id}';saveUI();renderAll()">
+      <div class="doc-body"><div class="doc-name">${esc(a.label)} <span class="muted" style="font-weight:400;font-size:12px">${LIC[a.type]?LIC[a.type].name:''}${co?' · '+esc(co.name):''}</span></div>
+      <div class="doc-cn">${a.area.district||a.area.province?esc([a.area.district,a.area.province].filter(Boolean).join(', '))+' · ':''}材料 ${done}/${req} · ${stTxt}</div></div>
+      <span class="muted">›</span></div>`;
+  }).join('')||'<div class="empty">还没有申请，点右上角「＋申请」创建</div>';
+}
 function renderDocs(){
   const a=curApp(), box=$('docList');
-  if(!a){ box.innerHTML='<div class="empty">先在顶部「＋申请」建立一个矿证申请</div>'; $('progTxt').textContent='0/0'; $('pfill').style.width='0'; $('briefTxt').value=''; $('briefHint').textContent=''; return; }
+  $('appListCard').style.display=a?'none':'';
+  $('appDetailWrap').style.display=a?'':'none';
+  renderAppList();
+  if(!a){ $('progTxt').textContent='0/0'; $('pfill').style.width='0'; $('briefTxt').value=''; $('briefHint').textContent=''; return; }
   $('briefTxt').value=a.brief||'';
   const defs=DOC_DEFS[a.type]||[];
   let req=defs.filter(d=>d[3]!=='C'), done=req.filter(d=>effDoc(a,d[0],d[3]).d.status>=1).length;
