@@ -143,19 +143,11 @@
     <button class="btn sm" onclick="newApp()">＋申请</button></div>
     <div id="appList"></div></div>
   <div id="appDetailWrap">
-  <div class="tipbox"><a href="javascript:void(0)" onclick="curAppId=null;saveUI();renderAll()">‹ 返回申请列表</a> · 清单按 portal.miningcadastre.com 各证型上传栏整理。点状态圆片：缺 → 已收 → 已核 → 问题。<b>A 类 = 公司基础材料，B 类 = 支持性文件，C = 可选/兜底</b>。</div>
-  <div class="card">
-    <h2>申请说明（把要求粘贴到这里，AI 提取要点并填进申请）</h2>
-    <textarea id="briefTxt" style="min-height:90px" placeholder="粘贴地块/申请要求的文字（中英文都行）：比如地块名、位置、矿种、投资额、雇工规模、历史矿证情况…" oninput="saveBrief(this.value)" onchange="persist()"></textarea>
-    <div class="btnrow">
-      <button class="btn sm" id="briefBtn" onclick="parseBrief()">AI 解析要点</button>
-      <button class="btn sm" id="genAllBtn" onclick="genAllDocs()">AI 生成全部 B 类文件</button>
-    </div>
-    <div class="muted" id="briefHint" style="font-size:12px"></div>
-  </div>
+  <div class="card" id="appSum"></div>
   <div class="card">
     <div class="row"><h2 style="flex:1">材料清单</h2><span class="muted" id="progTxt">0/0</span>
-      <button class="btn sm green" onclick="exportPackage()">导出递交包</button></div>
+      <button class="btn sm" id="genAllBtn" onclick="genAllDocs()">AI 生成全部支持性文件</button>
+      <button class="btn sm green" onclick="exportPackage()">导出递交包 ZIP</button></div>
     <div class="pbar"><div class="pfill" id="pfill"></div></div>
     <div id="docList"></div>
   </div>
@@ -539,21 +531,45 @@ function renderAppList(){
       <button class="del" style="color:var(--muted)" title="设置" onclick="event.stopPropagation();appMenu('${a.id}')">⋯</button></div>`;
   }).join('')||'<div class="empty">还没有申请，点右上角「＋申请」创建</div>';
 }
+// 申请概要卡：公司/证型/位置/面积/矿种/状态一览
+function renderAppSum(a){
+  const co=appCo(a), lic=LIC[a.type]||{};
+  const stTxt={prep:'准备中',submitted:'已递交',paid:'已缴费',granted:'已获批',rejected:'被拒',abandoned:'放弃'}[a.status||'prep'];
+  const size=a.area.km2?a.area.km2+' km²':(a.area.units?a.area.units+' 单位':'—');
+  const loc=[a.area.district,a.area.province].filter(Boolean).join(', ')||'—';
+  $('appSum').innerHTML=`
+    <div class="row"><h2 style="flex:1">${esc(a.label)}</h2>
+      <a href="javascript:void(0)" onclick="curAppId=null;saveUI();renderAll()" style="font-size:12px">‹ 申请列表</a>
+      <button class="btn sm ghost" onclick="editApp('${a.id}')">修改</button></div>
+    <div class="stat-grid">
+      <div class="stat"><div class="v">${lic.name||a.type}</div><div class="k">矿证类型</div></div>
+      <div class="stat"><div class="v" style="font-size:14px">${co?esc(co.name):'—'}</div><div class="k">申请公司</div></div>
+      <div class="stat"><div class="v" style="font-size:14px">${esc(loc)}</div><div class="k">地理位置</div></div>
+      <div class="stat"><div class="v">${size}</div><div class="k">矿证面积</div></div>
+      <div class="stat"><div class="v">${esc(a.commodity||'—')}</div><div class="k">矿产品种</div></div>
+      <div class="stat"><div class="v">${stTxt}</div><div class="k">状态（区域页可改）</div></div>
+    </div>
+    ${a.brief?`<div class="muted" style="font-size:12px;margin-top:6px">原始说明：${esc(a.brief.slice(0,200))}${a.brief.length>200?'…':''}</div>`:''}`;
+}
 function renderDocs(){
   const a=curApp(), box=$('docList');
   $('appListCard').style.display=a?'none':'';
   $('appDetailWrap').style.display=a?'':'none';
   renderAppList();
-  if(!a){ $('progTxt').textContent='0/0'; $('pfill').style.width='0'; $('briefTxt').value=''; $('briefHint').textContent=''; return; }
-  $('briefTxt').value=a.brief||'';
+  if(!a){ $('progTxt').textContent='0/0'; $('pfill').style.width='0'; return; }
+  renderAppSum(a);
   const defs=DOC_DEFS[a.type]||[];
   let req=defs.filter(d=>d[3]!=='C'), done=req.filter(d=>effDoc(a,d[0],d[3]).d.status>=1).length;
   $('progTxt').textContent=`${done}/${req.length}`;
   $('pfill').style.width=(req.length?done/req.length*100:0)+'%';
-  let html='', lastCat='';
-  for(const d of defs){
+  // 顺序：申请表（Form I）→ B 类支持性文件 → 公司基础资料 → 可选/兜底
+  const ord=d=>d[0]==='form'?0:d[3]==='B'?1:d[3]==='A'?2:3;
+  const catTitle={0:'申请表（Form I 打印签署后上传）',1:'B 类 · 支持性文件（AI 可生成文稿）',2:'公司基础资料（公司档自动引用，不用重复传）',3:'C · 可选/兜底'};
+  const sorted=[...defs].sort((x,y)=>ord(x)-ord(y));
+  let html='', lastOrd=-1;
+  for(const d of sorted){
     const [key,en,cn,cat,exp]=d;
-    if(cat!==lastCat){ lastCat=cat; html+=`<h3 style="margin:10px 0 2px">${cat==='A'?'A 类 · 公司基础材料（可在公司档一次上传复用）':cat==='B'?'B 类 · 支持性文件':'C · 可选/兜底'}</h3>`; }
+    if(ord(d)!==lastOrd){ lastOrd=ord(d); html+=`<h3 style="margin:10px 0 2px">${catTitle[lastOrd]}</h3>`; }
     const eff=effDoc(a,key,cat), st=eff.d;
     html+=`<div class="doc" ondragover="event.preventDefault()" ondrop="docDrop(event,'${key}','app')">
       <button class="chip s${st.status}" onclick="cycleStatus('${key}')">${ST_TXT[st.status]}</button>
@@ -1420,7 +1436,7 @@ function saveBrief(v){ const a=curApp(); if(!a) return; a.brief=v; persist0(); }
 async function parseBrief(){
   const a=curApp(); if(!a) return toast('先建立申请');
   const t=(a.brief||'').trim(); if(!t) return toast('先粘贴说明文字');
-  $('briefBtn').disabled=true; $('briefBtn').textContent='解析中…';
+  const bb=$('briefBtn'); if(bb){bb.disabled=true; bb.textContent='解析中…';}
   try{
     const prompt=`Extract mining licence application facts from the brief below. Reply with STRICT JSON ONLY (no prose), keys:
 {"label":"application/area short name","commodity":"","areaName":"","province":"","district":"","chief":"","investUsd":"","years":"","staff":"","citizenPct":"","prevLic":"previous licence number if mentioned","prevNote":"","desc":"1-2 sentence English background of the area/application","phases":"comma-separated work phases","localNote":""}
@@ -1446,10 +1462,9 @@ Leave keys empty if not stated. Brief:\n${t}`;
     if(f.phases) pr.phases=f.phases;
     if(f.localNote) pr.localNote=f.localNote;
     persist(); renderAll();
-    $('briefHint').innerHTML='已提取填入：'+[f.label&&'名称',f.commodity&&'矿种',f.areaName&&'地块',f.province&&'省份',f.investUsd&&'投资额',f.staff&&'人数',f.prevLic&&'原证号'].filter(Boolean).join('、')+'（请到「区域」页核对）';
-    toast('已解析并填入申请');
+    toast('已解析并填入申请：'+[f.label&&'名称',f.commodity&&'矿种',f.areaName&&'地块',f.province&&'省份',f.investUsd&&'投资额',f.staff&&'人数',f.prevLic&&'原证号'].filter(Boolean).join('、'));
   }catch(e){ toast('解析失败：'+e.message); }
-  $('briefBtn').disabled=false; $('briefBtn').textContent='AI 解析要点';
+  if(bb){bb.disabled=false; bb.textContent='AI 解析要点';}
 }
 // 一键生成该证型全部 B 类支持性文件 → 存入 drafts（生成后可去「编写」页逐份润色）
 async function genAllDocs(){
@@ -1542,21 +1557,39 @@ async function exportPackage(){
   }
   manifest.push('','—— 缺失清单 ——', missing.length?missing.join('\n'):'无');
   files.push({name:'00_清单与缺口.txt',blob:new Blob([manifest.join('\n')],{type:'text/plain;charset=utf-8'})});
-  if('showDirectoryPicker' in window){
-    try{
-      const dir=await window.showDirectoryPicker({mode:'readwrite'});
-      const coDir=await dir.getDirectoryHandle(coDirName,{create:true});
-      const appDir=await coDir.getDirectoryHandle(appDirName,{create:true});
-      for(const f of files){
-        const fh=await appDir.getFileHandle(f.name,{create:true});
-        const w=await fh.createWritable(); await w.write(f.blob); await w.close();
-      }
-      toast(`已导出 ${files.length} 个文件 → ${coDirName}/${appDirName}`);
-    }catch(e){ if(e.name!=='AbortError') toast('导出失败：'+e.message); }
-  }else{
-    for(const f of files){ downloadBlob(f.blob,`${coDirName}__${appDirName}__${f.name}`); await new Promise(r=>setTimeout(r,300)); }
-    toast('浏览器不支持选目录，已逐个下载（文件名带前缀）');
+  // 打成 ZIP：内部路径 公司名/申请名/文件名，一键下载到本地
+  const entries=[];
+  for(const f of files) entries.push({name:`${coDirName}/${appDirName}/${f.name}`,data:new Uint8Array(await f.blob.arrayBuffer())});
+  const zip=makeZip(entries);
+  downloadBlob(zip,`${coDirName}__${appDirName}.zip`);
+  toast(`已导出 ${files.length} 个文件的递交包 ZIP`);
+}
+// 极简 ZIP 打包（store 不压缩，PDF/docx 本来就压不动）
+const CRC_T=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c}return t})();
+function crc32(u8){let c=~0;for(let i=0;i<u8.length;i++)c=CRC_T[(c^u8[i])&255]^(c>>>8);return ~c>>>0}
+function makeZip(entries){
+  const enc=new TextEncoder(),parts=[],cds=[];let off=0;
+  const d=new Date(),dt=(d.getHours()<<11)|(d.getMinutes()<<5)|(d.getSeconds()>>1),dd=((d.getFullYear()-1980)<<9)|((d.getMonth()+1)<<5)|d.getDate();
+  for(const e of entries){
+    const nb=enc.encode(e.name),crc=crc32(e.data);
+    const lh=new DataView(new ArrayBuffer(30));
+    lh.setUint32(0,0x04034b50,true);lh.setUint16(4,20,true);lh.setUint16(6,0x0800,true);
+    lh.setUint16(10,dt,true);lh.setUint16(12,dd,true);
+    lh.setUint32(14,crc,true);lh.setUint32(18,e.data.length,true);lh.setUint32(22,e.data.length,true);
+    lh.setUint16(26,nb.length,true);
+    parts.push(lh.buffer,nb,e.data);
+    const cd=new DataView(new ArrayBuffer(46));
+    cd.setUint32(0,0x02014b50,true);cd.setUint16(4,20,true);cd.setUint16(6,20,true);cd.setUint16(8,0x0800,true);
+    cd.setUint16(12,dt,true);cd.setUint16(14,dd,true);
+    cd.setUint32(16,crc,true);cd.setUint32(20,e.data.length,true);cd.setUint32(24,e.data.length,true);
+    cd.setUint16(28,nb.length,true);cd.setUint32(42,off,true);
+    cds.push(cd.buffer,nb);off+=30+nb.length+e.data.length;
   }
+  const cdSize=cds.reduce((s,b)=>s+b.byteLength,0);
+  const eo=new DataView(new ArrayBuffer(22));
+  eo.setUint32(0,0x06054b50,true);eo.setUint16(8,cds.length/2,true);eo.setUint16(10,cds.length/2,true);
+  eo.setUint32(12,cdSize,true);eo.setUint32(16,off,true);
+  return new Blob([...parts,...cds,eo.buffer],{type:'application/zip'});
 }
 function exportDoc(){
   const key=$('genSel').value, text=$('genOut').value;
