@@ -391,6 +391,7 @@ function go(btn){
 
 /* ================= 申请（矿证）管理 ================= */
 function newApp(){
+  window._naLoc='';
   openSheet(`<h3>新建申请</h3>
     <label>粘贴地块信息（地区/面积/矿种等，粘贴后自动填入下方字段）</label>
     <textarea id="naPaste" style="min-height:80px" placeholder="例：\n地区：Central, Serenje; Northern, Mpika\n产区面积：62.20 km²\n矿种：Copper" oninput="autoFillApp(this.value)"></textarea>
@@ -414,6 +415,7 @@ function autoFillApp(t){
   // 地区：Province, District; Province2, District2
   const loc=t.match(/(?:地区|位置|location|area)\s*[:：]\s*([^\n]+)/i);
   if(loc){
+    window._naLoc=loc[1].trim(); // 原文整条存为地理位置
     const pairs=loc[1].split(/[;；]/).map(s=>s.trim()).filter(Boolean);
     const provs=[],dists=[];
     for(const p of pairs){
@@ -445,7 +447,7 @@ function doNewApp(){
   const app={ id:uid(), type, label, commodity:com, companyId:(coSel==='person'||coSel==='coop')?null:coSel,
     brief,
     applicantKind:(coSel==='person'?'person':coSel==='coop'?'coop':'company'), applicantName:$('naApplicant')?$('naApplicant').value.trim():'',
-    area:{name:'',province:$('naProv').value.trim(),district:$('naDist').value.trim(),chief:'',
+    area:{name:'',province:$('naProv').value.trim(),district:$('naDist').value.trim(),locRaw:window._naLoc||'',chief:'',
       km2,units:km2?Math.round(km2/UNIT_HA):null,coords:[],datum:'GCS_Arc1950',prevLic:'',prevNote:'',desc:''},
     params:{investUsd:'',years:'',staff:'',citizenPct:'',localNote:'',phases:''},
     docs:{}, drafts:{}, status:'prep', timeline:[{t:new Date().toISOString().slice(0,10),type:'创建',note:'建立申请'}], createdAt:new Date().toISOString() };
@@ -519,7 +521,7 @@ function renderAppList(){
     const done=defs.filter(d=>d[3]!=='C'&&effDoc(a,d[0],d[3]).d.status>=1).length;
     const co=appCo(a);
     const stTxt={prep:'准备中',submitted:'已递交',paid:'已缴费',granted:'已获批',rejected:'被拒',abandoned:'放弃'}[a.status||'prep'];
-    const loc=[a.area.district,a.area.province].filter(Boolean).join(', ')||'—';
+    const loc=a.area.locRaw||[a.area.district,a.area.province].filter(Boolean).join(', ')||'—';
     const size=a.area.km2?a.area.km2+' km²':(a.area.units?a.area.units+' 单位':'—');
     const stCls={granted:'s2',rejected:'s3',abandoned:'s3'}[a.status]||'s0';
     return `<div class="doc" style="cursor:pointer;align-items:center" onclick="curAppId='${a.id}';saveUI();renderAll()">
@@ -536,7 +538,7 @@ function renderAppSum(a){
   const co=appCo(a), lic=LIC[a.type]||{};
   const stTxt={prep:'准备中',submitted:'已递交',paid:'已缴费',granted:'已获批',rejected:'被拒',abandoned:'放弃'}[a.status||'prep'];
   const size=a.area.km2?a.area.km2+' km²':(a.area.units?a.area.units+' 单位':'—');
-  const loc=[a.area.district,a.area.province].filter(Boolean).join(', ')||'—';
+  const loc=a.area.locRaw||[a.area.district,a.area.province].filter(Boolean).join(', ')||'—';
   $('appSum').innerHTML=`
     <div class="row"><h2 style="flex:1">${esc(a.label)}</h2>
       <a href="javascript:void(0)" onclick="curAppId=null;saveUI();renderAll()" style="font-size:12px">‹ 申请列表</a>
@@ -1225,7 +1227,7 @@ function genCtx(){
     coName:co?co.name:(a?.applicantName||'[Applicant Name]'),
     regNo:co?co.regNo||'[PACRA No.]':'', coAddr:co?co.address||'[Registered Office]':'',
     licEn:lic?lic.en:'',
-    areaName:a?.area.name||'[Area Name]', prov:a?.area.province||'[Province]', dist:a?.area.district||'[District]',
+    areaName:a?.area.name||'[Area Name]', prov:a?.area.province||'[Province]', dist:a?.area.district||'[District]', locRaw:a?.area.locRaw||'',
     commodity:a?.commodity||'[Commodity]', desc:a?.area.desc||'',
     prevLic:a?.area.prevLic||'', prevNote:a?.area.prevNote||'', brief:a?.brief||'',
     coordsTxt:a&&a.area.coords.filter(c=>c.trim()).length?a.area.coords.filter(c=>c.trim()).join(' ; '):'[coordinates]',
@@ -1398,7 +1400,7 @@ async function genAI(key){
 Facts:
 - Applicant/company: ${x.coName}${x.regNo?(' (PACRA '+x.regNo+')'):''}${x.coAddr?(', registered office: '+x.coAddr):''}
 - Licence type: ${x.licEn}
-- Area: ${x.areaName}, ${x.dist} District, ${x.prov} Province, Zambia
+- Area: ${x.areaName}, ${x.dist} District, ${x.prov} Province, Zambia${x.locRaw?(' (as provided: '+x.locRaw+')'):''}
 - Area size: ${x.areaTxt}
 - Commodity: ${x.commodity}
 - Committed investment: US$${x.invest} over ${x.years} years
