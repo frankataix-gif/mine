@@ -399,7 +399,7 @@ function newApp(){
     <textarea id="naPaste" style="min-height:80px" placeholder="例：\n地区：Central, Serenje; Northern, Mpika\n产区面积：62.20 km²\n矿种：Copper" oninput="autoFillApp(this.value)"></textarea>
     <label>证型</label>
     <select id="naType">${Object.keys(LIC).map(k=>`<option value="${k}">${LIC[k].name} ${LIC[k].en}</option>`).join('')}</select>
-    <label>申请名称/地块代号</label><input id="naLabel" placeholder="例：Serenje 区块 A">
+
     <label>申请主体</label>
     <select id="naCo">${S.companies.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}<option value="_new">（新建公司档案…）</option><option value="person">公民个人</option><option value="coop">合作社</option></select>
     <label>矿种 Commodity</label><input id="naCom" value="Copper" placeholder="例：Copper; Tantalum">
@@ -443,7 +443,8 @@ function autoFillApp(t){
   const nm=t.match(/(?:地块名|名称|name)\s*[:：]\s*([^\n]+)/i); if(nm) set('naLabel',nm[1].trim());
 }
 function doNewApp(){
-  const type=$('naType').value, label=$('naLabel').value.trim()||LIC[type].name, coSel=$('naCo').value, com=$('naCom').value.trim();
+  const type=$('naType').value, coSel=$('naCo').value, com=$('naCom').value.trim();
+  const label=($('naLabel')?$('naLabel').value.trim():'')||$('naDist').value.trim()||$('naProv').value.trim()||LIC[type].name;
   if (coSel==='_new'){ closeSheet(); newCo(()=>newApp()); return; }
   const km2=parseFloat($('naKm2').value)||null;
   const brief=($('naPaste')?$('naPaste').value:'').trim();
