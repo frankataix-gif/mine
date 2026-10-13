@@ -517,7 +517,8 @@ function pickFile(key, scope){
   uploadDocKey=key; uploadScope=scope||'app';
   const fi=$('filePick');
   if(!fi) return toast('文件选择器未就绪，请刷新页面');
-  try{ fi.click(); }catch(e){ toast('无法打开文件选择：'+e.message); }
+  try{ fi.click(); toast('文件选择框已弹出，若没看到请到任务栏找它（可能弹在窗口后面）'); }
+  catch(e){ toast('无法打开文件选择：'+e.message); }
   if(/MicroMessenger/i.test(navigator.userAgent)) toast('微信内可能无法选文件，请用浏览器打开本页');
 }
 // 全局错误浮出来：任何静默 JS 错误都弹 toast，不再"点了没反应"
