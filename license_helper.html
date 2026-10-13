@@ -244,8 +244,8 @@ const DOC_DEFS = {
     ['inc',  'Certificate of Incorporation', 'PACRA 公司注册证', 'A'],
     ['cap',  'Certificate of Share Capital', '股本证书', 'A'],
     ['art',  'Articles of Association', '公司章程', 'A'],
+    ['idsh', 'Identity of Directors and Shareholders', '董事及股东身份证明（NRC/护照）', 'A'],
     ['pacra','PACRA Print Out OR Form 2 or 3', 'PACRA 登记打印件 / Form 2/3', 'A'],
-    ['iddir','Identity of Directors', '董事身份证明（NRC/护照）', 'A'],
     ['tax',  'Valid Tax Clearance Certificate', 'ZRA 税务清关证', 'A', 1],
     ['form', 'Duly Filled in Application Form', '签署版申请表 Form I', 'A'],
     ['prog', 'Proposed Programme of Exploration Operations', '勘探工作计划（含投资承诺额）', 'B', 0, 'prog'],
@@ -258,8 +258,8 @@ const DOC_DEFS = {
     ['inc',  'Certificate of Incorporation', 'PACRA 公司注册证', 'A'],
     ['cap',  'Certificate of Share Capital', '股本证书', 'A'],
     ['art',  'Articles of Association', '公司章程', 'A'],
-    ['pacra','PACRA Print Out OR Form 2 or 3', 'PACRA 登记打印件 / Form 2/3', 'A'],
     ['idsh', 'Identity of Directors and Shareholders', '董事及股东身份证明（含赞方股东 NRC）', 'A'],
+    ['pacra','PACRA Print Out OR Form 2 or 3', 'PACRA 登记打印件 / Form 2/3', 'A'],
     ['tax',  'Valid Tax Clearance Certificate', 'ZRA 税务清关证', 'A', 1],
     ['form', 'Duly Filled in Application Form', '签署版申请表 Form I', 'A'],
     ['prog', 'Proposed Programme of Exploration Operations', '勘探工作计划（含投资承诺额）', 'B', 0, 'prog'],
@@ -290,10 +290,9 @@ const CO_DOCS = [
   ['inc',  'Certificate of Incorporation', '公司注册证', 0],
   ['cap',  'Certificate of Share Capital', '股本证书', 0],
   ['art',  'Articles of Association', '公司章程', 0],
-  ['pacra','PACRA Print Out / Form 2 or 3', 'PACRA 登记打印件', 0],
-  ['iddir','Identity of Directors', '董事身份证明（合并 PDF）', 0],
-  ['idsh', 'Identity of Directors and Shareholders', '董事及股东身份证明（合并 PDF）', 0],
+  ['idsh', 'Identity of Directors and Shareholders', '董事及股东身份证明', 0],
   ['tax',  'Valid Tax Clearance Certificate', '税务清关证', 1],
+  ['pacra','PACRA Print Out / Form 2 or 3', 'PACRA 登记打印件（股东解析源）', 0],
 ];
 // 放射性矿种：小规模/手工不可申请
 const RADIO_RE = /uranium|thorium|radioactive|铀|钍|放射/i;
