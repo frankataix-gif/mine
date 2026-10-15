@@ -1780,6 +1780,12 @@ async function buildForm1Blob(a){
   const files=await unzipDocx(await r.arrayBuffer());
   let xml=new TextDecoder().decode(files['word/document.xml']);
   const vals=form1Values(a), chk=form1Checks(a);
+  // 填值 run 统一字体：样本原件所有填写内容 = 宋体/黑/sz18(9pt)；占位符 run 缺 rPr 时补齐
+  const FILL_RPR='<w:rPr><w:rFonts w:ascii="宋体" w:eastAsia="宋体" w:hAnsi="宋体" w:cs="宋体" w:hint="eastAsia"/><w:color w:val="000000"/><w:sz w:val="18"/><w:szCs w:val="18"/></w:rPr>';
+  xml=xml.replace(/<w:r>(?:(?!<\/w:r>)[\s\S])*?<\/w:r>/g,(run)=>{
+    if(!/\{\{(?!CB_)[A-Z0-9_]+\}\}/.test(run)||/<w:rPr>/.test(run)) return run;
+    return run.replace('<w:r>','<w:r>'+FILL_RPR);
+  });
   // 勾选：整 run 替换成 Symbol F0D6（选中）或清空
   xml=xml.replace(/<w:r>(?:(?!<\/w:r>)[\s\S])*\{\{(CB_\w+)\}\}(?:(?!<\/w:r>)[\s\S])*<\/w:r>/g,
     (m,k)=>chk[k]?'<w:r><w:rPr><w:rFonts w:ascii="宋体" w:eastAsia="宋体" w:hAnsi="宋体"/><w:b/><w:sz w:val="18"/></w:rPr><w:sym w:font="Symbol" w:char="F0D6"/></w:r>':'<w:r><w:t></w:t></w:r>');
