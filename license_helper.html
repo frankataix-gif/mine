@@ -606,7 +606,6 @@ function renderDocs(){
           ${key==='form'?`<a href="javascript:void(0)" onclick="genForm1()" style="color:var(--success);font-weight:700">🧾 生成 Form I</a>`:''}
           ${d[5]?`<a href="javascript:void(0)" onclick="jumpWrite('${d[5]}')" style="color:${(a.drafts[d[5]]||'').trim()?'var(--success)':'var(--muted)'}">${(a.drafts[d[5]]||'').trim()?'✍️ 文稿✓':'✍️ 编写'}</a>`:''}
           ${exp?`到期 <input type="date" value="${st.expiry||''}" onchange="setDoc('${key}','expiry',this.value)">`:''}
-          <input class="note" placeholder="备注" value="${esc(st.note||'')}" onchange="setDoc('${key}','note',this.value)">
         </div>
       </div></div>`;
   }
