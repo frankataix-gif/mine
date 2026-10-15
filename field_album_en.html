@@ -1,0 +1,2218 @@
+<!DOCTYPE html>
+<html lang="en" translate="no">
+<head>
+<meta charset="UTF-8">
+<meta name="google" content="notranslate">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Ecobox Africa Ta-Nb Production</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#2563eb">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Ecobox Africa">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root {
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+    --primary-light: #eff6ff;
+    --success: #16a34a;
+    --warning: #f59e0b;
+    --danger: #dc2626;
+    --gray: #6b7280;
+    --light: #f3f4f6;
+    --border: #e5e7eb;
+    --card: #ffffff;
+    --text: #1f2937;
+    --muted: #64748b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { overscroll-behavior-y: none; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: var(--light);
+    color: var(--text);
+    line-height: 1.6;
+  }
+  .app-checking { opacity: 0 !important; }
+
+  /* Top header bar */
+  .header {
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: white;
+    padding: 12px 16px;
+    position: sticky; top: 0; z-index: 101;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px;
+  }
+  .header-left { display: flex; align-items: center; gap: 10px; }
+  .header h1 { font-size: 1.05rem; font-weight: 700; }
+  .header-clocks {
+    font-size: 0.7rem; color: rgba(255,255,255,0.85); margin-top: 2px;
+    display: flex; gap: 10px; white-space: nowrap;
+  }
+  .header-right { display: flex; align-items: center; gap: 8px; }
+  .upload-progress { background: #fff; padding: 10px 16px; box-shadow: 0 1px 3px rgba(0,0,0,.08); z-index: 90; }
+  .up-row { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .up-bar { height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; }
+  .up-fill { height: 100%; width: 0%; background: var(--primary); border-radius: 3px; transition: width .2s ease; }
+  .userchip {
+    display: flex; align-items: center; gap: 6px;
+    background: rgba(255,255,255,0.15); border: none; border-radius: 16px;
+    padding: 4px 10px 4px 4px; color: #fff; cursor: pointer; max-width: 140px;
+  }
+  .userchip-avatar {
+    width: 24px; height: 24px; border-radius: 50%; flex: 0 0 24px;
+    background: rgba(255,255,255,0.92); color: var(--primary);
+    font-size: 13px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .userchip-name { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .setbtn {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: rgba(255,255,255,0.15); color: #fff;
+    border: none; font-size: 18px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* Bottom tab */
+  .tabs {
+    background: white;
+    border-top: 1px solid var(--border);
+    position: fixed; bottom: 0; left: 0; right: 0;
+    z-index: 100;
+    transform: translateZ(0);
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+  .tabs-inner { display: flex; padding: 6px 4px; }
+  .tab {
+    flex: 1; min-width: 56px; padding: 10px 2px;
+    border: none; background: transparent; font-size: 0.9rem;
+    color: var(--gray); cursor: pointer; white-space: nowrap;
+    display: flex; align-items: center; justify-content: center;
+    position: relative; border-radius: 10px;
+  }
+  .tab-icon { font-size: 1.1rem; }
+  .tab.active {
+    color: var(--primary); font-weight: 700;
+    background: var(--primary-light, #eff6ff);
+  }
+  .tab.active::after {
+    content: ''; position: absolute; bottom: 3px; left: 50%;
+    transform: translateX(-50%);
+    width: 22px; height: 3px; border-radius: 2px;
+    background: var(--primary);
+  }
+
+  /* Content area */
+  .tab-content { display: none; padding: 12px; padding-bottom: 80px; max-width: 760px; margin: 0 auto; }
+  .tab-content.active { display: block; }
+  .app-card { display: flex; align-items: center; gap: 12px; cursor: pointer; }
+  .app-card-icon { font-size: 24px; width: 44px; height: 44px; background: var(--primary-light); border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+  .app-card-arrow { color: var(--gray); font-size: 20px; }
+  .card {
+    background: var(--card);
+    border-radius: 12px; padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .card h2 { font-size: 1.05rem; margin-bottom: 10px; }
+  .empty { text-align: center; color: var(--muted); padding: 60px 0; font-size: 14px; }
+
+  /* Self-media feed */
+  .feed { display: flex; flex-direction: column; gap: 12px; }
+  .post {
+    background: var(--card);
+    border-radius: 12px; padding: 14px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    position: relative;
+  }
+  .post-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; position: relative; }
+  .post-more { background: #f1f5f9; border: none; color: var(--text); font-size: 20px; font-weight: 700; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; line-height: 1; }
+  .post-menu { position: absolute; right: 0; top: 36px; background: #fff; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,.15); z-index: 20; min-width: 120px; display: none; }
+  .post-menu.open { display: block; }
+  .post-menu button { display: block; width: 100%; text-align: left; padding: 10px 14px; background: none; border: none; font-size: 14px; color: var(--text); cursor: pointer; }
+  .post-menu button:hover { background: #f1f5f9; }
+  .post-menu button.danger { color: var(--danger); }
+  .post-user { font-weight: 600; color: var(--primary); }
+  .post-time { font-size: 12px; color: var(--muted); }
+  .post-note { margin-bottom: 10px; font-size: 15px; line-height: 1.5; }
+  .post-media { display: grid; gap: 4px; border-radius: 8px; overflow: hidden; }
+  .post-media.one { grid-template-columns: 1fr; }
+  .post-media.two { grid-template-columns: 1fr 1fr; }
+  .post-media.four { grid-template-columns: 1fr 1fr; }
+  .post-media.multi { grid-template-columns: 1fr 1fr 1fr; }
+  .post-media img { width: 100%; height: 180px; object-fit: cover; display: block; background: #111; }
+  .post-media.two img, .post-media.multi img, .post-media.four img { height: auto; aspect-ratio: 1; }
+  .post-media video { width: 100%; height: 180px; object-fit: cover; display: block; background: #000; cursor: pointer; }
+  .post-media.one video { height: auto; max-height: 80vw; }
+  .vwrap { position: relative; display: block; cursor: pointer; }
+  .vwrap video { pointer-events: none; }
+  .vwrap::after { content: '▶'; position: absolute; left: 8px; bottom: 8px; width: 24px; height: 24px; border-radius: 50%; background: rgba(0,0,0,.55); color: #fff; font-size: 11px; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+  .vwrap:has(video[controls])::after { display: none; }
+  .post-media.two video, .post-media.multi video, .post-media.four video { height: auto; aspect-ratio: 1; object-fit: cover; }
+  .post-actions { display: flex; border-top: 1px solid var(--border); margin-top: 10px; padding-top: 8px; }
+  .post-actions button { flex: 1; background: transparent; border: none; color: var(--muted); font-size: 13px; min-height: 32px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; }
+  .post-actions button.liked { color: var(--danger); font-weight: 600; }
+  .post-feedback { background: #f4f6f9; border-radius: 8px; padding: 8px 10px; margin-top: 8px; }
+  .fb-likes { font-size: 13px; color: var(--primary); padding: 2px 0; }
+  .fb-likes:has(+ .fb-comment) { border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; margin-bottom: 4px; }
+  .fb-comment { font-size: 13.5px; padding: 3px 0; line-height: 1.5; word-break: break-word; }
+  .fb-comment b { color: var(--primary); font-weight: 600; }
+  .fb-comment .fb-time { color: #94a3b8; font-size: 11px; margin-left: 6px; }
+  .fb-op { background: none; border: none; color: var(--primary); font-size: 11px; padding: 0 2px 0 5px; cursor: pointer; }
+  .fb-dots { background: #e8edf3; border: none; color: #475569; font-size: 16px; font-weight: 700; width: 24px; height: 24px; border-radius: 50%; cursor: pointer; vertical-align: middle; line-height: 1; padding: 0; }
+  .fb-menu { position: absolute; right: 0; top: 100%; background: #fff; border-radius: 8px; box-shadow: 0 4px 14px rgba(0,0,0,.18); z-index: 30; min-width: 92px; display: none; overflow: hidden; }
+  .fb-menu.open { display: block; }
+  .fb-menu button { display: block; width: 100%; text-align: left; padding: 9px 14px; background: none; border: none; font-size: 13px; color: var(--text); cursor: pointer; }
+  .fb-menu button:active { background: #f1f5f9; }
+  .fb-menu button.danger { color: var(--danger); }
+  .fb-wrap { position: relative; display: inline-block; }
+  .pc-input { display: none; gap: 8px; margin-top: 8px; padding-top: 8px; border-top: 1px solid #e2e8f0; }
+  .pc-input.open { display: flex; }
+  .pc-input input { flex: 1; border: 1px solid var(--border); border-radius: 20px; padding: 7px 14px; font-size: 14px; background: #fff; }
+  .post-del { font-size: 12px; color: var(--primary); margin-left: 8px; background:none; border:none; padding:0; cursor:pointer; }
+  .project { background: var(--card); border-radius: 12px; padding: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  .project-head { display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+  .project-title { font-weight: 600; font-size: 1.05rem; }
+  .project-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .project-body { margin-top: 12px; display: none; }
+  .project-body.open { display: block; }
+  .task { border-top: 1px solid var(--border); padding: 12px 0; }
+  .task:first-child { border-top: none; padding-top: 0; }
+  .task-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .task-status { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--border); flex: 0 0 22px; cursor: pointer; }
+  .task-status.done::after { content: '✓'; color: #fff; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; line-height: 1; height: 100%; }
+  .task-status.done { background: var(--success); border-color: var(--success); }
+  .task-title { flex: 1; font-size: 0.95rem; }
+  .task-title.done { text-decoration: line-through; color: var(--muted); }
+  .task-meta { font-size: 12px; color: var(--muted); margin-top: 3px; padding-left: 28px; }
+  .task-actions { display: flex; gap: 8px; margin-top: 8px; padding-left: 28px; }
+  .task-actions button { font-size: 12px; min-height: 30px; padding: 4px 10px; }
+  .comments { margin: 8px 0 0 28px; padding: 8px; background: #f8fafc; border-radius: 8px; display: none; }
+  .comments.open { display: block; }
+  .comment { font-size: 13px; padding: 6px 0; border-bottom: 1px solid #e2e8f0; }
+  .comment:last-child { border-bottom: none; }
+  .comment b { color: var(--primary); }
+  .comment-input { display: flex; gap: 8px; margin-top: 8px; }
+  .comment-input input { flex: 1; border: 1px solid var(--border); border-radius: 20px; padding: 6px 12px; font-size: 13px; }
+  .prod-card { background: var(--card); border-radius: 12px; padding: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  .prod-head { display: flex; justify-content: space-between; margin-bottom: 10px; }
+  .prod-title { font-weight: 600; }
+  .prod-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 10px; }
+  .prod-item { background: #f8fafc; border-radius: 8px; padding: 10px; text-align: center; }
+  .prod-item .k { font-size: 12px; color: var(--muted); }
+  .prod-item .v { font-size: 20px; font-weight: 700; color: var(--primary); }
+  .prod-note { margin-top: 10px; font-size: 13px; color: var(--text); }
+
+  /* Publish button */
+  .fab {
+    position: fixed; right: 16px; bottom: 76px;
+    width: 52px; height: 52px; border-radius: 50%;
+    background: var(--primary); color: #fff;
+    border: none; font-size: 28px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    cursor: pointer; z-index: 90;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* Modal */
+  .modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: none; align-items: flex-end; justify-content: center; z-index: 200; }
+  .modal-mask.show { display: flex; }
+  .modal { background: #fff; border-radius: 16px 16px 0 0; width: 100%; max-width: 760px; max-height: 90vh; overflow-y: auto; padding: 16px; }
+  .modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .modal-head h3 { font-size: 16px; }
+  .field { margin-bottom: 10px; }
+  textarea { width: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 9px 10px; font-size: 15px; background: #fff; box-sizing: border-box; }
+  .upload-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 12px 0; }
+  .upload-slot { aspect-ratio: 1; background: #f8fafc; border-radius: 8px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+  .upload-add { border: 1px dashed #cbd5e1; color: #94a3b8; font-size: 32px; cursor: pointer; }
+  .upload-img { width: 100%; height: 100%; object-fit: cover; }
+  .upload-del { position: absolute; top: 4px; right: 4px; width: 20px; height: 20px; background: rgba(0,0,0,.5); color: #fff; border-radius: 50%; font-size: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; border: none; padding: 0; }
+  .upload-del:hover { background: var(--danger); }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); background: #1e293b; color: #fff; padding: 10px 20px; border-radius: 20px; font-size: 14px; z-index: 300; }
+  .hidden { display: none; }
+  .btn { background: var(--primary); color: white; border: none; padding: 8px 14px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-block; }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-left">
+    <div>
+      <h1>Ecobox Africa Ta-Nb Production</h1>
+      <div class="header-clocks">
+        <span id="clockLusaka">Lusaka --:--</span>
+        <span id="clockChina">Hangzhou --:--</span>
+        <span id="clockVan">Vancouver --:--</span>
+      </div>
+    </div>
+  </div>
+  <div class="header-right">
+    <button type="button" class="userchip" id="userChip" title="Current user, tap to open settings">
+      <span class="userchip-avatar" id="ucAvatar">?</span>
+      <span class="userchip-name" id="ucName">Not signed in</span>
+    </button>
+    <button type="button" class="setbtn" id="openSet" title="Settings">⚙</button>
+  </div>
+</header>
+
+<div id="uploadProgress" class="upload-progress hidden">
+  <div class="up-row"><span id="upText">Uploading…</span><span id="upCount">0/0</span></div>
+  <div class="up-bar"><div id="upFill" class="up-fill"></div></div>
+</div>
+
+<main>
+  <section class="tab-content active" id="tab-media">
+    <div id="marketCard"></div>
+    <div id="feed" class="feed"></div>
+  </section>
+
+  <section class="tab-content" id="tab-schedule">
+    <div id="myTaskBox"></div>
+    <div class="card">
+      <h2>To-do</h2>
+      <div style="display:flex;gap:8px;margin-bottom:6px">
+        <input type="text" id="todoInput" placeholder="Quick items: pay wages today, visa…" style="flex:1">
+        <button type="button" class="btn" id="addTodoBtn" style="min-height:44px;white-space:nowrap">+ Add</button>
+      </div>
+      <div id="todoList"></div>
+    </div>
+    <div style="font-size:14px;font-weight:600;color:var(--muted);margin:14px 4px 6px">📂 Projects</div>
+    <div id="projectList" class="feed"></div>
+    <button type="button" class="btn" id="addProjectBtn" style="width:100%;min-height:46px;font-size:15px;margin-top:10px">+ New project</button>
+  </section>
+
+  <section class="tab-content" id="tab-mine">
+    <div class="card">
+      <h2>Today's Production</h2>
+      <div class="row">
+        <div><label>Date</label><input type="date" id="pDate"></div>
+        <div><label>Equipment</label><input type="text" id="pEquip" placeholder="Shaking table"></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div><label>Start time</label><input type="time" id="pStart"></div>
+        <div><label>End time</label><input type="time" id="pEnd"></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div><label>Ore feed (t)</label><input type="number" id="pInput" step="0.1" placeholder="0.0"></div>
+        <div><label>Concentrate wet wt (t)</label><input type="number" id="pWet" step="0.001" placeholder="0.000"></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div><label>Concentrate dry wt (t)</label><input type="number" id="pDry" step="0.001" placeholder="0.000"></div>
+        <div><label>Ta₂O₅ Grade (%）</label><input type="number" id="pTa" step="0.001" placeholder="0.000"></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div><label>Nb₂O₅ Grade (%）</label><input type="number" id="pNb" step="0.001" placeholder="0.000"></div>
+        <div><label>Sn Grade (%）</label><input type="number" id="pSn" step="0.001" placeholder="0.000"></div>
+      </div>
+      <div class="field" style="margin-top:10px">
+        <label>Daily summary / Notes</label><textarea id="pNote" rows="2" placeholder="Operation, downtime, equipment issues…"></textarea>
+      </div>
+      <div class="field" style="margin-top:10px">
+        <label>Photos / Videos</label>
+        <button type="button" class="btn" style="background:var(--light);color:var(--text);width:100%" onclick="pickAttach('prodform', event)">📎 Add photos or video</button>
+        <div id="prodFiles" class="file-row" style="margin-top:6px"></div>
+      </div>
+      <button type="button" class="btn" id="pSubmit" style="width:100%;margin-top:10px">Save production record</button>
+    </div>
+    <div id="productionList" class="feed"></div>
+  </section>
+
+  <section class="tab-content" id="tab-licenses">
+    <div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0">Licence ledger<span class="hint" style="font-weight:400;margin-left:8px;font-size:12px">(only Active）</span></h2><button type="button" class="btn" style="padding:4px 12px;font-size:13px;background:var(--primary-light);color:var(--primary)" onclick="loadLicenses(true)">🔄 Refresh</button></div><div id="licList"><p class="empty" style="padding:20px 0">Loading…</p></div></div>
+  </section>
+
+  <section class="tab-content" id="tab-apps">
+    <div class="card app-card" onclick="location.href='/mine_production.html'">
+      <div class="app-card-icon">📊</div>
+      <div style="flex:1"><strong>Ta-Nb Production Stats</strong><div class="hint">Plant output logging, XRF XRF grade reading, daily totals</div></div>
+      <div class="app-card-arrow">›</div>
+    </div>
+    <div class="card app-card" onclick="location.href='/sampling_helper.html'">
+      <div class="app-card-icon">⛏</div>
+      <div style="flex:1"><strong>Mine Field Notebook</strong><div class="hint">Field sampling, GPS GPS tracks, offline map, GPX/KML export</div></div>
+      <div class="app-card-arrow">›</div>
+    </div>
+    <div class="card app-card" style="opacity:.6">
+      <div class="app-card-icon">🚚</div>
+      <div style="flex:1"><strong>Logistics</strong><div class="hint">Under construction: tracking to be added</div></div>
+      <div class="app-card-arrow">›</div>
+    </div>
+  </section>
+</main>
+
+<nav class="tabs">
+  <div class="tabs-inner">
+    <button type="button" class="tab active" data-tab="media" title="Feed"><span>Feed</span></button>
+    <button type="button" class="tab" data-tab="schedule" title="Tasks"><span>Tasks</span></button>
+    <button type="button" class="tab" data-tab="mine" title="Production"><span>Prod</span></button>
+    <button type="button" class="tab" data-tab="licenses" title="Licences"><span>Licences</span></button>
+    <button type="button" class="tab" data-tab="apps" title="More Apps"><span>More Apps</span></button>
+  </div>
+</nav>
+
+<button type="button" class="fab" id="openPublish" title="Post an update">+</button>
+
+<div id="publishModal" class="modal-mask">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Post an update</h3>
+      <button type="button" class="btn" id="closePublish" style="background:#e5e7eb;color:#374151">Cancel</button>
+    </div>
+    <div class="field" style="margin-top:0">
+      <textarea id="uNote" rows="3" placeholder="What's on your mind…..." style="border:none;background:transparent;padding:0 2px;font-size:16px;resize:none;outline:none"></textarea>
+    </div>
+    <div class="upload-grid" id="uPreviewGrid">
+      <div class="upload-slot upload-add" id="uAddBtn" onclick="document.getElementById('uFile').click()">+</div>
+    </div>
+    <input type="file" id="uFile" accept="image/*,video/mp4,video/quicktime,video/x-m4v,video/*" multiple style="display:none">
+    <button type="button" class="btn" id="uSubmit" style="width:100%;min-height:46px;font-size:16px;margin-top:10px">Post</button>
+    <p class="hint">Photos are auto-compressed, max  9 . Videos upload directly, cover auto-generated.</p>
+  </div>
+</div>
+
+<div id="settingsModal" class="modal-mask">
+  <div class="modal">
+    <div class="modal-head"><h3>Settings</h3><button type="button" class="btn" id="closeSet" style="background:#e5e7eb;color:#374151">Close</button></div>
+    <div class="card" style="margin-top:10px">
+      <p><strong>Current user: </strong><span id="setUser">-</span></p>
+      <div id="myLink" style="margin-top:8px"></div>
+      <div style="margin-top:12px">
+        <input type="text" id="setNameInput" placeholder="Change your name" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:15px">
+        <button type="button" class="btn" id="setNameSave" style="width:100%;margin-top:8px">Save</button>
+      </div>
+      <p class="hint" style="margin-top:8px">On first open, set your name so others see who posted.</p>
+      <div id="adminSection" style="margin-top:12px;display:none">
+        <p><strong>User links:</strong></p>
+        <div id="userLinks" style="margin-top:8px;font-size:14px"></div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <input type="text" id="newUserInput" placeholder="New user name" style="flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:14px">
+          <button type="button" class="btn" id="newUserSave" style="padding:8px 16px">Create</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="imgModal" class="modal-mask" style="background:rgba(0,0,0,.95);align-items:center;justify-content:center;touch-action:none">
+  <button type="button" id="imgClose" style="position:absolute;top:14px;right:16px;z-index:5;background:rgba(255,255,255,.15);border:none;color:#fff;font-size:22px;width:38px;height:38px;border-radius:50%;line-height:1">×</button>
+  <img id="imgView" src="" style="max-width:100vw;max-height:100vh;object-fit:contain;transition:transform .15s ease-out" alt="">
+</div>
+<div id="vModal" class="modal-mask" style="background:rgba(0,0,0,.96);align-items:center;justify-content:center">
+  <button type="button" id="vClose" style="position:absolute;top:14px;right:16px;z-index:5;background:rgba(255,255,255,.15);border:none;color:#fff;font-size:22px;width:38px;height:38px;border-radius:50%;line-height:1">×</button>
+  <video id="vView" controls playsinline preload="auto" style="max-width:100vw;max-height:100vh;object-fit:contain"></video>
+  <div id="vLoading" style="position:absolute;color:#fff;font-size:14px;display:none">Loading…</div>
+
+</div>
+<div id="qrModal" class="modal-mask" style="background:rgba(0,0,0,.6);align-items:center;justify-content:center" onclick="if(event.target===this)closeQr()">
+  <div style="background:#fff;border-radius:16px;padding:20px 24px;text-align:center;max-width:320px;width:88%">
+    <h3 id="qrName" style="margin-bottom:10px"></h3>
+    <div id="qrBox" style="display:flex;justify-content:center;padding:6px 0"></div>
+    <div id="qrUrl" style="font-size:12px;color:#666;word-break:break-all;margin:10px 0"></div>
+    <div class="hint" style="margin-bottom:12px">Send the image via WeChat; scanning opens the app as that user</div>
+    <div style="display:flex;gap:8px">
+      <button type="button" class="btn" style="flex:1;background:#f0fdf4;color:#16a34a" onclick="saveQrImg()">Save image</button>
+      <button type="button" class="btn" style="flex:1;background:#eff6ff;color:var(--primary)" onclick="copyUserLink(currentQr)">Copy link</button>
+      <button type="button" class="btn" style="flex:1;background:var(--light);color:var(--text)" onclick="closeQr()">Close</button>
+    </div>
+  </div>
+
+
+  <div id="vIdx" style="position:absolute;top:16px;left:16px;color:rgba(255,255,255,.8);font-size:13px;display:none"></div>
+</div>
+
+<div id="taskModal" class="modal-mask">
+  <div class="modal">
+    <div class="modal-head"><h3 id="tmTitle">Tasks</h3><button type="button" class="btn" id="tmCancel" style="background:#e5e7eb;color:#374151">Cancel</button></div>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:10px">
+      <input type="text" id="tmName" placeholder="Title *" style="width:100%;padding:11px 12px;border:1px solid var(--border);border-radius:8px;font-size:15px;box-sizing:border-box">
+      <input type="text" id="tmAssignee" list="peopleList" placeholder="Assign to (optional, name)" style="width:100%;padding:11px 12px;border:1px solid var(--border);border-radius:8px;font-size:15px;box-sizing:border-box">
+      <datalist id="peopleList"></datalist>
+      <div><label style="font-size:12px;color:var(--muted)">Due date (optional)</label><input type="date" id="tmDue" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:15px;box-sizing:border-box"></div>
+      <textarea id="tmDesc" rows="2" placeholder="Notes (optional)" style="width:100%;padding:11px 12px;border:1px solid var(--border);border-radius:8px;font-size:15px;resize:none;box-sizing:border-box"></textarea>
+      <button type="button" class="btn" id="tmSave" style="width:100%;min-height:46px">Save</button>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="attFile" multiple style="display:none">
+
+<div id="toast" class="toast hidden"></div>
+<div id="syncBar" style="position:fixed;top:calc(env(safe-area-inset-top,0px) + 10px);left:50%;transform:translateX(-50%);background:#0f172a;color:#fff;padding:6px 14px;border-radius:16px;font-size:12px;z-index:400;display:none;align-items:center;gap:6px;box-shadow:0 2px 8px rgba(0,0,0,.25)"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#f59e0b;animation:syncPulse 1s infinite"></span>Syncing…</div>
+<style>@keyframes syncPulse { 0%,100%{opacity:.4} 50%{opacity:1} }</style>
+
+<script>
+/**
+ * Minified by jsDelivr using Terser v5.37.0.
+ * Original file: /npm/qrcode-generator@1.4.4/qrcode.js
+ *
+ * Do NOT use SRI with dynamically generated files! More information: https://www.jsdelivr.com/using-sri-with-dynamic-files
+ */
+var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],f={},c=function(t,r){o=function(t){for(var r=new Array(t),e=0;e<t;e+=1){r[e]=new Array(t);for(var n=0;n<t;n+=1)r[e][n]=null}return r}(i=4*e+17),l(0,0),l(i-7,0),l(0,i-7),s(),h(),d(t,r),e>=7&&v(t),null==a&&(a=p(e,n,u)),w(a,r)},l=function(t,r){for(var e=-1;e<=7;e+=1)if(!(t+e<=-1||i<=t+e))for(var n=-1;n<=7;n+=1)r+n<=-1||i<=r+n||(o[t+e][r+n]=0<=e&&e<=6&&(0==n||6==n)||0<=n&&n<=6&&(0==e||6==e)||2<=e&&e<=4&&2<=n&&n<=4)},h=function(){for(var t=8;t<i-8;t+=1)null==o[t][6]&&(o[t][6]=t%2==0);for(var r=8;r<i-8;r+=1)null==o[6][r]&&(o[6][r]=r%2==0)},s=function(){for(var t=B.getPatternPosition(e),r=0;r<t.length;r+=1)for(var n=0;n<t.length;n+=1){var i=t[r],a=t[n];if(null==o[i][a])for(var u=-2;u<=2;u+=1)for(var f=-2;f<=2;f+=1)o[i+u][a+f]=-2==u||2==u||-2==f||2==f||0==u&&0==f}},v=function(t){for(var r=B.getBCHTypeNumber(e),n=0;n<18;n+=1){var a=!t&&1==(r>>n&1);o[Math.floor(n/3)][n%3+i-8-3]=a}for(n=0;n<18;n+=1){a=!t&&1==(r>>n&1);o[n%3+i-8-3][Math.floor(n/3)]=a}},d=function(t,r){for(var e=n<<3|r,a=B.getBCHTypeInfo(e),u=0;u<15;u+=1){var f=!t&&1==(a>>u&1);u<6?o[u][8]=f:u<8?o[u+1][8]=f:o[i-15+u][8]=f}for(u=0;u<15;u+=1){f=!t&&1==(a>>u&1);u<8?o[8][i-u-1]=f:u<9?o[8][15-u-1+1]=f:o[8][15-u-1]=f}o[i-8][8]=!t},w=function(t,r){for(var e=-1,n=i-1,a=7,u=0,f=B.getMaskFunction(r),c=i-1;c>0;c-=2)for(6==c&&(c-=1);;){for(var g=0;g<2;g+=1)if(null==o[n][c-g]){var l=!1;u<t.length&&(l=1==(t[u]>>>a&1)),f(n,c-g)&&(l=!l),o[n][c-g]=l,-1==(a-=1)&&(u+=1,a=7)}if((n+=e)<0||i<=n){n-=e,e=-e;break}}},p=function(t,r,e){for(var n=A.getRSBlocks(t,r),o=b(),i=0;i<e.length;i+=1){var a=e[i];o.put(a.getMode(),4),o.put(a.getLength(),B.getLengthInBits(a.getMode(),t)),a.write(o)}var u=0;for(i=0;i<n.length;i+=1)u+=n[i].dataCount;if(o.getLengthInBits()>8*u)throw"code length overflow. ("+o.getLengthInBits()+">"+8*u+")";for(o.getLengthInBits()+4<=8*u&&o.put(0,4);o.getLengthInBits()%8!=0;)o.putBit(!1);for(;!(o.getLengthInBits()>=8*u||(o.put(236,8),o.getLengthInBits()>=8*u));)o.put(17,8);return function(t,r){for(var e=0,n=0,o=0,i=new Array(r.length),a=new Array(r.length),u=0;u<r.length;u+=1){var f=r[u].dataCount,c=r[u].totalCount-f;n=Math.max(n,f),o=Math.max(o,c),i[u]=new Array(f);for(var g=0;g<i[u].length;g+=1)i[u][g]=255&t.getBuffer()[g+e];e+=f;var l=B.getErrorCorrectPolynomial(c),h=k(i[u],l.getLength()-1).mod(l);for(a[u]=new Array(l.getLength()-1),g=0;g<a[u].length;g+=1){var s=g+h.getLength()-a[u].length;a[u][g]=s>=0?h.getAt(s):0}}var v=0;for(g=0;g<r.length;g+=1)v+=r[g].totalCount;var d=new Array(v),w=0;for(g=0;g<n;g+=1)for(u=0;u<r.length;u+=1)g<i[u].length&&(d[w]=i[u][g],w+=1);for(g=0;g<o;g+=1)for(u=0;u<r.length;u+=1)g<a[u].length&&(d[w]=a[u][g],w+=1);return d}(o,n)};f.addData=function(t,r){var e=null;switch(r=r||"Byte"){case"Numeric":e=M(t);break;case"Alphanumeric":e=x(t);break;case"Byte":e=m(t);break;case"Kanji":e=L(t);break;default:throw"mode:"+r}u.push(e),a=null},f.isDark=function(t,r){if(t<0||i<=t||r<0||i<=r)throw t+","+r;return o[t][r]},f.getModuleCount=function(){return i},f.make=function(){if(e<1){for(var t=1;t<40;t++){for(var r=A.getRSBlocks(t,n),o=b(),i=0;i<u.length;i++){var a=u[i];o.put(a.getMode(),4),o.put(a.getLength(),B.getLengthInBits(a.getMode(),t)),a.write(o)}var g=0;for(i=0;i<r.length;i++)g+=r[i].dataCount;if(o.getLengthInBits()<=8*g)break}e=t}c(!1,function(){for(var t=0,r=0,e=0;e<8;e+=1){c(!0,e);var n=B.getLostPoint(f);(0==e||t>n)&&(t=n,r=e)}return r}())},f.createTableTag=function(t,r){t=t||2;var e="";e+='<table style="',e+=" border-width: 0px; border-style: none;",e+=" border-collapse: collapse;",e+=" padding: 0px; margin: "+(r=void 0===r?4*t:r)+"px;",e+='">',e+="<tbody>";for(var n=0;n<f.getModuleCount();n+=1){e+="<tr>";for(var o=0;o<f.getModuleCount();o+=1)e+='<td style="',e+=" border-width: 0px; border-style: none;",e+=" border-collapse: collapse;",e+=" padding: 0px; margin: 0px;",e+=" width: "+t+"px;",e+=" height: "+t+"px;",e+=" background-color: ",e+=f.isDark(n,o)?"#000000":"#ffffff",e+=";",e+='"/>';e+="</tr>"}return e+="</tbody>",e+="</table>"},f.createSvgTag=function(t,r,e,n){var o={};"object"==typeof arguments[0]&&(t=(o=arguments[0]).cellSize,r=o.margin,e=o.alt,n=o.title),t=t||2,r=void 0===r?4*t:r,(e="string"==typeof e?{text:e}:e||{}).text=e.text||null,e.id=e.text?e.id||"qrcode-description":null,(n="string"==typeof n?{text:n}:n||{}).text=n.text||null,n.id=n.text?n.id||"qrcode-title":null;var i,a,u,c,g=f.getModuleCount()*t+2*r,l="";for(c="l"+t+",0 0,"+t+" -"+t+",0 0,-"+t+"z ",l+='<svg version="1.1" xmlns="http://www.w3.org/2000/svg"',l+=o.scalable?"":' width="'+g+'px" height="'+g+'px"',l+=' viewBox="0 0 '+g+" "+g+'" ',l+=' preserveAspectRatio="xMinYMin meet"',l+=n.text||e.text?' role="img" aria-labelledby="'+y([n.id,e.id].join(" ").trim())+'"':"",l+=">",l+=n.text?'<title id="'+y(n.id)+'">'+y(n.text)+"</title>":"",l+=e.text?'<description id="'+y(e.id)+'">'+y(e.text)+"</description>":"",l+='<rect width="100%" height="100%" fill="white" cx="0" cy="0"/>',l+='<path d="',a=0;a<f.getModuleCount();a+=1)for(u=a*t+r,i=0;i<f.getModuleCount();i+=1)f.isDark(a,i)&&(l+="M"+(i*t+r)+","+u+c);return l+='" stroke="transparent" fill="black"/>',l+="</svg>"},f.createDataURL=function(t,r){t=t||2,r=void 0===r?4*t:r;var e=f.getModuleCount()*t+2*r,n=r,o=e-r;return I(e,e,(function(r,e){if(n<=r&&r<o&&n<=e&&e<o){var i=Math.floor((r-n)/t),a=Math.floor((e-n)/t);return f.isDark(a,i)?0:1}return 1}))},f.createImgTag=function(t,r,e){t=t||2,r=void 0===r?4*t:r;var n=f.getModuleCount()*t+2*r,o="";return o+="<img",o+=' src="',o+=f.createDataURL(t,r),o+='"',o+=' width="',o+=n,o+='"',o+=' height="',o+=n,o+='"',e&&(o+=' alt="',o+=y(e),o+='"'),o+="/>"};var y=function(t){for(var r="",e=0;e<t.length;e+=1){var n=t.charAt(e);switch(n){case"<":r+="&lt;";break;case">":r+="&gt;";break;case"&":r+="&amp;";break;case'"':r+="&quot;";break;default:r+=n}}return r};return f.createASCII=function(t,r){if((t=t||1)<2)return function(t){t=void 0===t?2:t;var r,e,n,o,i,a=1*f.getModuleCount()+2*t,u=t,c=a-t,g={"██":"█","█ ":"▀"," █":"▄","  ":" "},l={"██":"▀","█ ":"▀"," █":" ","  ":" "},h="";for(r=0;r<a;r+=2){for(n=Math.floor((r-u)/1),o=Math.floor((r+1-u)/1),e=0;e<a;e+=1)i="█",u<=e&&e<c&&u<=r&&r<c&&f.isDark(n,Math.floor((e-u)/1))&&(i=" "),u<=e&&e<c&&u<=r+1&&r+1<c&&f.isDark(o,Math.floor((e-u)/1))?i+=" ":i+="█",h+=t<1&&r+1>=c?l[i]:g[i];h+="\n"}return a%2&&t>0?h.substring(0,h.length-a-1)+Array(a+1).join("▀"):h.substring(0,h.length-1)}(r);t-=1,r=void 0===r?2*t:r;var e,n,o,i,a=f.getModuleCount()*t+2*r,u=r,c=a-r,g=Array(t+1).join("██"),l=Array(t+1).join("  "),h="",s="";for(e=0;e<a;e+=1){for(o=Math.floor((e-u)/t),s="",n=0;n<a;n+=1)i=1,u<=n&&n<c&&u<=e&&e<c&&f.isDark(o,Math.floor((n-u)/t))&&(i=0),s+=i?g:l;for(o=0;o<t;o+=1)h+=s+"\n"}return h.substring(0,h.length-1)},f.renderTo2dContext=function(t,r){r=r||2;for(var e=f.getModuleCount(),n=0;n<e;n++)for(var o=0;o<e;o++)t.fillStyle=f.isDark(n,o)?"black":"white",t.fillRect(n*r,o*r,r,r)},f};t.stringToBytes=(t.stringToBytesFuncs={default:function(t){for(var r=[],e=0;e<t.length;e+=1){var n=t.charCodeAt(e);r.push(255&n)}return r}}).default,t.createStringToBytes=function(t,r){var e=function(){for(var e=S(t),n=function(){var t=e.read();if(-1==t)throw"eof";return t},o=0,i={};;){var a=e.read();if(-1==a)break;var u=n(),f=n()<<8|n();i[String.fromCharCode(a<<8|u)]=f,o+=1}if(o!=r)throw o+" != "+r;return i}(),n="?".charCodeAt(0);return function(t){for(var r=[],o=0;o<t.length;o+=1){var i=t.charCodeAt(o);if(i<128)r.push(i);else{var a=e[t.charAt(o)];"number"==typeof a?(255&a)==a?r.push(a):(r.push(a>>>8),r.push(255&a)):r.push(n)}}return r}};var r,e,n,o,i,a=1,u=2,f=4,c=8,g={L:1,M:0,Q:3,H:2},l=0,h=1,s=2,v=3,d=4,w=5,p=6,y=7,B=(r=[[],[6,18],[6,22],[6,26],[6,30],[6,34],[6,22,38],[6,24,42],[6,26,46],[6,28,50],[6,30,54],[6,32,58],[6,34,62],[6,26,46,66],[6,26,48,70],[6,26,50,74],[6,30,54,78],[6,30,56,82],[6,30,58,86],[6,34,62,90],[6,28,50,72,94],[6,26,50,74,98],[6,30,54,78,102],[6,28,54,80,106],[6,32,58,84,110],[6,30,58,86,114],[6,34,62,90,118],[6,26,50,74,98,122],[6,30,54,78,102,126],[6,26,52,78,104,130],[6,30,56,82,108,134],[6,34,60,86,112,138],[6,30,58,86,114,142],[6,34,62,90,118,146],[6,30,54,78,102,126,150],[6,24,50,76,102,128,154],[6,28,54,80,106,132,158],[6,32,58,84,110,136,162],[6,26,54,82,110,138,166],[6,30,58,86,114,142,170]],e=1335,n=7973,i=function(t){for(var r=0;0!=t;)r+=1,t>>>=1;return r},(o={}).getBCHTypeInfo=function(t){for(var r=t<<10;i(r)-i(e)>=0;)r^=e<<i(r)-i(e);return 21522^(t<<10|r)},o.getBCHTypeNumber=function(t){for(var r=t<<12;i(r)-i(n)>=0;)r^=n<<i(r)-i(n);return t<<12|r},o.getPatternPosition=function(t){return r[t-1]},o.getMaskFunction=function(t){switch(t){case l:return function(t,r){return(t+r)%2==0};case h:return function(t,r){return t%2==0};case s:return function(t,r){return r%3==0};case v:return function(t,r){return(t+r)%3==0};case d:return function(t,r){return(Math.floor(t/2)+Math.floor(r/3))%2==0};case w:return function(t,r){return t*r%2+t*r%3==0};case p:return function(t,r){return(t*r%2+t*r%3)%2==0};case y:return function(t,r){return(t*r%3+(t+r)%2)%2==0};default:throw"bad maskPattern:"+t}},o.getErrorCorrectPolynomial=function(t){for(var r=k([1],0),e=0;e<t;e+=1)r=r.multiply(k([1,C.gexp(e)],0));return r},o.getLengthInBits=function(t,r){if(1<=r&&r<10)switch(t){case a:return 10;case u:return 9;case f:case c:return 8;default:throw"mode:"+t}else if(r<27)switch(t){case a:return 12;case u:return 11;case f:return 16;case c:return 10;default:throw"mode:"+t}else{if(!(r<41))throw"type:"+r;switch(t){case a:return 14;case u:return 13;case f:return 16;case c:return 12;default:throw"mode:"+t}}},o.getLostPoint=function(t){for(var r=t.getModuleCount(),e=0,n=0;n<r;n+=1)for(var o=0;o<r;o+=1){for(var i=0,a=t.isDark(n,o),u=-1;u<=1;u+=1)if(!(n+u<0||r<=n+u))for(var f=-1;f<=1;f+=1)o+f<0||r<=o+f||0==u&&0==f||a==t.isDark(n+u,o+f)&&(i+=1);i>5&&(e+=3+i-5)}for(n=0;n<r-1;n+=1)for(o=0;o<r-1;o+=1){var c=0;t.isDark(n,o)&&(c+=1),t.isDark(n+1,o)&&(c+=1),t.isDark(n,o+1)&&(c+=1),t.isDark(n+1,o+1)&&(c+=1),0!=c&&4!=c||(e+=3)}for(n=0;n<r;n+=1)for(o=0;o<r-6;o+=1)t.isDark(n,o)&&!t.isDark(n,o+1)&&t.isDark(n,o+2)&&t.isDark(n,o+3)&&t.isDark(n,o+4)&&!t.isDark(n,o+5)&&t.isDark(n,o+6)&&(e+=40);for(o=0;o<r;o+=1)for(n=0;n<r-6;n+=1)t.isDark(n,o)&&!t.isDark(n+1,o)&&t.isDark(n+2,o)&&t.isDark(n+3,o)&&t.isDark(n+4,o)&&!t.isDark(n+5,o)&&t.isDark(n+6,o)&&(e+=40);var g=0;for(o=0;o<r;o+=1)for(n=0;n<r;n+=1)t.isDark(n,o)&&(g+=1);return e+=Math.abs(100*g/r/r-50)/5*10},o),C=function(){for(var t=new Array(256),r=new Array(256),e=0;e<8;e+=1)t[e]=1<<e;for(e=8;e<256;e+=1)t[e]=t[e-4]^t[e-5]^t[e-6]^t[e-8];for(e=0;e<255;e+=1)r[t[e]]=e;var n={glog:function(t){if(t<1)throw"glog("+t+")";return r[t]},gexp:function(r){for(;r<0;)r+=255;for(;r>=256;)r-=255;return t[r]}};return n}();function k(t,r){if(void 0===t.length)throw t.length+"/"+r;var e=function(){for(var e=0;e<t.length&&0==t[e];)e+=1;for(var n=new Array(t.length-e+r),o=0;o<t.length-e;o+=1)n[o]=t[o+e];return n}(),n={getAt:function(t){return e[t]},getLength:function(){return e.length},multiply:function(t){for(var r=new Array(n.getLength()+t.getLength()-1),e=0;e<n.getLength();e+=1)for(var o=0;o<t.getLength();o+=1)r[e+o]^=C.gexp(C.glog(n.getAt(e))+C.glog(t.getAt(o)));return k(r,0)},mod:function(t){if(n.getLength()-t.getLength()<0)return n;for(var r=C.glog(n.getAt(0))-C.glog(t.getAt(0)),e=new Array(n.getLength()),o=0;o<n.getLength();o+=1)e[o]=n.getAt(o);for(o=0;o<t.getLength();o+=1)e[o]^=C.gexp(C.glog(t.getAt(o))+r);return k(e,0).mod(t)}};return n}var A=function(){var t=[[1,26,19],[1,26,16],[1,26,13],[1,26,9],[1,44,34],[1,44,28],[1,44,22],[1,44,16],[1,70,55],[1,70,44],[2,35,17],[2,35,13],[1,100,80],[2,50,32],[2,50,24],[4,25,9],[1,134,108],[2,67,43],[2,33,15,2,34,16],[2,33,11,2,34,12],[2,86,68],[4,43,27],[4,43,19],[4,43,15],[2,98,78],[4,49,31],[2,32,14,4,33,15],[4,39,13,1,40,14],[2,121,97],[2,60,38,2,61,39],[4,40,18,2,41,19],[4,40,14,2,41,15],[2,146,116],[3,58,36,2,59,37],[4,36,16,4,37,17],[4,36,12,4,37,13],[2,86,68,2,87,69],[4,69,43,1,70,44],[6,43,19,2,44,20],[6,43,15,2,44,16],[4,101,81],[1,80,50,4,81,51],[4,50,22,4,51,23],[3,36,12,8,37,13],[2,116,92,2,117,93],[6,58,36,2,59,37],[4,46,20,6,47,21],[7,42,14,4,43,15],[4,133,107],[8,59,37,1,60,38],[8,44,20,4,45,21],[12,33,11,4,34,12],[3,145,115,1,146,116],[4,64,40,5,65,41],[11,36,16,5,37,17],[11,36,12,5,37,13],[5,109,87,1,110,88],[5,65,41,5,66,42],[5,54,24,7,55,25],[11,36,12,7,37,13],[5,122,98,1,123,99],[7,73,45,3,74,46],[15,43,19,2,44,20],[3,45,15,13,46,16],[1,135,107,5,136,108],[10,74,46,1,75,47],[1,50,22,15,51,23],[2,42,14,17,43,15],[5,150,120,1,151,121],[9,69,43,4,70,44],[17,50,22,1,51,23],[2,42,14,19,43,15],[3,141,113,4,142,114],[3,70,44,11,71,45],[17,47,21,4,48,22],[9,39,13,16,40,14],[3,135,107,5,136,108],[3,67,41,13,68,42],[15,54,24,5,55,25],[15,43,15,10,44,16],[4,144,116,4,145,117],[17,68,42],[17,50,22,6,51,23],[19,46,16,6,47,17],[2,139,111,7,140,112],[17,74,46],[7,54,24,16,55,25],[34,37,13],[4,151,121,5,152,122],[4,75,47,14,76,48],[11,54,24,14,55,25],[16,45,15,14,46,16],[6,147,117,4,148,118],[6,73,45,14,74,46],[11,54,24,16,55,25],[30,46,16,2,47,17],[8,132,106,4,133,107],[8,75,47,13,76,48],[7,54,24,22,55,25],[22,45,15,13,46,16],[10,142,114,2,143,115],[19,74,46,4,75,47],[28,50,22,6,51,23],[33,46,16,4,47,17],[8,152,122,4,153,123],[22,73,45,3,74,46],[8,53,23,26,54,24],[12,45,15,28,46,16],[3,147,117,10,148,118],[3,73,45,23,74,46],[4,54,24,31,55,25],[11,45,15,31,46,16],[7,146,116,7,147,117],[21,73,45,7,74,46],[1,53,23,37,54,24],[19,45,15,26,46,16],[5,145,115,10,146,116],[19,75,47,10,76,48],[15,54,24,25,55,25],[23,45,15,25,46,16],[13,145,115,3,146,116],[2,74,46,29,75,47],[42,54,24,1,55,25],[23,45,15,28,46,16],[17,145,115],[10,74,46,23,75,47],[10,54,24,35,55,25],[19,45,15,35,46,16],[17,145,115,1,146,116],[14,74,46,21,75,47],[29,54,24,19,55,25],[11,45,15,46,46,16],[13,145,115,6,146,116],[14,74,46,23,75,47],[44,54,24,7,55,25],[59,46,16,1,47,17],[12,151,121,7,152,122],[12,75,47,26,76,48],[39,54,24,14,55,25],[22,45,15,41,46,16],[6,151,121,14,152,122],[6,75,47,34,76,48],[46,54,24,10,55,25],[2,45,15,64,46,16],[17,152,122,4,153,123],[29,74,46,14,75,47],[49,54,24,10,55,25],[24,45,15,46,46,16],[4,152,122,18,153,123],[13,74,46,32,75,47],[48,54,24,14,55,25],[42,45,15,32,46,16],[20,147,117,4,148,118],[40,75,47,7,76,48],[43,54,24,22,55,25],[10,45,15,67,46,16],[19,148,118,6,149,119],[18,75,47,31,76,48],[34,54,24,34,55,25],[20,45,15,61,46,16]],r=function(t,r){var e={};return e.totalCount=t,e.dataCount=r,e},e={};return e.getRSBlocks=function(e,n){var o=function(r,e){switch(e){case g.L:return t[4*(r-1)+0];case g.M:return t[4*(r-1)+1];case g.Q:return t[4*(r-1)+2];case g.H:return t[4*(r-1)+3];default:return}}(e,n);if(void 0===o)throw"bad rs block @ typeNumber:"+e+"/errorCorrectionLevel:"+n;for(var i=o.length/3,a=[],u=0;u<i;u+=1)for(var f=o[3*u+0],c=o[3*u+1],l=o[3*u+2],h=0;h<f;h+=1)a.push(r(c,l));return a},e}(),b=function(){var t=[],r=0,e={getBuffer:function(){return t},getAt:function(r){var e=Math.floor(r/8);return 1==(t[e]>>>7-r%8&1)},put:function(t,r){for(var n=0;n<r;n+=1)e.putBit(1==(t>>>r-n-1&1))},getLengthInBits:function(){return r},putBit:function(e){var n=Math.floor(r/8);t.length<=n&&t.push(0),e&&(t[n]|=128>>>r%8),r+=1}};return e},M=function(t){var r=a,e=t,n={getMode:function(){return r},getLength:function(t){return e.length},write:function(t){for(var r=e,n=0;n+2<r.length;)t.put(o(r.substring(n,n+3)),10),n+=3;n<r.length&&(r.length-n==1?t.put(o(r.substring(n,n+1)),4):r.length-n==2&&t.put(o(r.substring(n,n+2)),7))}},o=function(t){for(var r=0,e=0;e<t.length;e+=1)r=10*r+i(t.charAt(e));return r},i=function(t){if("0"<=t&&t<="9")return t.charCodeAt(0)-"0".charCodeAt(0);throw"illegal char :"+t};return n},x=function(t){var r=u,e=t,n={getMode:function(){return r},getLength:function(t){return e.length},write:function(t){for(var r=e,n=0;n+1<r.length;)t.put(45*o(r.charAt(n))+o(r.charAt(n+1)),11),n+=2;n<r.length&&t.put(o(r.charAt(n)),6)}},o=function(t){if("0"<=t&&t<="9")return t.charCodeAt(0)-"0".charCodeAt(0);if("A"<=t&&t<="Z")return t.charCodeAt(0)-"A".charCodeAt(0)+10;switch(t){case" ":return 36;case"$":return 37;case"%":return 38;case"*":return 39;case"+":return 40;case"-":return 41;case".":return 42;case"/":return 43;case":":return 44;default:throw"illegal char :"+t}};return n},m=function(r){var e=f,n=t.stringToBytes(r),o={getMode:function(){return e},getLength:function(t){return n.length},write:function(t){for(var r=0;r<n.length;r+=1)t.put(n[r],8)}};return o},L=function(r){var e=c,n=t.stringToBytesFuncs.SJIS;if(!n)throw"sjis not supported.";!function(){var t=n("");if(2!=t.length||38726!=(t[0]<<8|t[1]))throw"sjis not supported."}();var o=n(r),i={getMode:function(){return e},getLength:function(t){return~~(o.length/2)},write:function(t){for(var r=o,e=0;e+1<r.length;){var n=(255&r[e])<<8|255&r[e+1];if(33088<=n&&n<=40956)n-=33088;else{if(!(57408<=n&&n<=60351))throw"illegal char at "+(e+1)+"/"+n;n-=49472}n=192*(n>>>8&255)+(255&n),t.put(n,13),e+=2}if(e<r.length)throw"illegal char at "+(e+1)}};return i},D=function(){var t=[],r={writeByte:function(r){t.push(255&r)},writeShort:function(t){r.writeByte(t),r.writeByte(t>>>8)},writeBytes:function(t,e,n){e=e||0,n=n||t.length;for(var o=0;o<n;o+=1)r.writeByte(t[o+e])},writeString:function(t){for(var e=0;e<t.length;e+=1)r.writeByte(t.charCodeAt(e))},toByteArray:function(){return t},toString:function(){var r="";r+="[";for(var e=0;e<t.length;e+=1)e>0&&(r+=","),r+=t[e];return r+="]"}};return r},S=function(t){var r=t,e=0,n=0,o=0,i={read:function(){for(;o<8;){if(e>=r.length){if(0==o)return-1;throw"unexpected end of file./"+o}var t=r.charAt(e);if(e+=1,"="==t)return o=0,-1;t.match(/^\s$/)||(n=n<<6|a(t.charCodeAt(0)),o+=6)}var i=n>>>o-8&255;return o-=8,i}},a=function(t){if(65<=t&&t<=90)return t-65;if(97<=t&&t<=122)return t-97+26;if(48<=t&&t<=57)return t-48+52;if(43==t)return 62;if(47==t)return 63;throw"c:"+t};return i},I=function(t,r,e){for(var n=function(t,r){var e=t,n=r,o=new Array(t*r),i={setPixel:function(t,r,n){o[r*e+t]=n},write:function(t){t.writeString("GIF87a"),t.writeShort(e),t.writeShort(n),t.writeByte(128),t.writeByte(0),t.writeByte(0),t.writeByte(0),t.writeByte(0),t.writeByte(0),t.writeByte(255),t.writeByte(255),t.writeByte(255),t.writeString(","),t.writeShort(0),t.writeShort(0),t.writeShort(e),t.writeShort(n),t.writeByte(0);var r=a(2);t.writeByte(2);for(var o=0;r.length-o>255;)t.writeByte(255),t.writeBytes(r,o,255),o+=255;t.writeByte(r.length-o),t.writeBytes(r,o,r.length-o),t.writeByte(0),t.writeString(";")}},a=function(t){for(var r=1<<t,e=1+(1<<t),n=t+1,i=u(),a=0;a<r;a+=1)i.add(String.fromCharCode(a));i.add(String.fromCharCode(r)),i.add(String.fromCharCode(e));var f,c,g,l=D(),h=(f=l,c=0,g=0,{write:function(t,r){if(t>>>r!=0)throw"length over";for(;c+r>=8;)f.writeByte(255&(t<<c|g)),r-=8-c,t>>>=8-c,g=0,c=0;g|=t<<c,c+=r},flush:function(){c>0&&f.writeByte(g)}});h.write(r,n);var s=0,v=String.fromCharCode(o[s]);for(s+=1;s<o.length;){var d=String.fromCharCode(o[s]);s+=1,i.contains(v+d)?v+=d:(h.write(i.indexOf(v),n),i.size()<4095&&(i.size()==1<<n&&(n+=1),i.add(v+d)),v=d)}return h.write(i.indexOf(v),n),h.write(e,n),h.flush(),l.toByteArray()},u=function(){var t={},r=0,e={add:function(n){if(e.contains(n))throw"dup key:"+n;t[n]=r,r+=1},size:function(){return r},indexOf:function(r){return t[r]},contains:function(r){return void 0!==t[r]}};return e};return i}(t,r),o=0;o<r;o+=1)for(var i=0;i<t;i+=1)n.setPixel(i,o,e(i,o));var a=D();n.write(a);for(var u=function(){var t=0,r=0,e=0,n="",o={},i=function(t){n+=String.fromCharCode(a(63&t))},a=function(t){if(t<0);else{if(t<26)return 65+t;if(t<52)return t-26+97;if(t<62)return t-52+48;if(62==t)return 43;if(63==t)return 47}throw"n:"+t};return o.writeByte=function(n){for(t=t<<8|255&n,r+=8,e+=1;r>=6;)i(t>>>r-6),r-=6},o.flush=function(){if(r>0&&(i(t<<6-r),t=0,r=0),e%3!=0)for(var o=3-e%3,a=0;a<o;a+=1)n+="="},o.toString=function(){return n},o}(),f=a.toByteArray(),c=0;c<f.length;c+=1)u.writeByte(f[c]);return u.flush(),"data:image/gif;base64,"+u};return t}();qrcode.stringToBytesFuncs["UTF-8"]=function(t){return function(t){for(var r=[],e=0;e<t.length;e++){var n=t.charCodeAt(e);n<128?r.push(n):n<2048?r.push(192|n>>6,128|63&n):n<55296||n>=57344?r.push(224|n>>12,128|n>>6&63,128|63&n):(e++,n=65536+((1023&n)<<10|1023&t.charCodeAt(e)),r.push(240|n>>18,128|n>>12&63,128|n>>6&63,128|63&n))}return r}(t)},function(t){"function"==typeof define&&define.amd?define([],t):"object"==typeof exports&&(module.exports=t())}((function(){return qrcode}));
+//# sourceMappingURL=/sm/26b4b0d0b1e283d6b3ec9857ac597d7a60c76ac17be1ef4c965f03086de426bb.map
+</script>
+<script>
+const DATA_FILE = 'data/field_log.json';
+let log = { projects: [], tasks: [], production: [], posts: [], updatedAt: '' };
+let currentUser = 'unknown';
+let uploadQueue = [];
+let editingPostId = null;
+let expanded = {};
+
+function getCookie(name) {
+  const m = document.cookie.match(new RegExp('(?:^|;)\\s*' + name + '=([^;]*)'));
+  return m ? decodeURIComponent(m[1]) : '';
+}
+
+function parseUser() {
+  const c = getCookie('app_auth');
+  if (!c) return 'unknown';
+  if (!c.includes(':')) return 'Frank';
+  const i = c.indexOf(':');
+  return i > 0 ? c.slice(0, i) : c;
+}
+const USER_LINKS = [
+  { name: '小苏', label: 'Su' },
+  { name: '基督山伯爵', label: 'Monte Cristo' },
+  { name: '玲姐', label: 'Ling' },
+  { name: '董事长', label: 'Chairman' },
+  { name: 'Frank', label: 'Frank (Admin)' }
+];
+const urlUser = new URLSearchParams(location.search).get('user') || new URLSearchParams(location.search).get('u') || new URLSearchParams(location.search).get('name');
+if (urlUser) { localStorage.setItem('uploader', urlUser); }
+currentUser = localStorage.getItem('uploader') || parseUser() || 'unknown';
+function renderUserChip() {
+  const n = currentUser || 'unknown';
+  document.getElementById('setUser').textContent = n;
+  const uc = document.getElementById('ucName'); if (uc) uc.textContent = n === 'unknown' ? 'Not signed in' : n;
+  const av = document.getElementById('ucAvatar'); if (av) av.textContent = (n === 'unknown' ? '?' : n.slice(0, 1));
+}
+renderUserChip();
+document.getElementById('userChip').onclick = e => { if (e) e.preventDefault(); document.getElementById('openSet').click(); };
+
+async function api(action, data) {
+  const body = { action, ...data };
+  const res = await fetch('/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  return await res.json();
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.remove('hidden');
+  setTimeout(() => t.classList.add('hidden'), 2500);
+}
+
+function migrateFromPhotos() {
+  if (log.posts && log.posts.length) return;
+  log.posts = [];
+  const groups = {};
+  const photos = log.photos || [];
+  for (const p of photos) {
+    const key = (p.note || '') + '|' + p.createdAt + '|' + p.uploader;
+    if (!groups[key]) {
+      groups[key] = { note: p.note || '', uploader: p.uploader, createdAt: p.createdAt, media: [], id: id() };
+      log.posts.push(groups[key]);
+    }
+    groups[key].media.push({ type: 'image', filename: p.filename });
+  }
+  log.photos = [];
+}
+
+function applyLog() {
+  if (!log.posts) log.posts = [];
+  if (!log.projects) log.projects = [];
+  if (!log.tasks) log.tasks = [];
+  if (!log.todos) log.todos = [];
+  if (!log.production) log.production = [];
+  if (!log.users) log.users = [];
+  migrateFromPhotos();
+  renderFeed(); renderSchedule(); renderProduction();
+  renderUserLinks();
+}
+
+async function loadLog() {
+  const cached = localStorage.getItem('log_cache');
+  const cachedSha = localStorage.getItem('log_sha') || '';
+  let fromCache = false;
+  if (cached) {
+    try { log = JSON.parse(cached); applyLog(); fromCache = true; } catch (e) {}
+  }
+  try {
+    const st = await api('stat', { path: DATA_FILE });
+    const remoteSha = (st && st.sha) || '';
+    if (fromCache && remoteSha && remoteSha === cachedSha) { loadMarket(); return; }
+    const r = await api('read', { path: DATA_FILE });
+    if (r.content) {
+      log = JSON.parse(r.content);
+      localStorage.setItem('log_cache', r.content);
+      localStorage.setItem('log_sha', remoteSha || cachedSha);
+    } else if (!fromCache) {
+      log = { projects: [], tasks: [], todos: [], production: [], posts: [], updatedAt: new Date().toISOString() };
+    }
+    applyLog();
+    loadMarket();
+  } catch (e) {
+    if (fromCache) { loadMarket(); return; }
+    showToast('Failed to load data: ' + e.message);
+  }
+}
+
+// ---- Ta-Nb market daily card ----
+async function loadMarket() {
+  const el = document.getElementById('marketCard');
+  try {
+    const r = await api('read', { path: 'data/market_daily.json' });
+    if (!r || !r.content) {
+      el.innerHTML = `<div class="card" style="padding:12px 16px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <strong>📈 Ta-Nb Market Daily</strong>
+          ${isAdmin() ? '<button type="button" class="btn" style="padding:4px 10px;font-size:12px" onclick="refreshMarket()">Generate</button>' : ''}
+        </div>
+        <p class="hint" style="margin-top:6px">No data yet, ${isAdmin() ? 'tap Generate to fetch today's quotes online' : 'wait for admin to generate'}</p>
+      </div>`;
+      return;
+    }
+    const d = JSON.parse(r.content);
+    marketSpoken = d.spoken || '';
+    marketAudio = d.audio || '';
+    const open = localStorage.getItem('marketOpen') === '1';
+    el.innerHTML = `<div class="card" style="padding:12px 16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="toggleMarketBody()">
+        <strong>📈 Ta-Nb Market Daily</strong>
+        <span style="display:flex;gap:8px;align-items:center">
+          ${(marketAudio || marketSpoken) ? '<button type="button" class="btn" id="marketPlay" style="padding:4px 12px;font-size:13px;background:var(--primary-light);color:var(--primary)" onclick="playMarket(event)">🔊 Play</button>' : ''}
+          <span class="hint">${fmtDate(d.updatedAt)}</span>
+          <span id="marketArrow" style="font-size:20px;font-weight:700;color:var(--primary)">${open ? '▾' : '▸'}</span>
+        </span>
+      </div>
+      <div id="marketBody" style="display:${open ? 'block' : 'none'}">${renderSmmPrices(d.prices)}</div>
+    </div>`;
+  } catch (e) {
+    el.innerHTML = '';
+  }
+}
+// ---- SMM  quotes: Ta-Nb ore CIF price only (USD/lb + CNY conversion + import incl. VAT)----
+function renderSmmPrices(prices) {
+  if (!prices || !prices.length) return '';
+  const p = prices.find(x => (x.name || '').includes('tantalum ore'));
+  if (!p) return '';
+  const R = 7.1;                    // USD/CNY approx
+  const VAT = 1.13;                 // import VAT 13%(Ta-Nb ore duty 0%）
+  const parts = (p.value || '').split('~').map(parseFloat);
+  const lo = parts[0], hi = parts.length > 1 ? parts[1] : parts[0];
+  if (isNaN(lo)) return '';
+  const K = 2.20462 * R;            // USD/lb → CNY/kg
+  const fmt = x => Math.round(x).toLocaleString('en');
+  const date = (p.note || '').match(/SMM\s*(\S+)/)?.[1] || '';
+  return `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+    <div style="font-size:12px;color:var(--text2);margin-bottom:4px">SMM  China CIF${date ? ' · ' + date : ''}</div>
+    <div style="font-size:14px;font-weight:600;padding:2px 0">Ta-Nb concentrate (Ta₂O₅  30% + Nb₂O₅  10%）</div>
+    <div style="font-size:12px;color:var(--danger);padding:2px 0 6px">⚠ Note: quote applies only to  30% Ta + 10% Nb  standard concentrate; other grades convert by content</div>
+    <div style="display:flex;justify-content:space-between;font-size:14px;padding:3px 0">
+      <span>CIF price</span><span><b>${p.value}</b> ${p.unit}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:14px;padding:3px 0">
+      <span>In CNY</span><span><b>≈${fmt(lo * K)}~${fmt(hi * K)}</b> CNY/kg</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:14px;padding:3px 0">
+      <span>Import incl. VAT</span><span style="color:var(--primary)"><b>≈${fmt(lo * K * VAT)}~${fmt(hi * K * VAT)}</b> CNY/kg</span>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin-top:4px">at rate  7.1, duty  0%, VAT  13%  est.</div>
+  </div>`;
+}
+let marketSpoken = '', marketAudio = '', marketPlayer = null;
+function toggleMarketBody() {
+  const b = document.getElementById('marketBody');
+  const arrow = document.getElementById('marketArrow');
+  if (!b) return;
+  const open = b.style.display === 'none';
+  b.style.display = open ? 'block' : 'none';
+  if (arrow) arrow.textContent = open ? '▾' : '▸';
+  localStorage.setItem('marketOpen', open ? '1' : '0');
+}
+function playMarket(e) {
+  if (e) e.stopPropagation();
+  const btn = document.getElementById('marketPlay');
+  // AI -generated natural voice (server-side  MeloTTS）
+  if (marketAudio) {
+    if (marketPlayer && !marketPlayer.paused) {
+      marketPlayer.pause(); marketPlayer.currentTime = 0;
+      if (btn) btn.textContent = '🔊 Play'; return;
+    }
+    if (marketPlayer) marketPlayer.pause();
+    marketPlayer = new Audio(marketAudio);
+    marketPlayer.onended = marketPlayer.onerror = () => { const b = document.getElementById('marketPlay'); if (b) b.textContent = '🔊 Play'; };
+    marketPlayer.play().catch(() => { marketAudio = ''; playMarket(); });
+    if (btn) btn.textContent = '⏹ Stop';
+    return;
+  }
+  // Fallback: browser built-in  TTS
+  if (!('speechSynthesis' in window) || !marketSpoken) { showToast('Voice playback not supported on this device'); return; }
+  if (speechSynthesis.speaking) { speechSynthesis.cancel(); if (btn) btn.textContent = '🔊 Play'; return; }
+  const u = new SpeechSynthesisUtterance(marketSpoken);
+  u.lang = 'en-US'; u.rate = 0.95;
+  const vs = speechSynthesis.getVoices();
+  const zh = vs.find(v => /^en/i.test(v.lang));
+  if (zh) u.voice = zh;
+  u.onend = u.onerror = () => { const b = document.getElementById('marketPlay'); if (b) b.textContent = '🔊 Play'; };
+  speechSynthesis.speak(u);
+  if (btn) btn.textContent = '⏹ Stop';
+}
+async function refreshMarket() {
+  showToast('Generating online, about  30 s…');
+  const r = await api('market_refresh', {});
+  if (r && r.ok) { showToast('Updated'); loadMarket(); }
+  else showToast('Failed: ' + ((r && r.error) || 'unknown'));
+}
+// ---- Global sync state: show top bar while writes in progress, block double taps ----
+let syncCount = 0;
+function syncStart() { syncCount++; document.getElementById('syncBar').style.display = 'flex'; }
+function syncEnd() { if (--syncCount <= 0) { syncCount = 0; document.getElementById('syncBar').style.display = 'none'; } }
+function syncBusy() { if (syncCount > 0) { showToast('Syncing, please wait…'); return true; } return false; }
+
+async function saveLog(message) {
+  log.updatedAt = new Date().toISOString();
+  syncStart();
+  try {
+    const r = await api('save', { path: DATA_FILE, content: JSON.stringify(log, null, 2), message: message || 'Update field log' });
+    if (r.error) throw new Error(r.error);
+    try {
+      localStorage.setItem('log_cache', JSON.stringify(log));
+      if (r.content && r.content.sha) localStorage.setItem('log_sha', r.content.sha);
+    } catch (e) {}
+    renderFeed(); return true;
+  } catch (e) {
+    showToast('Save failed: ' + e.message); return false;
+  } finally { syncEnd(); }
+}
+
+let videoLists = {};
+let vListKey = '', vIdx = 0;
+function openVideoIn(k, i) {
+  vListKey = k; vIdx = i;
+  openVideo((videoLists[k] || [])[i]);
+  updVIdx();
+}
+function updVIdx() {
+  const n = (videoLists[vListKey] || []).length;
+  const el = document.getElementById('vIdx');
+  if (el) { el.style.display = n > 1 ? 'block' : 'none'; el.textContent = (vIdx + 1) + ' / ' + n; }
+}
+function vGo(d) {
+  const l = videoLists[vListKey] || [];
+  const ni = vIdx + d;
+  if (ni < 0 || ni >= l.length) return;
+  vIdx = ni;
+  openVideo(l[vIdx]);
+  updVIdx();
+}
+let vSlowTimer = null;
+function openVideo(src) {
+  const m = document.getElementById('vModal');
+  const v = document.getElementById('vView');
+  const ld = document.getElementById('vLoading');
+  if (!src) return;
+  v.oncanplay = () => { ld.style.display = 'none'; clearTimeout(vSlowTimer); };
+  v.onerror = () => { ld.textContent = 'Video failed to load'; };
+  // Buffer progress: show the user it is moving
+  v.onprogress = () => {
+    try {
+      if (v.duration && v.buffered.length) {
+        const pct = Math.round(v.buffered.end(v.buffered.length - 1) / v.duration * 100);
+        if (ld.style.display !== 'none') ld.textContent = 'Loading…  buffered ' + pct + '%';
+      }
+    } catch (e) {}
+  };
+  v.onwaiting = () => { ld.textContent = 'Buffering…'; ld.style.display = 'block'; };
+  v.onplaying = () => { ld.style.display = 'none'; clearTimeout(vSlowTimer); };
+  // 8 s without playback: suggest another browser
+  clearTimeout(vSlowTimer);
+  vSlowTimer = setTimeout(() => {
+    if (ld.style.display !== 'none') ld.innerHTML = 'Slow network, please be patient<br><span style="font-size:12px">If buffering is slow, tap ··· to open in browser</span>';
+  }, 8000);
+  v.preload = 'auto';
+  v.src = src;
+  m.classList.add('show');
+  ld.textContent = 'Loading…';
+  ld.style.display = 'block';
+  const ix = document.getElementById('vIdx');
+  if (ix) ix.style.display = 'none';
+  const pr = v.play();
+  if (pr && pr.catch) pr.catch(() => { ld.style.display = 'none'; });
+}
+function closeVideo() {
+  clearTimeout(vSlowTimer);
+  const v = document.getElementById('vView');
+  v.pause(); v.removeAttribute('src'); v.load();
+  document.getElementById('vModal').classList.remove('show');
+}
+
+function copyWxLink(u, e) {
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  const done = () => showToast('Copied, paste in WeChat to watch');
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(u).then(done).catch(() => fallbackCopy(u, done));
+  else fallbackCopy(u, done);
+}
+function fallbackCopy(u, done) {
+  const t = document.createElement('textarea');
+  t.value = u; t.style.position = 'fixed'; t.style.opacity = '0';
+  document.body.appendChild(t); t.select();
+  try { document.execCommand('copy'); done(); } catch (e) { showToast('Copy failed, long-press link to copy manually'); }
+  t.remove();
+}
+function id() { return 'f_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6); }
+function fmtDate(s) { return s ? new Date(s).toLocaleString('en-US', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''; }
+function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+function mediaGrid(media, pid) {
+  const count = media.length;
+  const cls = count === 1 ? 'one' : count === 2 ? 'two' : count === 4 ? 'four' : 'multi';
+  // Playable video list of this post (for swipe switching)
+  const vids = [];
+  const vListKey = pid || ('_m' + Math.random().toString(36).slice(2));
+  media.forEach(m => {
+    if (m.type === 'video' && m.r2Key) vids.push('/media?key=' + m.r2Key);
+    else if (m.type === 'tgVideo') vids.push('/tgvideo?fid=' + m.fileId);
+    else if (m.type === 'video' && m.url && !/weixin|channels|qq\.com/.test(m.url)) vids.push(m.url);
+  });
+  videoLists[vListKey] = vids;
+  let vi = 0;
+  const vopen = () => `onclick="openVideoIn('${vListKey}', ${vi++})"`;
+  return `<div class="post-media ${cls}">
+    ${media.map(m => {
+    if (m.r2Key) {
+      if (m.type === 'video') {
+        const poster = m.thumbKey ? `poster="/media?key=${m.thumbKey}"` : '';
+        return `<span class="vwrap" ${vopen()}><video ${poster} src="/media?key=${m.r2Key}" preload="metadata" playsinline muted></video></span>`;
+      }
+      return `<img src="/media?key=${m.r2Key}" loading="lazy" alt="" onclick="openImg('/media?key=${m.r2Key}')" style="cursor:pointer">`;
+    }
+    if (m.type === 'video') {
+      if (m.url && /weixin|channels|qq\.com/.test(m.url)) return `<div style="height:180px;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px">
+        <div style="color:#fff;font-size:14px">WeChat Channels (opens in WeChat only)</div>
+        <button type="button" class="btn" style="background:#07c160;color:#fff;font-size:13px" onclick="copyWxLink('${m.url.replace(/'/g, '')}', event)">📋 Copy link, open in WeChat</button>
+      </div>`;
+      if (m.url && /youtube|bilibili|tiktok|douyin|instagram|facebook|x\.com|twitter/.test(m.url)) return `<a href="${m.url}" target="_blank" style="display:flex;align-items:center;justify-content:center;height:180px;background:#000;color:#fff;font-size:14px">▶ Open video</a>`;
+      return `<span class="vwrap" ${vopen()}><video src="${m.url || ''}" preload="metadata" playsinline muted></video></span>`;
+    }
+    if (m.type === 'tgVideo') return `<span class="vwrap" ${vopen()}><video src="/tgvideo?fid=${m.fileId}" preload="metadata" playsinline muted></video></span>`;
+    if (m.type === 'tgPhoto') return `<img src="/tgphoto?fid=${m.fileId}" loading="lazy" alt="" onclick="openImg('/tgphoto?fid=${m.fileId}')" style="cursor:pointer">`;
+    return `<img src="/photos/${m.filename}" loading="lazy" alt="" onclick="openImg('/photos/${m.filename}')" style="cursor:pointer">`;
+  }).join('')}
+  </div>`;
+}
+
+function renderFeed() {
+  videoLists = {};
+  const feed = document.getElementById('feed');
+  const y = window.scrollY || document.documentElement.scrollTop || 0;
+  const list = (log.posts || []).slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  if (!list.length) { feed.innerHTML = '<div class="empty">No posts yet.<br>Tap the + at bottom-right  + to post photos//text, or on  Telegram  send to  @frank_zambia_bot  for video.</div>'; setTimeout(() => window.scrollTo(0, y), 0); return; }
+  feed.innerHTML = list.map(post => {
+    const open = expanded['p_' + post.id] ? 'open' : '';
+    const liked = (post.likes || []).includes(currentUser);
+    const likes = post.likes || [];
+    const comments = post.comments || [];
+    const showFb = likes.length || comments.length || open;
+    return `
+      <div class="post" data-pid="${post.id}">
+        ${(post.uploader === currentUser || isAdmin() || currentUser === 'unknown') ? `<div class="post-head"><div><span class="post-user">${esc(post.uploader)}</span><div class="post-time">${fmtDate(post.createdAt)}</div></div><button type="button" class="post-more" onclick="togglePostMenu('${post.id}', event)">⋮</button><div class="post-menu ${expanded['m_' + post.id] ? 'open' : ''}" id="pm-${post.id}"><button type="button" onclick="editPost('${post.id}', event)">Edit</button><button type="button" class="danger" onclick="deletePost('${post.id}', event)">Delete</button></div></div>` : `<div class="post-head"><div><span class="post-user">${esc(post.uploader)}</span><div class="post-time">${fmtDate(post.createdAt)}</div></div></div>`}
+        ${post.note ? `<div class="post-note">${esc(post.note).replace(/\n/g, '<br>')}</div>` : ''}
+        ${mediaGrid(post.media || [], post.id)}
+        <div class="post-actions">
+          <button type="button" class="${liked ? 'liked' : ''}" onclick="likePost('${post.id}', event)">❤ ${likes.length || 'Like'}</button>
+          <button type="button" onclick="togglePostComments('${post.id}', event)">💬 ${comments.length || 'Comment'}</button>
+        </div>
+        ${showFb ? `<div class="post-feedback">
+          ${likes.length ? `<div class="fb-likes" ${comments.length ? 'style="border-bottom:1px solid #e2e8f0;padding-bottom:6px;margin-bottom:4px"' : ''}>❤ ${likes.map(esc).join('、')}</div>` : ''}
+          ${comments.map((c, ci) => `<div class="fb-comment"><b>${esc(c.user)}</b>：${esc(c.text)}<span class="fb-time">${fmtDate(c.time)}</span>${(c.user === currentUser || isAdmin()) ? `<span class="fb-wrap"><button type="button" class="fb-dots" onclick="toggleMiniMenu('cmo-${post.id}-${ci}',event)">⋮</button><div class="fb-menu" id="cmo-${post.id}-${ci}"><button type="button" onclick="editPostComment('${post.id}',${ci},event)">Edit</button><button type="button" class="danger" onclick="delPostComment('${post.id}',${ci},event)">Delete</button></div></span>` : ''}</div>`).join('')}
+          <div class="pc-input ${open}">
+            <input type="text" id="pcc-${post.id}" placeholder="Write a comment…" onkeydown="if(event.key==='Enter')submitPostComment('${post.id}')">
+            <button type="button" class="btn" onclick="submitPostComment('${post.id}')">Send</button>
+          </div>
+        </div>` : ''}
+      </div>
+    `;
+  }).join('');
+  setTimeout(() => window.scrollTo(0, y), 0);
+}
+
+async function likePost(pid, e) {
+  if (syncBusy()) return;
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  const p = (log.posts || []).find(x => x.id === pid);
+  if (!p) return;
+  if (!p.likes) p.likes = [];
+  const idx = p.likes.indexOf(currentUser);
+  if (idx >= 0) p.likes.splice(idx, 1);
+  else p.likes.push(currentUser);
+  if (await saveLog('like post')) renderFeed();
+}
+
+function togglePostComments(pid, e) {
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  expanded['p_' + pid] = !expanded['p_' + pid];
+  renderFeed();
+  if (expanded['p_' + pid]) setTimeout(() => { const inp = document.getElementById('pcc-' + pid); if (inp) inp.focus(); }, 60);
+}
+
+let editingComment = null; // {pid, ci}
+function editPostComment(pid, ci, e) {
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  const p = (log.posts || []).find(x => x.id === pid);
+  const c = p && p.comments && p.comments[ci];
+  if (!c) return;
+  editingComment = { pid, ci };
+  expanded['p_' + pid] = true;
+  renderFeed();
+  setTimeout(() => { const inp = document.getElementById('pcc-' + pid); if (inp) { inp.value = c.text; inp.focus(); } }, 60);
+}
+async function delPostComment(pid, ci, e) {
+  if (syncBusy()) return;
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  if (!confirm('Delete this comment?')) return;
+  const p = (log.posts || []).find(x => x.id === pid);
+  if (!p || !p.comments || !p.comments[ci]) return;
+  p.comments.splice(ci, 1);
+  if (await saveLog('delete post comment')) renderFeed();
+}
+async function submitPostComment(pid) {
+  if (syncBusy()) return;
+  const input = document.getElementById('pcc-' + pid);
+  const text = input.value.trim();
+  if (!text) return;
+  const p = (log.posts || []).find(x => x.id === pid);
+  if (!p) return;
+  if (!p.comments) p.comments = [];
+  if (editingComment && editingComment.pid === pid && p.comments[editingComment.ci]) {
+    p.comments[editingComment.ci].text = text;
+    p.comments[editingComment.ci].editedAt = new Date().toISOString();
+  } else {
+    p.comments.push({ user: currentUser, text, time: new Date().toISOString() });
+  }
+  editingComment = null;
+  if (await saveLog('save post comment')) { expanded['p_' + pid] = true; renderFeed(); }
+}
+
+function toggleMiniMenu(id, e) {
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  const m = document.getElementById(id);
+  const wasOpen = m && m.classList.contains('open');
+  document.querySelectorAll('.fb-menu.open, .post-menu.open').forEach(x => x.classList.remove('open'));
+  for (const k of Object.keys(expanded)) { if (k.startsWith('m_')) delete expanded[k]; }
+  if (m && !wasOpen) m.classList.add('open');
+}
+// Tap blank area collapses all  ⋯  menus
+document.addEventListener('click', e => {
+  if (!e.target.closest('.fb-dots, .fb-menu, .post-more, .post-menu')) {
+    document.querySelectorAll('.fb-menu.open, .post-menu.open').forEach(x => x.classList.remove('open'));
+    for (const k of Object.keys(expanded)) { if (k.startsWith('m_')) delete expanded[k]; }
+  }
+});
+
+function togglePostMenu(pid, e) {
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  const key = 'm_' + pid;
+  for (const k of Object.keys(expanded)) { if (k.startsWith('m_') && k !== key) delete expanded[k]; }
+  document.querySelectorAll('.post-menu.open').forEach(m => { if (m.id !== 'pm-' + pid) m.classList.remove('open'); });
+  document.querySelectorAll('.fb-menu.open').forEach(m => m.classList.remove('open'));
+  const m = document.getElementById('pm-' + pid);
+  if (!m) return;
+  m.classList.toggle('open');
+  expanded[key] = m.classList.contains('open');
+}
+
+function editPost(pid, e) {
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  const post = (log.posts || []).find(x => x.id === pid);
+  if (!post) return;
+  editingPostId = pid;
+  expanded['m_' + pid] = false;
+  document.getElementById('uNote').value = post.note || '';
+  uploadQueue = [];
+  (post.media || []).forEach(m => {
+    if (m.r2Key) {
+      if (m.type === 'video') uploadQueue.push({ isVideo: true, url: '/media?key=' + m.r2Key, thumbDataUrl: m.thumbKey ? '/media?key=' + m.thumbKey : '', existing: m });
+      else uploadQueue.push({ isVideo: false, dataUrl: '/media?key=' + m.r2Key, existing: m });
+    } else if (m.filename) {
+      uploadQueue.push({ isVideo: false, dataUrl: '/photos/' + m.filename, existing: m });
+    } else if (m.fileId) {
+      uploadQueue.push({ isVideo: m.type === 'tgVideo', url: '/tgvideo?fid=' + m.fileId, dataUrl: '/tgphoto?fid=' + m.fileId, existing: m });
+    }
+  });
+  renderUploadGrid();
+  document.getElementById('publishModal').classList.add('show');
+}
+
+async function deletePost(pid, e) {
+  if (syncBusy()) return;
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  if (!confirm('Delete this post?')) return;
+  const idx = (log.posts || []).findIndex(x => x.id === pid);
+  if (idx < 0) return;
+  expanded['m_' + pid] = false;
+  log.posts.splice(idx, 1);
+  if (await saveLog('delete post')) renderFeed();
+}
+
+// time
+function renderSchedule() {
+  renderMyItems(); renderTodos(); renderProjects();
+}
+
+const _today = () => new Date().toISOString().slice(0, 10);
+function dueChip(due, done) {
+  if (!due) return '';
+  if (done) return `<span class="due-chip">to ${due.slice(5)}</span>`;
+  if (due < _today()) return `<span class="due-chip overdue">Overdue ${due.slice(5)}</span>`;
+  if (due === _today()) return `<span class="due-chip today">Due today</span>`;
+  return `<span class="due-chip">to ${due.slice(5)}</span>`;
+}
+function assignChip(a) { return a ? `<span class="assign-chip">@${esc(a)}</span>` : ''; }
+function fileChips(files) {
+  if (!files || !files.length) return '';
+  return `<div class="file-row">${files.map(f => {
+    const u = f.url;
+    if (f.kind === 'image') return `<img class="file-img" src="${u}" onclick="openImg(this.src);event.stopPropagation()">`;
+    if (f.kind === 'video') return `<a class="file-chip" href="javascript:void(0)" onclick="openVideo('${u}');event.stopPropagation()">▶ ${esc(f.name || 'Videos')}</a>`;
+    const icon = f.kind === 'pdf' ? '📄' : '📎';
+    return `<a class="file-chip" href="${u}" target="_blank" onclick="event.stopPropagation()">${icon} ${esc(f.name || 'attachment')}</a>`;
+  }).join('')}</div>`;
+}
+function commentHtml(c, key, menuEdit, menuDel) {
+  const own = c.user === currentUser || isAdmin();
+  return `<div class="comment"><b>${esc(c.user)}</b>：${esc(c.text)}${fileChips(c.files)} <span style="color:#999;font-size:11px">${fmtDate(c.time)}${c.editedAt ? '  ·edited' : ''}</span>${own ? `<span class="fb-wrap"><button type="button" class="fb-dots" onclick="toggleMiniMenu('${key}',event)">⋮</button><div class="fb-menu" id="${key}"><button type="button" onclick="${menuEdit}">Edit</button><button type="button" class="danger" onclick="${menuDel}">Delete</button></div></span>` : ''}</div>`;
+}
+function stagedRow(key) {
+  const fs = stagedFiles[key] || [];
+  if (!fs.length) return '';
+  return `<div class="file-row">${fs.map((f, fi) => `<span class="file-chip">📎 ${esc(f.name)} <b style="cursor:pointer" onclick="unstageFile('${key}',${fi});event.stopPropagation()">×</b></span>`).join('')}</div>`;
+}
+
+// ---- Assigned to me ----
+function renderMyItems() {
+  const el = document.getElementById('myTaskBox');
+  if (!el) return;
+  const mine = [];
+  for (const t of (log.tasks || [])) {
+    if (t.assignee === currentUser && t.status !== 'done') {
+      const pr = (log.projects || []).find(p => p.id === t.projectId);
+      mine.push({ kind: 'task', id: t.id, title: t.name, due: t.due, from: pr ? pr.name : '', by: t.createdBy });
+    }
+  }
+  for (const d of (log.todos || [])) {
+    if (d.assignee === currentUser && !d.done) mine.push({ kind: 'todo', id: d.id, title: d.title, due: d.due, by: d.createdBy });
+  }
+  if (!mine.length) { el.innerHTML = ''; return; }
+  mine.sort((a, b) => (a.due || '9999') < (b.due || '9999') ? -1 : 1);
+  el.innerHTML = `<div class="card" style="background:linear-gradient(135deg,#eff6ff,#f0f9ff);border:1px solid #bfdbfe">
+    <div style="font-weight:700;color:var(--primary);font-size:15px;margin-bottom:4px">📌 Assigned to me (${mine.length}）</div>
+    ${mine.map(m => `<div class="my-item" onclick="jumpToItem('${m.kind}','${m.id}')">
+      <span style="font-size:12px;color:var(--muted)">${m.kind === 'task' ? 'Tasks' : 'To-do'}</span>
+      <span style="flex:1;font-weight:600">${esc(m.title)}</span>
+      ${m.from ? `<span style="font-size:12px;color:var(--muted)">${esc(m.from)}</span>` : ''}
+      ${dueChip(m.due)}
+    </div>`).join('')}
+  </div>`;
+}
+function jumpToItem(kind, id) {
+  if (kind === 'task') {
+    const t = log.tasks.find(x => x.id === id);
+    if (t) { expanded[t.projectId] = true; expanded['c_' + id] = true; renderSchedule(); }
+  } else {
+    expanded['td_' + id] = true; renderSchedule();
+  }
+  setTimeout(() => {
+    const el = document.getElementById(kind === 'task' ? 'cc-' + id : 'tdrow-' + id) || null;
+    const box = el ? el.closest('.task,.todo') : null;
+    if (box) box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 80);
+}
+
+// ---- To-do ----
+function renderTodos() {
+  const el = document.getElementById('todoList');
+  const list = (log.todos || []).slice().sort((a, b) => (a.done - b.done) || ((a.due || '9999') < (b.due || '9999') ? -1 : 1));
+  if (!list.length) { el.innerHTML = '<div class="empty" style="padding:8px 0">No to-dos yet</div>'; return; }
+  el.innerHTML = list.map(d => {
+    const mine = d.assignee === currentUser && !d.done;
+    const own = d.createdBy === currentUser || d.assignee === currentUser || isAdmin();
+    const open = expanded['td_' + d.id];
+    const comments = d.comments || [];
+    const skey = 'td_' + d.id;
+    return `<div class="todo ${d.done ? 'done' : ''} ${mine ? 'mine' : ''}" id="tdrow-${d.id}">
+      <div class="task-head" onclick="toggleTodoDetail('${d.id}')">
+        <div class="task-status ${d.done ? 'done' : ''}" onclick="toggleTodo('${d.id}',event)"></div>
+        <div class="task-title ${d.done ? 'done' : ''}">${esc(d.title)}</div>
+        ${assignChip(d.assignee)}${dueChip(d.due, d.done)}
+        ${own ? `<span class="fb-wrap"><button type="button" class="fb-dots" onclick="toggleMiniMenu('tdo-${d.id}',event)">⋮</button><div class="fb-menu" id="tdo-${d.id}"><button type="button" onclick="editTodo('${d.id}',event)">Edit</button><button type="button" class="danger" onclick="delTodo('${d.id}',event)">Delete</button></div></span>` : ''}
+      </div>
+      <div class="task-meta">${esc(d.createdBy || '')} · ${fmtDate(d.createdAt)}${comments.length ? ' · 💬' + comments.length : ''}${(d.files || []).length ? ' · 📎' + d.files.length : ''}
+        <button type="button" class="fb-dots" style="width:22px;height:22px;font-size:13px" title="Attach file" onclick="pickAttach('attodo:${d.id}',event)">📎</button></div>
+      ${fileChips(d.files)}
+      ${open ? `<div class="comments open">
+        ${comments.length ? comments.map((c, ci) => commentHtml(c, `tdcmo-${d.id}-${ci}`, `editTodoComment('${d.id}',${ci},event)`, `delTodoComment('${d.id}',${ci},event)`)).join('') : '<div class="comment" style="color:#999">No messages yet</div>'}
+        ${stagedRow(skey)}
+        <div class="comment-input">
+          <input type="text" id="tdc-${d.id}" placeholder="Write a message…" onkeydown="if(event.key==='Enter')submitTodoComment('${d.id}')">
+          <button type="button" class="fb-dots" style="border-radius:8px;width:34px" title="Message with attachment" onclick="pickAttach('${skey}',event)">📎</button>
+          <button type="button" class="btn" onclick="submitTodoComment('${d.id}')">Send</button>
+        </div>
+      </div>` : ''}
+    </div>`;
+  }).join('');
+}
+function toggleTodoDetail(id) {
+  expanded['td_' + id] = !expanded['td_' + id];
+  renderSchedule();
+}
+async function toggleTodo(id, e) {
+  if (syncBusy()) return;
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  const d = (log.todos || []).find(x => x.id === id); if (!d) return;
+  d.done = !d.done; d.doneAt = d.done ? new Date().toISOString() : '';
+  if (await saveLog('toggle todo')) renderSchedule();
+}
+function addTodoQuick() {
+  const inp = document.getElementById('todoInput');
+  const title = inp.value.trim();
+  if (!title) { showToast('Write the item first'); return; }
+  inp.value = '';
+  openTaskModal({ mode: 'todo', title });
+}
+function editTodo(id, e) {
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  const d = (log.todos || []).find(x => x.id === id); if (!d) return;
+  openTaskModal({ mode: 'todo', id, title: d.title, assignee: d.assignee, due: d.due, desc: d.desc });
+}
+async function delTodo(id, e) {
+  if (syncBusy()) return;
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  if (!confirm('Delete this to-do?')) return;
+  log.todos = (log.todos || []).filter(x => x.id !== id);
+  if (await saveLog('delete todo')) renderSchedule();
+}
+let editingTodoComment = null;
+function editTodoComment(id, ci, e) {
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  const d = (log.todos || []).find(x => x.id === id);
+  const c = d && d.comments && d.comments[ci]; if (!c) return;
+  editingTodoComment = { id, ci };
+  expanded['td_' + id] = true; renderSchedule();
+  setTimeout(() => { const inp = document.getElementById('tdc-' + id); if (inp) { inp.value = c.text; inp.focus(); } }, 60);
+}
+async function delTodoComment(id, ci, e) {
+  if (syncBusy()) return;
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  if (!confirm('Delete this message?')) return;
+  const d = (log.todos || []).find(x => x.id === id);
+  if (!d || !d.comments || !d.comments[ci]) return;
+  d.comments.splice(ci, 1);
+  if (await saveLog('delete todo comment')) renderSchedule();
+}
+async function submitTodoComment(id) {
+  if (syncBusy()) return;
+  const input = document.getElementById('tdc-' + id);
+  const text = input.value.trim();
+  const key = 'td_' + id;
+  const fs = stagedFiles[key] || [];
+  if (!text && !fs.length) return;
+  const d = (log.todos || []).find(x => x.id === id); if (!d) return;
+  if (!d.comments) d.comments = [];
+  if (editingTodoComment && editingTodoComment.id === id && d.comments[editingTodoComment.ci]) {
+    d.comments[editingTodoComment.ci].text = text;
+    d.comments[editingTodoComment.ci].editedAt = new Date().toISOString();
+  } else {
+    d.comments.push({ user: currentUser, text, time: new Date().toISOString(), files: fs.length ? fs : undefined });
+  }
+  editingTodoComment = null; stagedFiles[key] = [];
+  if (await saveLog('save todo comment')) { expanded['td_' + id] = true; renderSchedule(); }
+}
+
+// ---- Projects / Tasks ----
+function renderProjects() {
+  const list = document.getElementById('projectList');
+  if (!log.projects.length) { list.innerHTML = '<div class="empty">No projects yet, tap  + to create</div>'; return; }
+  list.innerHTML = log.projects.slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).map(pr => {
+    const tasks = log.tasks.filter(t => t.projectId === pr.id).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    const open = expanded[pr.id] ? 'open' : '';
+    const undone = tasks.filter(t => t.status !== 'done').length;
+    return `
+      <div class="project">
+        <div class="project-head" onclick="toggleProject('${pr.id}')">
+          <div>
+            <div class="project-title">${esc(pr.name)}</div>
+            <div class="project-meta">By: ${esc(pr.createdBy || 'unknown')} · ${fmtDate(pr.createdAt)} · ${tasks.length} Tasks${undone ? ` · <b style="color:var(--primary)">${undone}  open</b>` : ''}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            ${(pr.createdBy === currentUser || isAdmin()) ? `<button type="button" class="fb-op" style="font-size:14px" onclick="deleteProject('${pr.id}',event)" title="Delete project">🗑</button>` : ''}
+            <span style="font-size:18px;color:var(--muted)">${open ? '▾' : '▸'}</span>
+          </div>
+        </div>
+        <div class="project-body ${open}" id="pb-${pr.id}">
+          ${pr.description ? `<div class="task-meta" style="margin-bottom:8px">${esc(pr.description)}</div>` : ''}
+          ${tasks.length ? tasks.map(t => {
+            const comments = t.comments || [];
+            const cOpen = expanded['c_' + t.id] ? 'open' : '';
+            const ownT = t.createdBy === currentUser || t.assignee === currentUser || isAdmin();
+            const mine = t.assignee === currentUser && t.status !== 'done';
+            const skey = 'tk_' + t.id;
+            return `
+              <div class="task ${mine ? 'mine' : ''}">
+                <div class="task-head">
+                  <div class="task-status ${t.status === 'done' ? 'done' : ''}" onclick="toggleTask('${t.id}', event)"></div>
+                  <div class="task-title ${t.status === 'done' ? 'done' : ''}">${esc(t.name)}</div>
+                  ${ownT ? `<span class="fb-wrap"><button type="button" class="fb-dots" onclick="toggleMiniMenu('tko-${t.id}',event)">⋮</button><div class="fb-menu" id="tko-${t.id}"><button type="button" onclick="editTask('${t.id}',event)">Edit</button><button type="button" class="danger" onclick="deleteTask('${t.id}',event)">Delete</button></div></span>` : ''}
+                </div>
+                <div class="task-meta">By: ${esc(t.createdBy || 'unknown')}${t.assignee ? ` · <b style="color:${mine ? 'var(--primary)' : 'inherit'}">@${esc(t.assignee)}</b>` : ''} ${dueChip(t.due, t.status === 'done')}</div>
+                ${t.description ? `<div class="task-meta">${esc(t.description)}</div>` : ''}
+                ${fileChips(t.files)}
+                <div class="task-actions">
+                  <button type="button" class="btn" onclick="addComment('${t.id}', event)" style="background:#e5e7eb;color:#374151">Comments (${comments.length})</button>
+                  <button type="button" class="btn" title="Attach" onclick="pickAttach('att:${t.id}',event)" style="background:#e5e7eb;color:#374151">📎 attachment${(t.files || []).length ? ' ' + t.files.length : ''}</button>
+                  <button type="button" class="btn" onclick="addSubTask('${pr.id}', event)">+ sub-task</button>
+                </div>
+                <div class="comments ${cOpen}" id="cc-${t.id}">
+                  ${comments.length ? comments.map((c, ci) => commentHtml(c, `tcmo-${t.id}-${ci}`, `editTaskComment('${t.id}',${ci},event)`, `delTaskComment('${t.id}',${ci},event)`)).join('') : '<div class="comment" style="color:#999">No messages yet</div>'}
+                  ${stagedRow(skey)}
+                  <div class="comment-input">
+                    <input type="text" id="cm-${t.id}" placeholder="Write a message…" onkeydown="if(event.key==='Enter')submitComment('${t.id}')">
+                    <button type="button" class="fb-dots" style="border-radius:8px;width:34px" title="Message with attachment" onclick="pickAttach('${skey}',event)">📎</button>
+                    <button type="button" class="btn" onclick="submitComment('${t.id}')">Send</button>
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join('') : '<div class="empty" style="padding:10px 0">No tasks yet</div>'}
+          <button type="button" class="btn" onclick="addTask('${pr.id}', event)" style="width:100%;margin-top:12px;background:#eff6ff;color:var(--primary)">+ Add task</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function toggleProject(pid) {
+  expanded[pid] = !expanded[pid];
+  renderSchedule();
+}
+
+async function addProject() {
+  if (syncBusy()) return;
+  const name = prompt('Project name:');
+  if (!name) return;
+  const desc = prompt('Project description (optional):') || '';
+  log.projects.unshift({
+    id: id(),
+    name,
+    description: desc,
+    createdBy: currentUser,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  });
+  if (await saveLog('add project')) renderSchedule();
+}
+
+// ---- Tasks/task/todo form modal ----
+let tmCtx = null;
+function openTaskModal(ctx) {
+  tmCtx = ctx;
+  document.getElementById('tmTitle').textContent = ctx.mode === 'todo' ? (ctx.id ? 'Edit to-do' : 'New to-do') : (ctx.id ? 'Edit task' : 'New task');
+  document.getElementById('tmName').value = ctx.title || ctx.name || '';
+  document.getElementById('tmAssignee').value = ctx.assignee || '';
+  document.getElementById('tmDue').value = ctx.due || '';
+  document.getElementById('tmDesc').value = ctx.description || ctx.desc || '';
+  document.getElementById('tmDesc').style.display = ctx.mode === 'todo' ? 'none' : 'block';
+  const names = new Set(USER_LINKS.map(u => u.name));
+  (log.tasks || []).forEach(t => { if (t.assignee) names.add(t.assignee); if (t.createdBy) names.add(t.createdBy); });
+  (log.todos || []).forEach(d => { if (d.assignee) names.add(d.assignee); });
+  (log.posts || []).forEach(p => p.uploader && names.add(p.uploader));
+  names.delete('unknown');
+  document.getElementById('peopleList').innerHTML = [...names].map(n => `<option value="${esc(n)}">`).join('');
+  document.getElementById('taskModal').classList.add('show');
+  setTimeout(() => document.getElementById('tmName').focus(), 60);
+}
+function closeTaskModal() { document.getElementById('taskModal').classList.remove('show'); tmCtx = null; }
+
+function addTask(pid, e) {
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  openTaskModal({ mode: 'task', projectId: pid });
+}
+function addSubTask(pid, e) { if (e) e.stopPropagation(); addTask(pid); }
+function editTask(tid, e) {
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  const t = log.tasks.find(x => x.id === tid); if (!t) return;
+  openTaskModal({ mode: 'task', id: tid, name: t.name, assignee: t.assignee, due: t.due, description: t.description });
+}
+
+async function toggleTask(tid, e) {
+  if (syncBusy()) return;
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  const t = log.tasks.find(x => x.id === tid);
+  if (!t) return;
+  t.status = t.status === 'done' ? 'pending' : 'done';
+  t.updatedAt = new Date().toISOString();
+  if (await saveLog('update task')) renderSchedule();
+}
+
+function addComment(tid, e) {
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  expanded['c_' + tid] = !expanded['c_' + tid];
+  renderSchedule();
+  if (expanded['c_' + tid]) setTimeout(() => { const i = document.getElementById('cm-' + tid); if (i) i.focus(); }, 50);
+}
+
+async function deleteProject(pid, e) {
+  if (syncBusy()) return;
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  if (!confirm('Delete this project and all its tasks?')) return;
+  log.projects = (log.projects || []).filter(x => x.id !== pid);
+  log.tasks = (log.tasks || []).filter(x => x.projectId !== pid);
+  if (await saveLog('delete project')) renderSchedule();
+}
+
+async function deleteTask(tid, e) {
+  if (syncBusy()) return;
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  if (!confirm('Delete this task?')) return;
+  const i = (log.tasks || []).findIndex(x => x.id === tid);
+  if (i < 0) return;
+  log.tasks.splice(i, 1);
+  if (await saveLog('delete task')) renderSchedule();
+}
+
+let editingTaskComment = null; // {tid, ci}
+function editTaskComment(tid, ci, e) {
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  const t = log.tasks.find(x => x.id === tid);
+  const c = t && t.comments && t.comments[ci];
+  if (!c) return;
+  editingTaskComment = { tid, ci };
+  expanded['c_' + tid] = true;
+  renderSchedule();
+  setTimeout(() => { const inp = document.getElementById('cm-' + tid); if (inp) { inp.value = c.text; inp.focus(); } }, 60);
+}
+async function delTaskComment(tid, ci, e) {
+  if (syncBusy()) return;
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  if (!confirm('Delete this message?')) return;
+  const t = log.tasks.find(x => x.id === tid);
+  if (!t || !t.comments || !t.comments[ci]) return;
+  t.comments.splice(ci, 1);
+  if (await saveLog('delete task comment')) renderSchedule();
+}
+
+async function submitComment(tid) {
+  if (syncBusy()) return;
+  const input = document.getElementById('cm-' + tid);
+  const text = input.value.trim();
+  const key = 'tk_' + tid;
+  const fs = stagedFiles[key] || [];
+  if (!text && !fs.length) return;
+  const t = log.tasks.find(x => x.id === tid);
+  if (!t) return;
+  if (!t.comments) t.comments = [];
+  if (editingTaskComment && editingTaskComment.tid === tid && t.comments[editingTaskComment.ci]) {
+    t.comments[editingTaskComment.ci].text = text;
+    t.comments[editingTaskComment.ci].editedAt = new Date().toISOString();
+  } else {
+    t.comments.push({ user: currentUser, text, time: new Date().toISOString(), files: fs.length ? fs : undefined });
+  }
+  editingTaskComment = null; stagedFiles[key] = [];
+  t.updatedAt = new Date().toISOString();
+  if (await saveLog('save comment')) { renderSchedule(); expanded['c_' + tid] = true; }
+}
+
+// ---- Attachment upload (task/To-do//message)----
+let stagedFiles = {};   // key -> [{name,url,kind}]
+let attTarget = null;   // 'att:<tid>' task attachment | 'attodo:<id>' todo attachment | other key attached to message staging
+
+function pickAttach(target, e) {
+  if (e) { e.stopPropagation(); e.preventDefault(); }
+  if (syncBusy()) return;
+  attTarget = target;
+  const inp = document.getElementById('attFile');
+  inp.value = '';
+  inp.click();
+}
+function unstageFile(key, fi) {
+  (stagedFiles[key] || []).splice(fi, 1);
+  renderSchedule();
+}
+let prodFiles = [];
+function renderProdFiles() {
+  const el = document.getElementById('prodFiles');
+  if (!el) return;
+  el.innerHTML = prodFiles.map((f, i) => {
+    if (f.kind === 'image') return `<span style="position:relative"><img class="file-img" src="${f.url}" onclick="openImg('${f.url}')"><button type="button" onclick="prodFiles.splice(${i},1);renderProdFiles()" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;border:none;background:var(--danger);color:#fff;font-size:11px;line-height:1">×</button></span>`;
+    const icon = f.kind === 'video' ? '▶' : (f.kind === 'pdf' ? '📄' : '📎');
+    return `<a class="file-chip" href="${f.url}" target="_blank">${icon} ${esc(f.name || 'attachment')}</a><button type="button" onclick="prodFiles.splice(${i},1);renderProdFiles()" style="border:none;background:transparent;color:var(--danger);font-size:14px">×</button>`;
+  }).join('');
+}
+
+async function uploadAttachment(file) {
+  const ext = (file.name.split('.').pop() || 'bin').toLowerCase();
+  const kind = file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : ext === 'pdf' ? 'pdf' : 'file';
+  const presign = await api('presign', { type: 'file', ext, contentType: file.type || 'application/octet-stream' });
+  if (!presign || !presign.url) throw new Error('presign failed');
+  await requestWithProgress(presign.url, file, () => {}, false, file.type || 'application/octet-stream');
+  return { name: file.name, url: '/media?key=' + presign.key, kind };
+}
+document.getElementById('attFile').onchange = async e => {
+  const files = [...e.target.files];
+  if (!files.length || !attTarget) return;
+  const target = attTarget; attTarget = null;
+  showToast('Uploading attachment…');
+  try {
+    for (const f of files) {
+      const a = await uploadAttachment(f);
+      if (target.startsWith('att:')) {
+        const t = log.tasks.find(x => x.id === target.slice(4));
+        if (t) { if (!t.files) t.files = []; t.files.push(a); }
+      } else if (target.startsWith('attodo:')) {
+        const d = (log.todos || []).find(x => x.id === target.slice(7));
+        if (d) { if (!d.files) d.files = []; d.files.push(a); }
+      } else if (target === 'prodform') {
+        prodFiles.push(a);
+        renderProdFiles();
+      } else {
+        if (!stagedFiles[target]) stagedFiles[target] = [];
+        stagedFiles[target].push(a);
+      }
+    }
+    if (target.startsWith('att')) {
+      if (await saveLog('attach file')) showToast('Attachment uploaded');
+    }
+    renderSchedule();
+  } catch (err) {
+    showToast('Attachment upload failed: ' + (err.message || ''));
+  }
+};
+
+function renderProduction() {
+  const list = document.getElementById('productionList');
+  if (!log.production || !log.production.length) { list.innerHTML = '<div class="empty">No production records yet</div>'; return; }
+  list.innerHTML = log.production.slice().sort((a, b) => new Date(b.date) - new Date(a.date)).map(p => `
+    <div class="prod-card">
+      <div class="prod-head">
+        <span class="prod-title">${p.date}${p.shift ? ' · ' + p.shift : (p.equip ? ' · ' + esc(p.equip) : '')}</span>
+        <span style="font-size:12px;color:var(--muted)">By: ${esc(p.recorder)}${(p.recorder === currentUser || isAdmin()) ? `<span class="fb-wrap"><button type="button" class="fb-dots" onclick="toggleMiniMenu('pdo-${p.id}',event)">⋮</button><div class="fb-menu" id="pdo-${p.id}"><button type="button" onclick="editProd('${p.id}')">Edit</button><button type="button" class="danger" onclick="delProd('${p.id}')">Delete</button></div></span>` : ''}</span>
+      </div>
+      ${(p.start || p.end) ? `<div class="prod-note" style="margin-top:0">⏱ ${p.start || '?'} ~ ${p.end || '?'}${p.runtime ? ' · ' + p.runtime + 'hrs' : ''}　⚙ ${esc(p.equip || 'Shaking table')}</div>` : ''}
+      <div class="prod-grid">
+        <div class="prod-item"><div class="k">Ore feed</div><div class="v">${p.input || '0'}</div><div class="k">t</div></div>
+        ${(p.wet || p.dry) ? `
+        <div class="prod-item"><div class="k">Conc. wet</div><div class="v">${p.wet || '0'}</div><div class="k">t</div></div>
+        <div class="prod-item"><div class="k">Conc. dry</div><div class="v">${p.dry || '0'}</div><div class="k">t</div></div>` : `
+        <div class="prod-item"><div class="k">Runtime</div><div class="v">${p.runtime || '0'}</div><div class="k">hrs</div></div>
+        <div class="prod-item"><div class="k">Ta-Nb conc.</div><div class="v">${p.concentrate || '0'}</div><div class="k">t</div></div>`}
+        <div class="prod-item"><div class="k">Ta₂O₅</div><div class="v">${p.ta || '0'}</div><div class="k">%</div></div>
+        <div class="prod-item"><div class="k">Nb₂O₅</div><div class="v">${p.nb || '0'}</div><div class="k">%</div></div>
+        ${p.sn ? `<div class="prod-item"><div class="k">Sn</div><div class="v">${p.sn}</div><div class="k">%</div></div>` : ''}
+      </div>
+      ${p.note ? `<div class="prod-note">${esc(p.note)}</div>` : ''}
+      ${fileChips(p.files)}
+    </div>
+  `).join('');
+}
+
+document.getElementById('pDate').valueAsDate = new Date();
+{ const eq = document.getElementById('pEquip'); if (eq && !eq.value) eq.value = localStorage.getItem('prodEquip') || 'Shaking table'; }
+
+let editingProdId = null;
+function editProd(pid) {
+  if (syncBusy()) return;
+  const p = (log.production || []).find(x => x.id === pid);
+  if (!p) return;
+  editingProdId = pid;
+  document.getElementById('pDate').value = p.date;
+  document.getElementById('pStart').value = p.start || '';
+  document.getElementById('pEnd').value = p.end || '';
+  document.getElementById('pEquip').value = p.equip || 'Shaking table';
+  document.getElementById('pInput').value = p.input || '';
+  document.getElementById('pWet').value = p.wet || '';
+  document.getElementById('pDry').value = p.dry || (p.concentrate || '');
+  document.getElementById('pTa').value = p.ta || '';
+  document.getElementById('pNb').value = p.nb || '';
+  document.getElementById('pSn').value = p.sn || '';
+  document.getElementById('pNote').value = p.note || '';
+  prodFiles = (p.files || []).slice(); renderProdFiles();
+  document.getElementById('pSubmit').textContent = 'Save changes';
+  document.querySelector('#tab-mine').scrollIntoView();
+  window.scrollTo(0, 0);
+}
+async function delProd(pid) {
+  if (syncBusy()) return;
+  if (!confirm('Delete this production record?')) return;
+  const i = (log.production || []).findIndex(x => x.id === pid);
+  if (i < 0) return;
+  log.production.splice(i, 1);
+  if (await saveLog('delete production')) renderProduction();
+}
+
+document.getElementById('pSubmit').onclick = async () => {
+  if (syncBusy()) return;
+  const btn = document.getElementById('pSubmit');
+  btn.disabled = true; btn.textContent = 'Saving...';
+  try {
+    const rec = {
+      id: id(),
+      date: document.getElementById('pDate').value,
+      start: document.getElementById('pStart').value,
+      end: document.getElementById('pEnd').value,
+      equip: document.getElementById('pEquip').value || 'Shaking table',
+      input: parseFloat(document.getElementById('pInput').value) || 0,
+      wet: parseFloat(document.getElementById('pWet').value) || 0,
+      dry: parseFloat(document.getElementById('pDry').value) || 0,
+      ta: parseFloat(document.getElementById('pTa').value) || 0,
+      nb: parseFloat(document.getElementById('pNb').value) || 0,
+      sn: parseFloat(document.getElementById('pSn').value) || 0,
+      note: document.getElementById('pNote').value,
+      files: prodFiles.slice(),
+      recorder: currentUser,
+      createdAt: new Date().toISOString()
+    };
+    // Auto-compute runtime from start/end (back-compat)
+    if (rec.start && rec.end) {
+      const [h1, m1] = rec.start.split(':').map(Number), [h2, m2] = rec.end.split(':').map(Number);
+      let mins = (h2 * 60 + m2) - (h1 * 60 + m1); if (mins < 0) mins += 1440;
+      rec.runtime = Math.round(mins / 60 * 10) / 10;
+    }
+    localStorage.setItem('prodEquip', rec.equip);
+    if (!rec.date) { showToast('Please pick a date'); return; }
+    if (!log.production) log.production = [];
+    if (editingProdId) {
+      const old = log.production.find(x => x.id === editingProdId);
+      if (old) Object.assign(old, rec, { id: old.id, createdAt: old.createdAt });
+      editingProdId = null;
+      document.getElementById('pSubmit').textContent = 'Save production record';
+    } else {
+      log.production.unshift(rec);
+    }
+    if (await saveLog('save production')) {
+      document.getElementById('pStart').value = '';
+      document.getElementById('pEnd').value = '';
+      document.getElementById('pInput').value = '';
+      document.getElementById('pWet').value = '';
+      document.getElementById('pDry').value = '';
+      document.getElementById('pTa').value = '';
+      document.getElementById('pNb').value = '';
+      document.getElementById('pSn').value = '';
+      document.getElementById('pNote').value = '';
+      prodFiles = []; renderProdFiles();
+      renderProduction();
+      showToast('Production record saved');
+    }
+  } finally { btn.disabled = false; btn.textContent = 'Save production record'; }
+};
+
+// ---- Licence ledger (via  franksync  poll results, only Active）----
+const LIC_TYPE = {
+  'Small Scale Exploration Licence': 'SEL SS Exploration',
+  'Small Scale Mining Licence': 'SML SS Mining',
+  'Large Scale Exploration Licence': 'LEL LS Exploration',
+  'Large Scale Mining Licence': 'LML LS Mining',
+  'Prospecting Permit': 'PP Prospecting',
+};
+async function loadLicenses(force) {
+  const el = document.getElementById('licList');
+  const render = d => {
+    const groups = [];
+    for (const a of (d.accounts || [])) {
+      for (const co of (a.companies || [])) {
+        const act = (co.licenses || []).filter(l => (l.status || '').trim() === 'Active');
+        if (act.length) groups.push({ name: co.name || 'unnamed', licenses: act });
+      }
+    }
+    if (!groups.length) { el.innerHTML = '<p class="empty" style="padding:20px 0">No  Active Licences</p>'; return; }
+    const total = groups.reduce((s, g) => s + g.licenses.length, 0);
+    el.innerHTML = `
+      <div class="hint" style="margin-bottom:8px">${total}  Active ·  · updated  ${(d.checkedAt || '').slice(0, 10)}</div>
+      ${groups.map(g => `
+        <div style="font-size:13px;font-weight:600;margin:10px 0 4px">${esc(g.name)}</div>
+        ${g.licenses.map(l => {
+          const num = (l.code || '').split('-')[0];
+          const ty = LIC_TYPE[l.type] || (l.type || '');
+          const exp = l.expiry || '';
+          const m = exp.match(/(\d+)\/(\d+)\/(\d+)/);
+          const expSoon = m && (new Date(+m[3], +m[2] - 1, +m[1]) - Date.now()) < 180 * 864e5;
+          return `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:14px">
+            <span style="font-weight:600">${esc(num)}</span>
+            <span style="color:var(--muted);font-size:12px;flex:1">${esc(ty)}</span>
+            <span style="font-size:12px;${expSoon ? 'color:var(--danger);font-weight:600' : 'color:var(--muted)'}">${exp ? 'to ' + esc(exp) : ''}</span>
+          </div>`;
+        }).join('')}
+      `).join('')}`;
+  };
+  const cached = localStorage.getItem('lic_cache');
+  if (cached && !force) {
+    try { render(JSON.parse(cached)); return; } catch (e) {}
+  }
+  if (!cached) el.innerHTML = '<p class="empty" style="padding:20px 0">Loading…</p>';
+  try {
+    const res = await fetch('https://franksync.frankataix.workers.dev/', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'read', path: 'frank_data/cadastre_status.json' })
+    });
+    const r = await res.json();
+    if (!r || !r.content) { if (!cached) el.innerHTML = '<p class="empty" style="padding:20px 0">No data</p>'; return; }
+    localStorage.setItem('lic_cache', r.content);
+    render(JSON.parse(r.content));
+  } catch (e) {
+    if (!cached) el.innerHTML = '<p class="empty" style="padding:20px 0">Load failed</p>';
+    else showToast('Refresh failed, showing cached data');
+  }
+}
+
+function updateClocks() {
+  const now = new Date();
+  const opts = { hour: '2-digit', minute: '2-digit', hour12: false };
+  document.getElementById('clockLusaka').textContent = 'Lusaka ' + now.toLocaleTimeString('en-US', { ...opts, timeZone: 'Africa/Lusaka' });
+  document.getElementById('clockChina').textContent = 'Hangzhou ' + now.toLocaleTimeString('en-US', { ...opts, timeZone: 'Asia/Shanghai' });
+  const elVan = document.getElementById('clockVan'); if (elVan) elVan.textContent = 'Vancouver ' + now.toLocaleTimeString('en-US', { ...opts, timeZone: 'America/Vancouver' });
+}
+setInterval(updateClocks, 1000); updateClocks();
+
+document.getElementById('addProjectBtn').onclick = addProject;
+document.getElementById('addTodoBtn').onclick = addTodoQuick;
+document.getElementById('todoInput').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); addTodoQuick(); } };
+document.getElementById('tmCancel').onclick = () => closeTaskModal();
+document.getElementById('taskModal').onclick = e => { if (e.target.id === 'taskModal') closeTaskModal(); };
+document.getElementById('tmSave').onclick = async () => {
+  if (syncBusy() || !tmCtx) return;
+  const name = document.getElementById('tmName').value.trim();
+  if (!name) { showToast('Title required'); return; }
+  const assignee = document.getElementById('tmAssignee').value.trim();
+  const due = document.getElementById('tmDue').value;
+  const desc = document.getElementById('tmDesc').value.trim();
+  const ctx = tmCtx;
+  closeTaskModal();
+  if (ctx.mode === 'todo') {
+    if (ctx.id) {
+      const d = (log.todos || []).find(x => x.id === ctx.id);
+      if (d) { d.title = name; d.assignee = assignee; d.due = due; d.desc = desc; }
+    } else {
+      if (!log.todos) log.todos = [];
+      log.todos.unshift({ id: id(), title: name, assignee, due, desc, done: false, createdBy: currentUser, createdAt: new Date().toISOString(), comments: [], files: [] });
+    }
+  } else {
+    if (ctx.id) {
+      const t = log.tasks.find(x => x.id === ctx.id);
+      if (t) { t.name = name; t.assignee = assignee; t.due = due; t.description = desc; t.updatedAt = new Date().toISOString(); }
+    } else {
+      log.tasks.unshift({ id: id(), projectId: ctx.projectId, name, description: desc, assignee, due, createdBy: currentUser, status: 'pending', comments: [], files: [], createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+      expanded[ctx.projectId] = true;
+    }
+  }
+  if (await saveLog('save ' + ctx.mode)) renderSchedule();
+};
+
+// tab switch
+document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
+  const tab = b.dataset.tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + tab));
+  document.getElementById('openPublish').style.display = tab === 'media' ? 'flex' : 'none';
+  if (tab === 'licenses') loadLicenses();
+});
+
+// publish modal
+const modal = document.getElementById('publishModal');
+document.getElementById('openPublish').onclick = e => {
+  if (e) e.preventDefault();
+  editingPostId = null;
+  document.getElementById('uNote').value = '';
+  uploadQueue = [];
+  renderUploadGrid();
+  modal.classList.add('show');
+};
+document.getElementById('closePublish').onclick = e => { if (e) e.preventDefault(); editingPostId = null; uploadQueue = []; renderUploadGrid(); modal.classList.remove('show'); };
+modal.onclick = e => { if (e.target === modal) modal.classList.remove('show'); };
+
+// settings modal
+const setModal = document.getElementById('settingsModal');
+document.getElementById('openSet').onclick = e => { if (e) e.preventDefault(); setModal.classList.add('show'); };
+document.getElementById('closeSet').onclick = e => { if (e) e.preventDefault(); setModal.classList.remove('show'); };
+setModal.onclick = e => { if (e.target === setModal) setModal.classList.remove('show'); };
+document.getElementById('setNameSave').onclick = () => {
+  const name = document.getElementById('setNameInput').value.trim();
+  if (!name) { showToast('Please enter a name'); return; }
+  localStorage.setItem('uploader', name);
+  currentUser = name;
+  renderUserChip();
+  document.getElementById('setNameInput').value = '';
+  renderUserLinks();
+  renderFeed(); renderSchedule(); renderProduction();
+  showToast('Name saved');
+};
+if (currentUser === 'unknown') {
+  setTimeout(() => { setModal.classList.add('show'); document.getElementById('setNameInput').focus(); }, 300);
+}
+
+// User links (admin sees + all + can create)
+const ADMIN_NAMES = ['Frank', '管理员'];
+function isAdmin() { return ADMIN_NAMES.includes(currentUser); }
+let currentQr = '';
+function showQr(name) {
+  currentQr = name;
+  const url = userLink(name);
+  try {
+    const qr = qrcode(0, 'M');
+    qr.addData(url);
+    qr.make();
+    document.getElementById('qrBox').innerHTML = qr.createImgTag(4, 8);
+  } catch (e) {
+    document.getElementById('qrBox').innerHTML = '<span style="color:#999">QR generation failed</span>';
+  }
+  document.getElementById('qrName').textContent = name;
+  document.getElementById('qrUrl').textContent = url;
+  document.getElementById('qrModal').classList.add('show');
+}
+function closeQr() { document.getElementById('qrModal').classList.remove('show'); }
+async function saveQrImg() {
+  const name = currentQr, url = userLink(name);
+  const qrImg = document.querySelector('#qrBox img');
+  if (!qrImg) return;
+  try {
+    const cv = document.createElement('canvas');
+    cv.width = 680; cv.height = 940;
+    const c = cv.getContext('2d');
+    c.fillStyle = '#fff'; c.fillRect(0, 0, 680, 940);
+    c.fillStyle = '#111'; c.textAlign = 'center';
+    c.font = 'bold 60px sans-serif';
+    c.fillText(name, 340, 120);
+    const im = new Image();
+    await new Promise((res, rej) => { im.onload = res; im.onerror = rej; im.src = qrImg.src; });
+    c.drawImage(im, 60, 170, 560, 560);
+    c.fillStyle = '#555'; c.font = '26px sans-serif';
+    c.fillText(url, 340, 790);
+    c.fillStyle = '#888'; c.font = '28px sans-serif';
+    c.fillText('Scan in WeChat ·  · direct to  Ecobox Feed', 340, 850);
+    const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name + '-_link.png';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+    showToast('Image saved, check gallery//downloads to share');
+  } catch (e) {
+    showToast('Save failed: ' + (e.message || ''));
+  }
+}
+
+const SHARE_ORIGIN = 'https://mine.ecoboxmine.com';
+const USER_SLUG = { '小苏':'xiaosu', '基督山伯爵':'jds', '玲姐':'lingjie', '董事长':'dsz', 'Frank':'frank' };
+function userLink(name) { return SHARE_ORIGIN + '/field_album_en.html?user=' + encodeURIComponent(name); }
+function copyUserLink(name) {
+  const url = userLink(name);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(() => showToast('Link copied'));
+  } else {
+    prompt('Copy link: ', url);
+  }
+}
+function renderUserLinks() {
+  // Everyone sees their own link
+  document.getElementById('myLink').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f1f5f9">
+      <span>My link</span>
+      <button type="button" class="btn" style="padding:6px 12px;font-size:13px;background:#eff6ff;color:var(--primary)" onclick="copyUserLink('${currentUser}')">Copy</button>
+        <button type="button" class="btn" style="padding:6px 12px;font-size:13px;background:#f0fdf4;color:#16a34a" onclick="showQr('${currentUser}')">QR</button>
+    </div>`;
+  // only admin sees all users + + create
+  const adminEl = document.getElementById('adminSection');
+  if (!isAdmin()) { adminEl.style.display = 'none'; return; }
+  adminEl.style.display = 'block';
+  const custom = (log.users || []);
+  document.getElementById('userLinks').innerHTML =
+    USER_LINKS.map(u => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f1f5f9">
+        <span>${u.label}</span>
+        <button type="button" class="btn" style="padding:6px 12px;font-size:13px;background:#eff6ff;color:var(--primary)" onclick="copyUserLink('${u.name}')">Copy</button>
+        <button type="button" class="btn" style="padding:6px 12px;font-size:13px;background:#f0fdf4;color:#16a34a" onclick="showQr('${u.name}')">QR</button>
+      </div>`).join('') +
+    custom.map(u => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f1f5f9">
+        <span>${u.name}</span>
+        <div style="display:flex;gap:6px">
+          <button type="button" class="btn" style="padding:6px 12px;font-size:13px;background:#eff6ff;color:var(--primary)" onclick="copyUserLink('${u.name}')">Copy</button>
+        <button type="button" class="btn" style="padding:6px 12px;font-size:13px;background:#f0fdf4;color:#16a34a" onclick="showQr('${u.name}')">QR</button>
+          <button type="button" class="btn" style="padding:6px 12px;font-size:13px;background:#fee2e2;color:var(--danger)" onclick="delUser('${u.name}')">Delete</button>
+        </div>
+      </div>`).join('');
+}
+document.getElementById('newUserSave').onclick = async () => {
+  if (syncBusy()) return;
+  const name = document.getElementById('newUserInput').value.trim();
+  if (!name) { showToast('Please enter a name'); return; }
+  if (!log.users) log.users = [];
+  if (log.users.some(u => u.name === name) || USER_LINKS.some(u => u.name === name)) { showToast('Already exists'); return; }
+  log.users.push({ name });
+  if (await saveLog('add user')) {
+    document.getElementById('newUserInput').value = '';
+    renderUserLinks();
+    copyUserLink(name);
+    showToast('Created: ' + name);
+  }
+};
+async function delUser(name) {
+  if (syncBusy()) return;
+  if (!confirm('Delete user  ' + name + '？')) return;
+  log.users = (log.users || []).filter(u => u.name !== name);
+  if (await saveLog('del user')) renderUserLinks();
+}
+renderUserLinks();
+
+// Image viewer: pinch to zoom / double-tap zoom / one-finger pan / tap backdrop or × to close
+const imgModal = document.getElementById('imgModal');
+const imgView = document.getElementById('imgView');
+let iv = { scale: 1, x: 0, y: 0 };
+const ivApply = () => { imgView.style.transform = `translate(${iv.x}px,${iv.y}px) scale(${iv.scale})`; };
+const ivReset = () => { iv = { scale: 1, x: 0, y: 0 }; ivApply(); };
+function openImg(src) {
+  imgView.src = src;
+  ivReset();
+  imgModal.classList.add('show');
+}
+const closeImg = () => { imgModal.classList.remove('show'); imgView.src = ''; ivReset(); };
+document.getElementById('imgClose').onclick = e => { e.stopPropagation(); closeImg(); };
+document.getElementById('vClose').onclick = e => { e.stopPropagation(); closeVideo(); };
+// Video layer does not close on backdrop (black bars easy to mistap), only  ×  or  Esc  close
+// Swipe left/right to switch videos in same post (stays in player)
+let vSwipeX = null, vSwipeY = null;
+document.getElementById('vModal').addEventListener('touchstart', e => { vSwipeX = e.touches[0].clientX; vSwipeY = e.touches[0].clientY; }, { passive: true });
+document.getElementById('vModal').addEventListener('touchend', e => {
+  if (vSwipeX == null) return;
+  const dx = e.changedTouches[0].clientX - vSwipeX;
+  const dy = e.changedTouches[0].clientY - vSwipeY;
+  vSwipeX = vSwipeY = null;
+  if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) vGo(dx < 0 ? 1 : -1);
+}, { passive: true });
+// PC keyboard ←→
+document.addEventListener('keydown', e => {
+  if (!document.getElementById('vModal').classList.contains('show')) return;
+  if (e.key === 'ArrowLeft') vGo(-1);
+  if (e.key === 'ArrowRight') vGo(1);
+  if (e.key === 'Escape') closeVideo();
+});
+
+(function initImgViewer() {
+  let pinchD = 0, pinchS = 1, panX = 0, panY = 0, panning = false;
+  let lastTap = 0, moved = false;
+  const dist = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+
+  imgModal.addEventListener('touchstart', e => {
+    moved = false;
+    if (e.touches.length === 2) {
+      pinchD = dist(e.touches); pinchS = iv.scale;
+    } else if (e.touches.length === 1) {
+      panX = e.touches[0].clientX - iv.x; panY = e.touches[0].clientY - iv.y; panning = true;
+    }
+  }, { passive: true });
+
+  imgModal.addEventListener('touchmove', e => {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      iv.scale = Math.min(6, Math.max(0.5, pinchS * dist(e.touches) / pinchD));
+      if (iv.scale <= 1.05) { iv.scale = 1; iv.x = 0; iv.y = 0; }
+      moved = true; ivApply();
+    } else if (e.touches.length === 1 && panning && iv.scale > 1) {
+      e.preventDefault();
+      iv.x = e.touches[0].clientX - panX; iv.y = e.touches[0].clientY - panY;
+      moved = true; ivApply();
+    }
+  }, { passive: false });
+
+  imgModal.addEventListener('touchend', e => {
+    if (e.touches.length < 2) pinchD = 0;
+    if (e.touches.length === 0) panning = false;
+    if (!moved && e.touches.length === 0) {
+      const now = Date.now();
+      if (now - lastTap < 280) {
+        // Double-click: zoom to 2.5x centered on tap point; zoomed resets
+        e.preventDefault();
+        const t = e.changedTouches[0];
+        if (iv.scale > 1) { iv = { scale: 1, x: 0, y: 0 }; }
+        else {
+          iv.scale = 2.5;
+          iv.x = -(t.clientX - innerWidth / 2) * 1.5;
+          iv.y = -(t.clientY - innerHeight / 2) * 1.5;
+        }
+        ivApply(); lastTap = 0;
+      } else {
+        lastTap = now;
+        setTimeout(() => { if (lastTap === now && !moved) closeImg(); }, 300);
+      }
+      moved = false;
+    }
+  });
+
+  // PC Mouse: wheel zoom + drag
+  imgModal.addEventListener('wheel', e => {
+    e.preventDefault();
+    iv.scale = Math.min(6, Math.max(1, iv.scale * (e.deltaY < 0 ? 1.15 : 0.87)));
+    if (iv.scale <= 1) { iv.x = 0; iv.y = 0; }
+    ivApply();
+  }, { passive: false });
+  let mx = 0, my = 0, dragging = false;
+  imgModal.addEventListener('mousedown', e => { if (iv.scale > 1) { dragging = true; mx = e.clientX - iv.x; my = e.clientY - iv.y; e.preventDefault(); } });
+  imgModal.addEventListener('mousemove', e => { if (dragging) { iv.x = e.clientX - mx; iv.y = e.clientY - my; ivApply(); } });
+  imgModal.addEventListener('mouseup', e => { if (!dragging && e.target === imgModal) closeImg(); dragging = false; });
+  imgModal.addEventListener('mouseleave', () => { dragging = false; });
+  imgView.ondblclick = e => {
+    e.stopPropagation();
+    if (iv.scale > 1) { iv = { scale: 1, x: 0, y: 0 }; } else { iv.scale = 2.5; }
+    ivApply();
+  };
+})();
+
+// Upload
+const uFile = document.getElementById('uFile');
+const uPreviewGrid = document.getElementById('uPreviewGrid');
+
+document.getElementById('uAddBtn').onclick = () => uFile.click();
+
+function renderUploadGrid() {
+  uPreviewGrid.innerHTML = '';
+  uploadQueue.forEach((item, idx) => {
+    const div = document.createElement('div');
+    div.className = 'upload-slot';
+    const media = item.isVideo
+      ? (item.thumbDataUrl ? `<img class="upload-img" src="${item.thumbDataUrl}">` : `<video class="upload-img" src="${item.url}" muted preload="metadata"></video>`)
+      : `<img class="upload-img" src="${item.dataUrl || item.thumbDataUrl}">`;
+    div.innerHTML = `${media}<button type="button" class="upload-del" data-idx="${idx}">×</button>`;
+    uPreviewGrid.appendChild(div);
+  });
+  if (uploadQueue.length < 9) {
+    const add = document.createElement('div');
+    add.className = 'upload-slot upload-add';
+    add.id = 'uAddBtn'; add.textContent = '+';
+    add.onclick = () => uFile.click();
+    uPreviewGrid.appendChild(add);
+  }
+  uPreviewGrid.querySelectorAll('.upload-del').forEach(b => b.onclick = e => {
+    e.stopPropagation(); uploadQueue.splice(+b.dataset.idx, 1); renderUploadGrid();
+  });
+}
+
+function createVideoThumb(file) {
+  return new Promise(async resolve => {
+    const video = document.createElement('video');
+    const url = URL.createObjectURL(file);
+    video.src = url;
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = 'auto';
+    video.style.cssText = 'position:fixed;top:-1px;left:-1px;width:1px;height:1px;visibility:hidden;';
+    document.body.appendChild(video);
+    let done = false;
+    const cleanup = () => { URL.revokeObjectURL(url); if (video.parentNode) video.parentNode.removeChild(video); };
+    const finish = (blob) => { if (done) return; done = true; cleanup(); resolve(blob); };
+    const draw = () => {
+      try {
+        const w = video.videoWidth || 320; const h = video.videoHeight || 180;
+        const scale = Math.min(320 / w, 180 / h, 1);
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(w * scale)); canvas.height = Math.max(1, Math.round(h * scale));
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(b => finish(b), 'image/jpeg', 0.8);
+      } catch (e) { finish(null); }
+    };
+    video.onerror = () => finish(null);
+    try {
+      await video.play();
+    } catch (e) { finish(null); return; }
+    const target = video.duration ? Math.min(video.duration * 0.2, 0.5) : 0.3;
+    const onTime = () => {
+      if (done) return;
+      if (video.currentTime >= target) {
+        video.pause();
+        video.removeEventListener('timeupdate', onTime);
+        draw();
+      }
+    };
+    video.addEventListener('timeupdate', onTime);
+    setTimeout(() => { if (!done) { video.pause(); draw(); } }, 3000);
+  });
+}
+
+uFile.onchange = async () => {
+  const files = Array.from(uFile.files);
+  if (!files.length) return;
+  const remain = 9 - uploadQueue.length;
+  if (remain <= 0) { showToast('Max  9  files'); return; }
+  const take = files.slice(0, remain);
+  for (const f of take) {
+    if (f.type.startsWith('video')) {
+      const thumb = await createVideoThumb(f);
+      uploadQueue.push({ file: f, url: URL.createObjectURL(f), isVideo: true, thumbBlob: thumb, thumbDataUrl: thumb ? URL.createObjectURL(thumb) : '' });
+      renderUploadGrid();
+    } else {
+      const reader = new FileReader();
+      reader.onload = e => { uploadQueue.push({ dataUrl: e.target.result, url: e.target.result, file: f, isVideo: false }); renderUploadGrid(); };
+      reader.readAsDataURL(f);
+    }
+  }
+  uFile.value = '';
+};
+
+function resizeImage(dataUrl, maxW = 1200, quality = 0.8) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let w = img.width, h = img.height;
+      if (w > maxW) { h = h * (maxW / w); w = maxW; }
+      if (h > maxW) { w = w * (maxW / h); h = maxW; }
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = reject; img.src = dataUrl;
+  });
+}
+
+async function dataUrlToB64(dataUrl) {
+  const r = await fetch(dataUrl); const b = await r.blob();
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(fr.result.split(',')[1]);
+    fr.onerror = reject; fr.readAsDataURL(b);
+  });
+}
+
+let uploading = false;
+
+function updateProgress(done, total) {
+  const el = document.getElementById('uploadProgress');
+  const fill = document.getElementById('upFill');
+  const text = document.getElementById('upText');
+  const count = document.getElementById('upCount');
+  el.classList.remove('hidden');
+  const pct = total ? Math.round(done / total * 100) : 0;
+  fill.style.width = pct + '%';
+  count.textContent = done + '/' + total;
+  text.textContent = 'Uploading  ' + pct + '%';
+}
+
+function hideProgress() {
+  document.getElementById('uploadProgress').classList.add('hidden');
+}
+
+function requestWithProgress(url, send, onProgress, withCreds, contentType) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && e.total > 0) onProgress(e.loaded, e.total);
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) resolve();
+      else reject(new Error('Upload failed ' + xhr.status + (xhr.responseText ? ': ' + xhr.responseText.slice(0, 100) : '')));
+    };
+    xhr.onerror = () => reject(new Error('Network error'));
+    xhr.ontimeout = () => reject(new Error('Upload timeout'));
+    xhr.open('PUT', url, true);
+    if (contentType) xhr.setRequestHeader('Content-Type', contentType);
+    if (withCreds) xhr.withCredentials = true;
+    xhr.send(send);
+  });
+}
+
+async function uploadOne(item, onProgress) {
+  if (item.existing) return item.existing;
+  let retries = 2;
+  while (retries >= 0) {
+    try {
+      let blob, contentType, type, thumbKey;
+      if (item.isVideo) {
+        blob = item.file;
+        contentType = 'video/mp4';
+        type = 'video';
+        if (item.thumbBlob) {
+          const tp = await api('presign', { type: 'image', ext: 'jpg', contentType: 'image/jpeg' });
+          if (tp && tp.url) {
+            await requestWithProgress(tp.url, item.thumbBlob, () => {}, false, 'image/jpeg');
+            thumbKey = tp.key;
+          }
+        }
+      } else {
+        const resized = await resizeImage(item.dataUrl || item.url);
+        blob = await (await fetch(resized)).blob();
+        contentType = 'image/jpeg';
+        type = 'image';
+      }
+      onProgress(0, blob.size);
+      const presign = await api('presign', { type, ext: type === 'image' ? 'jpg' : 'mp4', contentType });
+      if (!presign || !presign.url) throw new Error('presign failed');
+      await requestWithProgress(presign.url, blob, onProgress, false, contentType);
+      return { type, r2Key: presign.key, thumbKey };
+    } catch (e) {
+      onProgress(0, item.file ? item.file.size : 1);
+      if (retries > 0) { retries--; continue; }
+      throw e;
+    }
+  }
+  throw new Error('Upload failed');
+}
+
+async function backgroundUpload(queue, note, _vUrl, editingPostId) {
+  const media = [];
+  const loaded = new Array(queue.length).fill(0);
+  const total = new Array(queue.length).fill(0);
+  let completed = 0;
+  function render() {
+    const t = total.reduce((a, b) => a + (b || 0), 0);
+    const l = loaded.reduce((a, b) => a + (b || 0), 0);
+    const pct = t ? Math.round(l / t * 100) : 0;
+    const el = document.getElementById('uploadProgress');
+    const fill = document.getElementById('upFill');
+    const text = document.getElementById('upText');
+    const count = document.getElementById('upCount');
+    el.classList.remove('hidden');
+    fill.style.width = pct + '%';
+    count.textContent = completed + '/' + queue.length;
+    text.textContent = 'Uploading  ' + pct + '%';
+    text.style.color = 'var(--muted)';
+    const sb = document.getElementById('uSubmit');
+    if (sb) sb.textContent = 'Uploading  ' + pct + '%（' + completed + '/' + queue.length + '）';
+  }
+  render();
+  try {
+    const results = await Promise.allSettled(queue.map((item, i) => (async () => {
+      const r = await uploadOne(item, (l, t) => { loaded[i] = l; total[i] = t; render(); });
+      completed++;
+      render();
+      return r;
+    })()));
+    const failedIdx = results.map((r, i) => r.status === 'rejected' ? i : -1).filter(i => i >= 0);
+    results.forEach(r => { if (r.status === 'fulfilled') media.push(r.value); });
+    if (failedIdx.length) {
+      // Keep failed items for retry (idempotent), only failures stay
+      uploadQueue = failedIdx.map(i => queue[i]);
+      renderUploadGrid();
+      const t = document.getElementById('upText');
+      if (t) { t.textContent = failedIdx.length + '  files failed, tap Publish to retry'; t.style.color = 'var(--danger)'; }
+      const sb = document.getElementById('uSubmit');
+      if (sb) { sb.disabled = false; sb.style.opacity = '1'; sb.textContent = 'Retry (left ' + failedIdx.length + ')'; }
+      showToast(failedIdx.length + '  files failed to upload');
+      uploading = false;
+      return;
+    }
+    if (editingPostId) {
+      const idx = (log.posts || []).findIndex(x => x.id === editingPostId);
+      if (idx >= 0) {
+        log.posts[idx].note = note;
+        log.posts[idx].media = media;
+        log.posts[idx].updatedAt = new Date().toISOString();
+      } else {
+        log.posts.unshift({ id: editingPostId, note, uploader: currentUser, createdAt: new Date().toISOString(), media, likes: [], comments: [] });
+      }
+      await saveLog('edit post');
+      showToast('Updated');
+    } else {
+      const post = { id: id(), note, uploader: currentUser, createdAt: new Date().toISOString(), media, likes: [], comments: [] };
+      log.posts.unshift(post);
+      await saveLog('add post');
+      showToast('Published');
+    }
+    queue.forEach(i => { if (i.url && i.isVideo) URL.revokeObjectURL(i.url); });
+    uploadQueue = uploadQueue.filter(x => !queue.includes(x));
+    hideProgress();
+    document.getElementById('uNote').value = '';
+    renderUploadGrid();
+    document.getElementById('publishModal').classList.remove('show');
+  } catch (e) {
+    const t = document.getElementById('upText');
+    if (t) { t.textContent = 'Upload failed: ' + e.message; t.style.color = 'var(--danger)'; }
+    const sb = document.getElementById('uSubmit');
+    if (sb) sb.textContent = 'Upload failed, tap to retry';
+    showToast('Publish failed: ' + e.message);
+  } finally {
+    uploading = false;
+    const sb = document.getElementById('uSubmit');
+    if (sb) { sb.disabled = false; sb.style.opacity = '1'; }
+    if (sb && !sb.textContent.includes('failed')) sb.textContent = 'Post';
+  }
+}
+
+document.getElementById('uSubmit').onclick = () => {
+  if (syncBusy()) return;
+  if (uploading) { showToast('Uploading, please wait'); return; }
+  const note = document.getElementById('uNote').value;
+  if (!uploadQueue.length) { showToast('Please pick photos or video first'); return; }
+  uploading = true;
+  const sb = document.getElementById('uSubmit');
+  sb.disabled = true;
+  sb.style.opacity = '0.7';
+  sb.textContent = 'Uploading  0%';
+  const queue = uploadQueue.slice();
+  const eid = editingPostId;
+  editingPostId = null;
+  backgroundUpload(queue, note, '', eid);
+};
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js?v=5').catch(() => {});
+}
+
+// Auto update: poll version periodically, force reload on change
+async function checkVersion() {
+  try {
+    const r = await api('read', { path: 'data/app_version.json' });
+    const v = r && r.content ? JSON.parse(r.content).v : null;
+    const seen = localStorage.getItem('appVersion');
+    if (v && seen && String(v) !== String(seen)) {
+      localStorage.setItem('appVersion', v);
+      const modalOpen = document.querySelector('.modal-mask.show');
+      if (!uploading && syncCount <= 0 && !uploadQueue.length && !modalOpen) location.reload();
+      return;
+    }
+    if (v) localStorage.setItem('appVersion', v);
+  } catch (e) {}
+}
+checkVersion();
+setInterval(checkVersion, 60000);
+
+// Silent remote data check: 90 s interval  sha  sha compare, download only on change
+setInterval(async () => {
+  if (syncCount > 0) return;
+  if (document.querySelector('input:focus, textarea:focus')) return;
+  if (document.querySelector('.modal-mask.show')) return;
+  try {
+    const st = await api('stat', { path: DATA_FILE });
+    if (st && st.sha && st.sha !== (localStorage.getItem('log_sha') || '')) {
+      const r = await api('read', { path: DATA_FILE });
+      if (r.content) {
+        log = JSON.parse(r.content);
+        localStorage.setItem('log_cache', r.content);
+        localStorage.setItem('log_sha', st.sha);
+        applyLog();
+        showToast('Content updated');
+      }
+    }
+  } catch (e) {}
+}, 90000);
+
+// Pull to refresh: pull down  >90px  to refetch
+let pullStartY = null;
+document.addEventListener('touchstart', e => {
+  if ((window.scrollY || document.documentElement.scrollTop || 0) <= 0 && !e.target.closest('.modal-mask, #imgModal')) pullStartY = e.touches[0].clientY;
+  else pullStartY = null;
+}, { passive: true });
+document.addEventListener('touchend', async e => {
+  if (pullStartY != null && e.changedTouches[0].clientY - pullStartY > 90 && !uploading && syncCount <= 0) {
+    showToast('Refreshing…');
+    await loadLog(); loadMarket();
+  }
+  pullStartY = null;
+}, { passive: true });
+
+loadLog();
+</script>
+</body>
+</html>

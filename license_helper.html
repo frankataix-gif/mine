@@ -929,19 +929,15 @@ function renderCo(){
     <div class="row"><h2 style="flex:1;font-size:1.05rem">${esc(c.name)}</h2>
       ${coSrcDir(c)?`<button class="btn sm ghost" onclick="openSrcDir('${jsq(coSrcDir(c)+'/x')}')">📁 打开文件夹</button>`:''}
       <button class="btn sm" onclick="analyzeCo()">解析文件提取股东</button></div>
-    <h3 style="display:flex;align-items:center;gap:8px">股东 Shareholders（赞方合计 <b style="color:${Math.round(zm)>=5?'var(--success)':'var(--danger)'}">${Math.round(zm)}%</b>）
-      <a href="javascript:void(0)" style="font-size:12px;font-weight:400" onclick="window._shEdit=window._shEdit==='${c.id}'?null:'${c.id}';renderCo()">${window._shEdit===c.id?'收起':'编辑'}</a></h3>
+    <h3 style="display:flex;align-items:center;gap:8px">基础信息库（Form I 自动引用）
+      <a href="javascript:void(0)" style="font-size:12px;font-weight:400" onclick="window._coInfo=window._coInfo==='${c.id}'?null:'${c.id}';renderCo()">${window._coInfo===c.id?'收起':'编辑'}</a>
+      <span class="muted" style="font-size:11px;font-weight:400">${coInfoDone(c)}</span></h3>
+    <div class="card" id="coInfo" style="margin-bottom:6px"></div>
+    <div style="display:flex;align-items:center;gap:8px"><span style="font-size:13px;font-weight:700">股东 Shareholders</span>
+      <span class="muted" style="font-size:11px">赞方合计 <b style="color:${Math.round(zm)>=5?'var(--success)':'var(--danger)'}">${Math.round(zm)}%</b></span>
+      <a href="javascript:void(0)" style="font-size:12px" onclick="window._shEdit=window._shEdit==='${c.id}'?null:'${c.id}';renderCo()">${window._shEdit===c.id?'收起':'编辑'}</a></div>
     <div id="shList"></div>
     ${window._shEdit===c.id?'<button class="btn sm ghost" onclick="shAdd()">＋股东</button>':''}
-    <h3>基本信息（Form I 自动引用）</h3>
-    <div class="muted" style="font-size:11px;margin:-4px 0 4px">董事缺省按股东表填；留空的项在生成的表里也是空</div>
-    <div class="row"><div style="flex:1"><label>PACRA 注册号</label><input value="${esc(c.regNo||'')}" onchange="cSet('regNo',this.value)"></div>
-    <div style="flex:1"><label>注册日期</label><input value="${esc(c.regDate||'')}" onchange="cSet('regDate',this.value)"></div></div>
-    <label>注册地址（physical & postal）</label><input value="${esc(c.address||'')}" onchange="cSet('address',this.value)">
-    <div class="row"><div style="flex:1"><label>Tel</label><input value="${esc(c.tel||'')}" onchange="cSet('tel',this.value)"></div>
-    <div style="flex:1"><label>Mobile</label><input value="${esc(c.phone||'')}" onchange="cSet('phone',this.value)"></div>
-    <div style="flex:1"><label>Fax</label><input value="${esc(c.fax||'/')}" onchange="cSet('fax',this.value)"></div></div>
-    <label>Email</label><input value="${esc(c.email||'')}" onchange="cSet('email',this.value)">
     <div style="display:flex;align-items:center;gap:8px;margin-top:4px"><span style="font-size:13px;font-weight:700">董事 Directors</span>
       <a href="javascript:void(0)" style="font-size:12px" onclick="window._dirEdit=window._dirEdit==='${c.id}'?null:'${c.id}';renderCo()">${window._dirEdit===c.id?'收起':'编辑'}</a></div>
     <div id="dirList"></div>
@@ -953,7 +949,34 @@ function renderCo(){
       <a href="javascript:void(0)" style="font-size:12px;font-weight:400" onclick="window._exEdit=window._exEdit==='${c.id}'?null:'${c.id}';renderCo()">${window._exEdit===c.id?'收起':'编辑'}</a></h3>
     <div id="coExtra"></div>
     ${window._exEdit===c.id?'<button class="btn sm ghost" onclick="addExtraDoc()">＋文件</button>':''}`;
-  renderSh(); renderDirs(); renderCoDocs(); renderCoExtra();
+  renderCoInfo(); renderSh(); renderDirs(); renderCoDocs(); renderCoExtra();
+}
+// 基础信息库字段：Form I Q6/Q7 引用的公司证件与联系信息
+const CO_INFO_FIELDS=[
+  ['name','公司名称',1],['regNo','PACRA 注册号',0],['regDate','注册日期',0],
+  ['capital','核定股本',0],['address','注册地址（physical & postal）',1],
+  ['tel','Tel',0],['phone','Mobile',0],['fax','Fax',0],['email','Email',0],
+  ['ceo','CEO 姓名',0],['ceoNat','CEO 国籍',0],['secretary','Company Secretary 姓名',0],['secNat','秘书国籍',0],
+];
+const coVal=(c,k)=>k==='capital'?(c.capital||c.shareCapital||''):(c[k]||'');
+function coInfoDone(c){
+  const need=['regNo','regDate','address','phone','email','capital','ceo','secretary'];
+  const n=need.filter(k=>coVal(c,k)).length+((c.shareholders||[]).length?1:0);
+  return `${n}/${need.length+1} 项已填`;
+}
+function renderCoInfo(){
+  const c=curCo(); if(!c) return;
+  const ed=window._coInfo===c.id;
+  $('coInfo').innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 14px">'
+    +CO_INFO_FIELDS.map(([k,label,full])=>{
+      const v=coVal(c,k);
+      if(ed) return `<div style="grid-column:${full?'1/-1':'auto'}"><label style="margin:4px 0 2px">${label}</label>
+        <input value="${esc(v)}" onchange="cSet('${k}',this.value)" ${k==='name'?'style="font-weight:700"':''}></div>`;
+      return `<div style="grid-column:${full?'1/-1':'auto'};padding:3px 0;border-bottom:1px solid var(--light)">
+        <span class="muted" style="font-size:11.5px">${label}</span><br>
+        <span style="font-size:13px;${v?'':'color:var(--danger)'}">${v?esc(v):'缺'}</span></div>`;
+    }).join('')+'</div>'
+    +(ed?'':'<div class="muted" style="font-size:11px;margin-top:6px">留空的项在生成的 Form I 里也是空；董事缺省按股东表填</div>');
 }
 // 董事表（Form I 用）：只读列表 + 编辑态增删改
 function renderDirs(){
@@ -1698,6 +1721,15 @@ function dmsParts(str){ // '13°24'36"S' → {d,m,s}
   const c=parseCoord(str); if(!c) return null;
   const t=c.totSec; return {d:Math.floor(t/3600), m:Math.floor((t%3600)/60), s:t%60};
 }
+// Form I 省份：几个省写几个，分号分隔（优先从 locRaw "Central, Serenje; Northern, Mpika" 拆）
+function appProvinces(a){
+  const raw=(a.area&&a.area.locRaw||'').trim();
+  if(raw){
+    const ps=[...new Set(raw.split(';').map(s=>s.split(',')[0].trim()).filter(Boolean))];
+    if(ps.length) return ps.join('; ');
+  }
+  return [...new Set((a.area.province||'').split(',').map(s=>s.trim()).filter(Boolean))].join('; ');
+}
 // 占位符映射：公司档 + 申请数据
 function form1Values(a){
   const co=appCo(a)||{};
@@ -1708,7 +1740,7 @@ function form1Values(a){
     MINERALS:a.commodity||'Copper', APPLICANT:co.name||a.applicantName||'', ADDR:co.address||'',
     TEL:co.tel||'/', MOBILE:co.phone||'/', FAX:co.fax||'/', EMAIL:'frankataix@gmail.com',
     REGNO:co.regNo||'', DOB:'', NAT:'', IDNO:'',
-    PROVINCE:a.area.province||'', DISTRICT:a.area.district||'', LOCALITY:a.area.name||a.area.locRaw||'',
+    PROVINCE:appProvinces(a), DISTRICT:a.area.district||'', LOCALITY:a.area.name||a.area.locRaw||'',
     SIZEKM2:a.area.km2||'', FEE:LIC[a.type]?'K '+LIC[a.type].fee:'', SIGN_NAME:(co.ceo||sh[0]?.name||''),
     Q12A:'No', Q12B:'No', Q13A:'No',
   };
