@@ -1690,7 +1690,7 @@ function makeZip(entries){
 }
 
 /* ================= Form I 申请表生成（docx 模板填充，版式=官方原件） ================= */
-const FORM1_TPL='media/1791922150246_l63ne6.docx';
+const FORM1_TPL='media/1792089984977_h6v9mv.docx';
 // 解压 docx（zip 阅读器：store+deflate）
 async function unzipDocx(buf){
   const dv=new DataView(buf), u8=new Uint8Array(buf), dec=new TextDecoder();
@@ -1742,6 +1742,7 @@ function form1Values(a){
     REGNO:co.regNo||'', DOB:'', NAT:'', IDNO:'',
     PROVINCE:appProvinces(a), DISTRICT:a.area.district||'', LOCALITY:a.area.name||a.area.locRaw||'',
     SIZEKM2:a.area.km2||'', FEE:LIC[a.type]?'K '+LIC[a.type].fee:'', SIGN_NAME:(co.ceo||sh[0]?.name||''),
+    ACT_SCALE:{LEL:'Large-scale',SEL:'Small-scale',AMR:'Artisanal'}[a.type]||'Large-scale',
     Q12A:'No', Q12B:'No', Q13A:'No',
   };
   for(let i=1;i<=5;i++){ const s=sh[i-1]; v[`SH${i}_N`]=s?s.name:''; v[`SH${i}_S`]=s?s.amount:''; v[`SH${i}_NA`]=s?s.nationality:''; v[`SH${i}_ID`]=s?s.idNo||'':''; }
@@ -1769,8 +1770,8 @@ function form1Checks(a){ // 勾选标记（规则：本系统一律申请勘探�
     CB_EXPL_LARGE:T==='LEL', CB_EXPL_SMALL2:T==='SEL',   // 大型勘探证→Large scale；小型→Small-Scale（合并格）
     CB_MINE_LARGE:false, CB_MINE_SMALL:false, CB_ARTISANAL:false,
     CB_INDIV:a.applicantKind==='person', CB_COOP:a.applicantKind==='coop',
-    CB_EXPL_ACT:true, CB_MINE_ACT:false,                 // 活动区域按勘探勾选
-    CB_PENDING:true,                                     // Q13 状态默认 Pending
+    CB_GRANT:false, CB_REJECT:false,
+    CB_PENDING:!!((a.area.hist||[]).length),             // Q13 有历史申请才勾 Pending，否则不勾
   };
 }
 // 生成填好的 Form I blob（下载和打包共用）
