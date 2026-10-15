@@ -1299,10 +1299,11 @@ function renderGen(){
   sel.innerHTML=keys.map(k=>`<option value="${k}">${GEN_DOCS[k].cn}（${GEN_DOCS[k].name}）</option>`).join('');
   const p=a?a.params:{};
   box.innerHTML=`
-    <div class="row"><div style="flex:1"><label>承诺投资额（USD）</label><input id="gpInvest" value="${esc(p.investUsd||'')}" onchange="pSave('investUsd',this.value)"></div>
+    <div class="row"><div style="flex:1"><label>承诺投资额（ZMW）</label><input id="gpInvest" value="${esc(p.investZmw||p.investUsd||'')}" onchange="pSave('investZmw',this.value)"></div>
     <div style="flex:1"><label>计划年限</label><input id="gpYears" value="${esc(p.years||'4')}" onchange="pSave('years',this.value)"></div></div>
     <div class="row"><div style="flex:1"><label>拟雇人数</label><input id="gpStaff" value="${esc(p.staff||'')}" onchange="pSave('staff',this.value)"></div>
-    <div style="flex:1"><label>其中赞比亚公民 %</label><input id="gpCit" value="${esc(p.citizenPct||'90')}" onchange="pSave('citizenPct',this.value)"></div></div>
+    <div style="flex:1"><label>其中赞比亚公民 %</label><input id="gpCit" value="${esc(p.citizenPct||'90')}" onchange="pSave('citizenPct',this.value)"></div>
+    <div style="flex:1"><label>计划钻探进尺（m）</label><input id="gpDrill" value="${esc(p.drillM||'1500')}" onchange="pSave('drillM',this.value)"></div></div>
     <label>工作阶段/方法说明（逗号分隔，可留空用默认）</label><input id="gpPhases" value="${esc(p.phases||'')}" onchange="pSave('phases',this.value)" placeholder="desk study, geological mapping, soil sampling, trenching, drilling">
     <label>本地商业承诺要点（可留空）</label><input id="gpLocal" value="${esc(p.localNote||'')}" onchange="pSave('localNote',this.value)">`;
   $('genOut').value=a?(a.drafts[sel.value]||''):'';
@@ -1322,7 +1323,8 @@ function genCtx(){
     prevLic:a?.area.prevLic||'', prevNote:a?.area.prevNote||'', brief:a?.brief||'',
     coordsTxt:a&&a.area.coords.filter(c=>c.trim()).length?a.area.coords.filter(c=>c.trim()).join(' ; '):'[coordinates]',
     areaTxt:a?.area.km2?`approx. ${a.area.km2} km² (≈ ${(a.area.km2*100).toFixed(0)} hectares, ${units||Math.round(a.area.km2/UNIT_HA)} cadastre units)`:(units?`${units} cadastre units (approx. ${(units*UNIT_HA).toFixed(0)} hectares)`:'[area]'),
-    invest:a?.params.investUsd||'[amount]',years:a?.params.years||'4',staff:a?.params.staff||'[number]',cit:a?.params.citizenPct||'90'};
+    invest:a?.params.investZmw||a?.params.investUsd||'[amount]',years:a?.params.years||'4',staff:a?.params.staff||'[number]',cit:a?.params.citizenPct||'90',
+    drill:a?.params.drillM||'1,500', ha:a?.area.km2?(a.area.km2*100).toFixed(0):null};
 }
 function tpl(key){
   const x=genCtx(), D=new Date().toISOString().slice(0,10);
@@ -1347,37 +1349,59 @@ The applicant confirms that the information given herein is correct, that the ar
 
 Name: ____________________  Title: ____________________
 Signature: ____________________  Date: ${D}`;
-  if(key==='prog') return `PROPOSED PROGRAMME OF EXPLORATION OPERATIONS
+  if(key==='prog'){
+    const inv=parseFloat(String(x.invest).replace(/[^\d.]/g,''))||0;
+    const fmt=n=>'ZMW '+Math.round(n).toLocaleString('en-US');
+    const parts=inv?[.20,.25,.35,.12,.08].map(p=>fmt(inv*p)):Array(5).fill('ZMW ____________');
+    const tot=inv?fmt(inv):'ZMW ____________';
+    return `PROPOSED PROGRAMME OF EXPLORATION OPERATIONS
 ${x.coName}
-Application for a ${x.licEn} — ${x.areaName}, ${x.dist} District, ${x.prov} Province, Zambia
 Date: ${D}
 
-1. INTRODUCTION
-${x.coName} ("the Company") hereby submits its proposed programme of exploration operations over the area described as ${x.areaName}, covering ${x.areaTxt}, for the exploration of ${x.commodity}.
+1. PROJECT BASIC INFORMATION
+- Applicant Name: ${x.coName}
+- Licence Area Location: ${x.locRaw||(`${x.dist} District, ${x.prov} Province`)}, Zambia
+- Target Commodity: ${x.commodity}
+- Applied Area: ${x.ha?x.ha+' hectares ('+x.a.area.km2+' km²)':x.areaTxt}
+- Exploration Period: ${x.years} years
+- Estimated Total Investment: ${tot}
 
-2. OBJECTIVES
-The objectives of the exploration programme are to: (a) confirm the presence and extent of ${x.commodity} mineralisation within the licence area; (b) define the grade, tonnage and geometry of any mineralised bodies; and (c) establish the economic potential of the deposit to support an application for a mining licence.
+2. PHASED EXPLORATION PROGRAMME
+Year 1 — Desktop Study & Surface Mapping
+- Desktop work: collection and review of historical geological data; interpretation of satellite imagery (e.g. Sentinel-2) and regional aeromagnetic data.
+- Survey: high-precision UAV topographic mapping of the licence area; establishment of QGIS base layers.
+- Surface sampling: traverse geological surveys; grid soil and rock-outcrop sampling; preliminary assays by handheld XRF; delineation of anomalous target zones.
 
-3. WORK PROGRAMME
-Phase 1 (Year 1): Desktop study of existing geological data, reconnaissance geological mapping, and stream sediment / soil geochemical sampling.
-Phase 2 (Years 1-2): Detailed geological mapping, ground geophysical surveys where appropriate, and trenching/pitting of anomalous zones.
-Phase 3 (Years 2-3): Exploratory drilling (RC/DDH as warranted), sample preparation and laboratory assaying.
-Phase 4 (Years 3-${x.years}): Resource evaluation, geological modelling, and preparation of a comprehensive statement of mineral deposits in support of a mining licence application.
+Year 2 — Trenching, Pitting & Detailed Sampling
+- Trenching and pitting: excavation of trenches and shallow pits within the core target zones defined in Year 1, using excavators (e.g. JCB 3DX), to expose near-surface mineralised bodies.
+- Systematic sampling: channel sampling in trenches and pits; samples assayed by an accredited third-party laboratory.
+- Detailed mapping: production of detailed 1:2,000 or 1:5,000 scale geological maps of the licence area.
 
-4. ESTIMATED EXPENDITURE
-The Company commits an estimated exploration expenditure of US$${x.invest} over the licence period, apportioned approximately as follows: Year 1 – 25%; Year 2 – 30%; Year 3 – 30%; Year ${x.years} – 15%. This estimated expenditure is compatible with the proposed work programme, the size of the exploration area and the duration of the licence.
+Year 3 — Drilling Programme
+- Drilling: reverse circulation (RC) and/or diamond core drilling on high-grade targets; planned first-phase drilling of approximately ${x.drill} metres.
+- Data modelling: collation of drill-core data; updating of the geological database; preliminary 3D modelling of the mineralised bodies to establish strike and depth.
 
-5. PERSONNEL AND EQUIPMENT
-The programme will be supervised by a qualified geologist. Field crews of approximately ${x.staff} persons will be engaged, the majority being citizens of Zambia. Equipment will include handheld GPS units, XRF analysers, sampling tools and contracted drilling services.
+Year 4 — Resource Estimation & Pre-Feasibility Study
+- Bulk sampling and metallurgical testing: extraction of large-volume bulk samples; preliminary beneficiation tests (physical gravity separation, e.g. jigs and shaking tables, or hydrometallurgical leaching) to determine ore recoverability.
+- Resource estimation: integration of all exploration data to produce a preliminary mineral resource estimate report.
+- Preparation for mining licence: completion of a Pre-Feasibility Study (PFS) and baseline data collection for the Environmental Impact Study (EIS), in preparation for a Mining Licence application.
 
-6. ENVIRONMENTAL PROTECTION
-All exploration activities will be conducted in accordance with the Environmental Management Act No. 12 of 2011. The Company's Environmental Commitment Plan is attached and forms part of this programme.
+3. ESTIMATED EXPENDITURE
+Stage          Main activities                                             Estimated expenditure
+Year 1         Satellite data, GIS survey, geological traversing, XRF assays   ${parts[0]}
+Year 2         Trenching, pitting, third-party laboratory assaying             ${parts[1]}
+Year 3         Drilling contract and operations, camp construction/maintenance ${parts[2]}
+Year 4         Metallurgical tests, 3D modelling, resource estimate report     ${parts[3]}
+Other          Environmental measures, community relations, Zambian staff training, administration   ${parts[4]}
+TOTAL          Total committed investment over ${x.years} years                 ${tot}
 
-7. EMPLOYMENT AND LOCAL BUSINESS
-The Company will give preference to Zambian citizens for employment and to local businesses for goods and services, as detailed in the accompanying proposals.
+4. ENVIRONMENTAL & COMPLIANCE STATEMENT
+- The Company undertakes that, upon completion of all trenching and drilling works, all sites will be backfilled and revegetated in strict compliance with the requirements of the Zambia Environmental Management Agency (ZEMA).
+- During exploration operations, priority will be given to employing members of the local community for line-cutting, sampling and camp support, ensuring a positive economic impact on surrounding communities.
 
 Signed for and on behalf of ${x.coName}
 Name: ____________________  Title: ____________________  Signature: ____________________`;
+  }
   if(key==='progm') return `PROPOSED PROGRAMME OF MINING OPERATIONS
 ${x.coName}
 Application for an Artisanal Mining Right — ${x.areaName}, ${x.dist} District, ${x.prov} Province, Zambia
@@ -1493,7 +1517,7 @@ Facts:
 - Area: ${x.areaName}, ${x.dist} District, ${x.prov} Province, Zambia${x.locRaw?(' (as provided: '+x.locRaw+')'):''}
 - Area size: ${x.areaTxt}
 - Commodity: ${x.commodity}
-- Committed investment: US$${x.invest} over ${x.years} years
+- Committed investment: ZMW ${x.invest} over ${x.years} years
 - Planned employment: ${x.staff} persons, ≥${x.cit}% Zambian citizens
 ${x.a.params.localNote?('- Local business notes: '+x.a.params.localNote):''}
 ${x.a.params.phases?('- Work phases: '+x.a.params.phases):''}
@@ -1502,7 +1526,12 @@ ${x.prevLic?('- This area was previously held under licence No. '+x.prevLic+(x.p
 ${x.desc?('- Area background (use this to make the document specific, do NOT copy it verbatim): '+x.desc):''}
 ${x.brief?('- Applicant brief (use to tailor specifics, do NOT copy verbatim): '+x.brief):''}
 
-Requirements: official tone, numbered sections, include a signature block, tailor content to the area facts above (do not produce a generic boilerplate), comply with the document's purpose under the Mines and Minerals framework (environmental documents must cover pollution prevention, waste, land & water protection and reclamation).`;
+Requirements: official tone, numbered sections, include a signature block, tailor content to the area facts above (do not produce a generic boilerplate), comply with the document's purpose under the Mines and Minerals framework (environmental documents must cover pollution prevention, waste, land & water protection and reclamation).
+${key==='prog'?`Use EXACTLY this structure for the Proposed Programme of Exploration Operations:
+1. PROJECT BASIC INFORMATION — applicant name, licence area location, target commodity, applied area in hectares, ${x.years}-year exploration period, estimated total investment in ZMW.
+2. PHASED EXPLORATION PROGRAMME — Year 1 Desktop Study & Surface Mapping (historical data, Sentinel-2/aeromagnetic interpretation, UAV topographic survey, QGIS base layers, traverse mapping, grid soil/rock sampling, handheld XRF, target delineation); Year 2 Trenching, Pitting & Detailed Sampling (excavators e.g. JCB 3DX, channel sampling to accredited labs, 1:2,000–1:5,000 mapping); Year 3 Drilling Programme (RC/diamond core drilling approx. ${x.drill} m, geological database and 3D model); Year 4 Resource Estimation & PFS (bulk sampling, gravity/leaching metallurgical tests, resource estimate report, PFS + EIS baseline for a future mining licence).
+3. ESTIMATED EXPENDITURE — a table in ZMW: Year 1-4 lines matching the phases above, an "Other" line (environmental measures, community relations, Zambian staff training, administration), and a TOTAL line equal to the committed investment.
+4. ENVIRONMENTAL & COMPLIANCE STATEMENT — commitment to backfill and revegetate all trench/drill sites per ZEMA requirements, and priority employment of local community members.`:''}`;
   const r=await api({action:'draft',prompt,system:AI_SYS});
   if(r&&r.ok&&r.text) return r.text;
   return tpl(key); // AI 不可用回退模板
