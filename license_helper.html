@@ -1686,7 +1686,7 @@ function pdfDoc(){
     const FDEFS=['Times-Roman','Times-Bold','Times-Italic','Times-BoldItalic','Helvetica','Helvetica-Bold','Helvetica-Oblique','Helvetica-BoldOblique'];
     const objs=[],kids=[];
     objs[0]='<< /Type /Catalog /Pages 2 0 R >>';
-    FDEFS.forEach((f,i)=>objs[2+i]=`<< /Type /Font /Subtype /Type1 /BaseFont /${f} >>`);
+    FDEFS.forEach((f,i)=>objs[2+i]=`<< /Type /Font /Subtype /Type1 /BaseFont /${f} /Encoding /WinAnsiEncoding >>`);
     const FR=FDEFS.map((f,i)=>`/F${i+1} ${3+i} 0 R`).join(' ');
     pages.forEach((pg,i)=>{
       const pid=11+i*2,cid=12+i*2;kids.push(`${pid} 0 R`);
