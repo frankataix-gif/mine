@@ -298,7 +298,7 @@ const DOC_DEFS = {
     ['env',  'Environmental Commitment Plan', '环境承诺计划', 'B', 0, 'env'],
     ['emp',  'Proposals for Employment and Training of Citizens of Zambia', '公民雇用与培训方案', 'B', 0, 'emp'],
     ['local','Proposals for Promotion of Local Business Development', '本地商业促进方案', 'B', 0, 'local'],
-    ['any',  'Any Further Information Which the Director May Require', '兜底补充材料', 'B'],
+    ['any',  'Any Further Information Which the Director of Mining Cadastre May Require', '兜底补充材料', 'B'],
     ['byl',  'Cooperative Bylaws', '合作社章程（仅合作社需要）', 'C'],
     ['coop', 'Cooperative Registration Certificate', '合作社注册证（仅合作社需要）', 'C'],
     ['pacra','PACRA Print Out OR Form 2 or 3', 'PACRA 登记件（可选）', 'C'],
@@ -591,20 +591,21 @@ function renderDocs(){
   $('pfill').style.width=(req.length?done/req.length*100:0)+'%';
   // 顺序：申请表（Form I）→ B 类支持性文件 → 公司基础资料 → 可选/兜底
   const ord=d=>d[0]==='form'?0:d[3]==='B'?1:d[3]==='A'?2:3;
-  const catTitle={0:'申请表（Form I 打印签署后上传）',1:'B 类 · 支持性文件（AI 可生成文稿）',2:'公司基础资料（公司档自动引用，不用重复传）',3:'C · 可选/兜底'};
+  const catTitle={0:'申请表（Form I 打印签署后上传）',1:'B 类 · 支持性文件（AI 可生成文稿）',2:a.companyId?'公司基础资料（公司档自动引用，不用重复传）':'基础资料',3:'C · 可选/兜底'};
   const sorted=[...defs].sort((x,y)=>ord(x)-ord(y));
   let html='', lastOrd=-1;
   for(const d of sorted){
     const [key,en,cn,cat,exp]=d;
     if(ord(d)!==lastOrd){ lastOrd=ord(d); html+=`<h3 style="margin:10px 0 2px">${catTitle[lastOrd]}</h3>`; }
     const eff=effDoc(a,key,cat), st=eff.d;
-    html+=`<div class="doc" ${cat!=='A'?`ondragover="event.preventDefault()" ondrop="docDrop(event,'${key}','app')"`:''}>
+    const canUp=cat!=='A'||key==='form'||!a.companyId; // A类仅在有公司档时只读；个人申请(AMR)仍需上传
+    html+=`<div class="doc" ${canUp?`ondragover="event.preventDefault()" ondrop="docDrop(event,'${key}','app')"`:''}>
       <button class="chip s${st.status}" onclick="cycleStatus('${key}')">${ST_TXT[st.status]}</button>
       <div class="doc-body">
         <div class="doc-name">${en} ${eff.src==='co'?'<span style="font-size:11px;color:var(--primary);font-weight:700">公司档</span>':''}</div>
         <div class="doc-cn">${cn}</div>
         <div class="doc-meta">
-          ${!DOC_PDF[d[5]]&&cat!=='A'?`<label for="filePick" style="cursor:pointer" onclick="uploadDocKey='${key}';uploadScope='app'">📎 ${st.mediaKey?'替换':'上传文件'}</label>`:''}
+          ${!DOC_PDF[d[5]]&&canUp?`<label for="filePick" style="cursor:pointer" onclick="uploadDocKey='${key}';uploadScope='app'">📎 ${st.mediaKey?'替换':'上传文件'}</label>`:''}
           ${st.mediaKey?`<a href="javascript:void(0)" onclick="viewFile('${st.mediaKey}','${jsq(st.fileName||'文件')}')" title="${esc(st.fileName||'')}">${esc(st.fileName||'查看')}</a>`:''}
           ${st.srcPath?`<a href="javascript:void(0)" onclick="openSrcDir('${jsq(st.srcPath)}')" title="打开来源文件夹">${'📁'}</a>`:''}
           ${docDate(st)?`<span class="muted" style="font-size:11px">传于 ${docDate(st)}</span>`:''}
