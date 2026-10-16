@@ -1658,7 +1658,7 @@ function pdfEsc(s){let out='';for(const ch of String(s)){const c=ch.codePointAt(
   else out+='?';}return out;}
 const _mc=document.createElement('canvas').getContext('2d');
 const PDF_CSSF={times:'"Times New Roman"',helv:'Arial'};
-function pdfFontId(fam,st){return 'F'+(fam==='times'?0:4)+{ '':1,B:2,I:3,BI:4 }[st||''];}
+function pdfFontId(fam,st){return 'F'+((fam==='times'?0:4)+{'':1,B:2,I:3,BI:4}[st||'']);}
 function pdfTw(s,fam,st,sz){_mc.font=`${st.includes('I')?'italic ':''}${st.includes('B')?'bold ':''}${sz*4/3}px ${PDF_CSSF[fam]}`;return _mc.measureText(s).width*0.75;}
 function pdfDoc(){
   const PW=595.28,PH=841.89,ML=62.4,MT=56.7,MB=62.4,W=PW-ML-62.4,pages=[];
