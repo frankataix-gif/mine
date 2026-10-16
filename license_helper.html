@@ -1819,7 +1819,7 @@ function progPdfBlob(a){
   const SECTIONS=['INTRODUCTION AND PROJECT OBJECTIVES','GEOLOGICAL SETTING AND EXPLORATION RATIONALE','PHASED EXPLORATION PROGRAMME','OPERATIONAL SCHEDULE AND SEASONAL WORK PLAN','ESTIMATED FINANCIAL INVESTMENT AND BUDGET BREAKDOWN','TECHNICAL MANAGEMENT AND OPERATIONAL TEAM','HEALTH, SAFETY, ENVIRONMENT AND COMMUNITY (HSEC) COMMITMENTS','STAGE-GATE GOVERNANCE AND GO/NO-GO DECISION THRESHOLDS'];
   const secPages={};
   function build(toc){
-    const o=pdfDoc(),{sec,sub,body,bullet,trow,grid,cover,toc:tocP,F,AC}=repShell(o,STY,secPages);
+    const o=pdfDoc(),{sec,sub,body,bullet,trow,grid,cover,toc:tocP,F,AC,W,ML}=repShell(o,STY,secPages);
     cover('PROPOSED PROGRAMME OF|EXPLORATION OPERATIONS',coName,co,licEn,DATE);
     if(toc) tocP(SECTIONS,toc);
     o.addPage();
