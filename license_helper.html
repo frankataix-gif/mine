@@ -2280,7 +2280,7 @@ function form1Values(a){
     TEL:co.tel||'/', MOBILE:co.phone||'/', FAX:co.fax||'/', EMAIL:'frankataix@gmail.com',
     REGNO:co.regNo||'', DOB:'', NAT:'', IDNO:'',
     PROVINCE:appProvinces(a), DISTRICT:a.area.district||'', LOCALITY:a.area.name||a.area.locRaw||'',
-    SIZEKM2:a.area.km2||'', FEE:LIC[a.type]?'K '+LIC[a.type].fee:'', SIGN_NAME:(co.ceo||sh[0]?.name||''),
+    SIZEKM2:a.area.km2||'', FEE:'', SIGN_NAME:(co.ceo||sh[0]?.name||''),
     ACT_SCALE:{LEL:'Large-scale',SEL:'Small-scale',AMR:'Artisanal'}[a.type]||'Large-scale',
     Q12A:'No', Q12B:'No', Q13A:'No',
   };
