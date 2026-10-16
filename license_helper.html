@@ -1669,8 +1669,10 @@ function pdfDoc(){
   o.setFont=(fam,st,sz)=>{o.font={fam,st:st||'',sz};};
   o.setTC=c=>o.tc=c;o.setFC=c=>o.fc=c;o.setDC=c=>o.dc=c;
   o.tw=s=>pdfTw(s,o.font.fam,o.font.st,o.font.sz);
-  o.text=(x,yTop,s,al='l',w=0)=>{let xx=x;if(al!=='l'){const t=o.tw(s);xx=al==='c'?x+(w-t)/2:x+w-t;}
-    o.emit(`BT /${pdfFontId(o.font.fam,o.font.st)} ${o.font.sz} Tf ${rgb(o.tc)} rg ${xx.toFixed(2)} ${(PH-yTop-o.font.sz*0.82).toFixed(2)} Td (${pdfEsc(s)}) Tj ET`);};
+  o.text=(x,yTop,s,al='l',w=0,tsp=0)=>{ // tsp=字距(pt)
+    let xx=x;
+    if(al!=='l'){const t=o.tw(s)+(String(s).length-1)*tsp;xx=al==='c'?x+(w-t)/2:x+w-t;}
+    o.emit(`BT /${pdfFontId(o.font.fam,o.font.st)} ${o.font.sz} Tf ${tsp?tsp.toFixed(2)+' Tc ':''}${rgb(o.tc)} rg ${xx.toFixed(2)} ${(PH-yTop-o.font.sz*0.82).toFixed(2)} Td (${pdfEsc(s)}) Tj ET`);};
   o.line=(x1,y1,x2,y2)=>o.emit(`${rgb(o.dc)} RG ${x1.toFixed(2)} ${(PH-y1).toFixed(2)} m ${x2.toFixed(2)} ${(PH-y2).toFixed(2)} l S`);
   o.rect=(x,yTop,w,h,mode='S')=>{const f=mode.includes('F')?rgb(o.fc)+' rg ':'';o.emit(`${f}${rgb(o.dc)} RG ${x.toFixed(2)} ${(PH-yTop-h).toFixed(2)} ${w.toFixed(2)} ${h.toFixed(2)} re ${mode==='F'?'f':mode==='FD'?'B':'S'}`);};
   o.wrap=(txt,w)=>{const words=String(txt).split(/\s+/).filter(Boolean),lines=[];let cur='';
@@ -1743,7 +1745,7 @@ function progPdfBlob(a){
     'Bulk sampling & metallurgical tests, Leapfrog 3D resource modelling, mineral resource estimate report, PFS & EIS baseline studies',
     'Environmental measures, community relations, Zambian staff training, administration and logistics'];
   const BUDGET=BACT.slice(0,SHARE.length).map((t,i)=>[i<SHARE.length-1?`Year ${i+1}`:'Other',t,invest*SHARE[i]]);
-  const SECTIONS=['INTRODUCTION AND PROJECT OBJECTIVES','GEOLOGICAL SETTING AND EXPLORATION RATIONALE','PHASED EXPLORATION PROGRAMME','OPERATIONAL SCHEDULE AND SEASONAL WORK PLAN','ESTIMATED FINANCIAL INVESTMENT AND BUDGET BREAKDOWN','TECHNICAL MANAGEMENT AND OPERATIONAL TEAM','HEALTH, SAFETY, ENVIRONMENT AND COMMUNITY (HSEC) COMMITMENTS','STAGE-GATE GOVERNANCE AND GO/NO-GO DECISION THRESHOLDS','ANNEX A - LICENCE AREA CORNER COORDINATES'];
+  const SECTIONS=['INTRODUCTION AND PROJECT OBJECTIVES','GEOLOGICAL SETTING AND EXPLORATION RATIONALE','PHASED EXPLORATION PROGRAMME','OPERATIONAL SCHEDULE AND SEASONAL WORK PLAN','ESTIMATED FINANCIAL INVESTMENT AND BUDGET BREAKDOWN','TECHNICAL MANAGEMENT AND OPERATIONAL TEAM','HEALTH, SAFETY, ENVIRONMENT AND COMMUNITY (HSEC) COMMITMENTS','STAGE-GATE GOVERNANCE AND GO/NO-GO DECISION THRESHOLDS'];
   const secPages={};
   function build(toc){
     const o=pdfDoc(),W=o.W,ML=o.ML;
@@ -1766,14 +1768,26 @@ function progPdfBlob(a){
       o.rect(ML,y0,kw,h);o.setFont(F,'B',10);const yy0=o.y;o.y=y0+3.5;o.mc(ML+4,kw-8,k,13.4,'L');o.y=yy0;
       o.rect(ML+kw,y0,vw,h);o.setFont(F,'',10);o.y=y0+3.5;o.mc(ML+kw+4,vw-8,v,13.4,'L');o.y=y0+h;};
     // ---- 封面 ----
-    o.addPage();o.y+=108;
-    hTitle('PROPOSED PROGRAMME OF\nEXPLORATION OPERATIONS');o.y+=6;
-    o.setDC(AC);o.line(170,o.y,425,o.y);o.y+=18;
-    hSub(`Company: ${coName}`,13,'B');o.y+=6;
-    hSub(`PACRA Registration No. ${co.regNo||''}`,10);
-    hSub(co.address||'',10);o.y+=10;
-    hSub(`Application for a ${licEn}`,11,'B');
-    hSub(DATE,11);
+    o.addPage();o.y+=132;
+    // 大标题（加字距）
+    o.setFont(F,'B',17);o.setTC(AC);
+    'PROPOSED PROGRAMME OF|EXPLORATION OPERATIONS'.split('|').forEach(l=>{o.text(ML,o.y,l,'c',W,0.6);o.y+=26;});
+    o.setTC([0,0,0]);
+    o.y+=10;
+    o.setDC(AC);o.emit('0.9 w');o.line(168,o.y,427,o.y);o.emit('0.4 w');o.y+=30;
+    // 公司块
+    o.setFont(F,'B',13.5);o.text(ML,o.y,coName,'c',W,0.3);o.y+=26;
+    o.setFont(F,'',10.5);o.setTC([60,60,60]);
+    o.text(ML,o.y,`PACRA Registration No. ${co.regNo||''}`,'c',W);o.y+=19;
+    o.text(ML,o.y,co.address||'','c',W);o.setTC([0,0,0]);
+    o.y+=34;
+    // 证型 + 日期
+    o.setFont(F,'B',12);o.text(ML,o.y,`Application for a ${licEn}`,'c',W);o.y+=24;
+    o.setFont(F,'',11);o.setTC([60,60,60]);o.text(ML,o.y,DATE,'c',W);o.setTC([0,0,0]);
+    // 页脚标语
+    o.setFont(F,'I',9.5);o.setTC([130,130,130]);
+    o.text(ML,755,'Submitted to the Minerals Regulation Commission · Mining Cadastre, Republic of Zambia','c',W);
+    o.setTC([0,0,0]);
     // ---- 目录 ----
     if(toc){
       o.addPage();o.setFont(F,'B',14);o.setTC(AC);o.text(ML,o.y,'CONTENTS');o.setTC([0,0,0]);o.y+=26;o.setDC(AC);o.line(ML,o.y,ML+W,o.y);o.y+=16;
@@ -1884,28 +1898,6 @@ function progPdfBlob(a){
     // ---- 8 ----
     sec(8,SECTIONS[7]);
     body('To ensure sound financial stewardship and avoid deploying high-cost drilling assets to low-potential targets, the Company employs a structured Stage-Gate decision framework at the conclusion of each operational year. Progression from one phase to the next is conditional upon the preceding phase meeting its defined technical criteria (e.g. drill testing proceeds only where coincident geochemical and geophysical anomalies are confirmed). This framework ensures capital is committed responsibly and exploration expenditure is governed by empirical geological data, operational transparency and strict statutory compliance.');
-    // ---- 附录A ----
-    o.addPage();sec(9,SECTIONS[8]);
-    body(`The corner coordinates of the licence area applied for (${ha.toLocaleString('en-US')} hectares, ${loc}, Zambia) are tabulated below. Coordinates are given in the Arc 1950 datum as recorded on the official Form I application.`);
-    o.y+=3;
-    const coords=(a.area.coords||[]).filter(c=>String(c).trim());
-    if(coords.length){
-      const aw=[62.4,175.8,175.8];
-      o.setFont(F,'B',10);o.setTC(hdr);o.setFC(STY.hdr);x=ML;
-      ['Corner','Latitude (S)','Longitude (E)'].forEach((c,i)=>{o.rect(x,o.y,aw[i],20,'FD');o.text(x,o.y+6.5,c,'c',aw[i]);x+=aw[i];});
-      o.setTC([0,0,0]);o.y+=20;
-      o.setFont(F,'',10);
-      coords.forEach((c,i)=>{
-        const la=c.lat??(Array.isArray(c)?c[0]:''),lo=c.lng??(Array.isArray(c)?c[1]:'');
-        o.need(19);
-        o.rect(ML,o.y,aw[0],17);o.text(ML,o.y+5,String(i+1),'c',aw[0]);
-        o.rect(ML+aw[0],o.y,aw[1],17);o.text(ML+aw[0],o.y+5,String(la),'c',aw[1]);
-        o.rect(ML+aw[0]+aw[1],o.y,aw[2],17);o.text(ML+aw[0]+aw[1],o.y+5,String(lo),'c',aw[2]);
-        o.y+=17;});
-      o.y+=8;body(`Total corner points: ${coords.length}. Datum: Arc 1950. Area computed from corner coordinates: ${km2} km\xb2.`);
-    }else{
-      o.setFont(F,'I',11);
-      o.mc(ML,W,'Corner coordinates as per the coordinate schedule attached to Form I (Duly Filled in Application Form).',15.7);}
     return o;
   }
   build(); // 第一遍取页码
