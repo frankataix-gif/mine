@@ -2313,8 +2313,8 @@ function form1Checks(a){ // 勾选标记（规则：本系统一律申请勘探�
     CB_PENDING:!!((a.area.hist||[]).length),             // Q13 有历史申请才勾 Pending，否则不勾
   };
 }
-// 生成填好的 Form I blob（下载和打包共用）
-async function buildForm1Blob(a){
+// 填好占位符的 Form I document.xml（docx 和 PDF 渲染共用）
+async function form1Xml(a){
   const r=await fetch(`${API}/media?key=${FORM1_TPL}`);
   if(!r.ok) throw new Error('模板下载失败 '+r.status);
   const files=await unzipDocx(await r.arrayBuffer());
@@ -2332,101 +2332,96 @@ async function buildForm1Blob(a){
   // 文本占位符
   xml=xml.replace(/\{\{([A-Z0-9_]+)\}\}/g,(m,k)=>xmlEsc2(vals[k]??''));
   files['word/document.xml']=new TextEncoder().encode(xml);
+  return {files,xml};
+}
+// 生成填好的 Form I blob（下载和打包共用）
+async function buildForm1Blob(a){
+  const {files}=await form1Xml(a);
   return makeZip(Object.entries(files).map(([name,data])=>({name,data})));
 }
-/* ================= Form I 官方申请表的 PDF 版（内容与 docx 一致，版式为规整表单）================= */
-function form1PdfBlob(a){
-  const v=form1Values(a), chk=form1Checks(a);
+/* =============== Form I → PDF：按官方原件表格结构原样重画（列宽/合并格/勾选自 docx）=============== */
+async function form1PdfBlob(a){
+  const {xml}=await form1Xml(a);
+  const dom=new DOMParser().parseFromString(xml,'application/xml');
   const o=pdfDoc(),W=o.W,ML=o.ML;
-  const {trow,grid}=repShell(o,PROG_STYLES[0],{}); // 经典黑白版式
-  const body=(t,ind=0)=>{o.setFont('times','',10.5);o.mc(ML+ind,W-ind,t,14.6);o.y+=2;};
-  const sub=(txt)=>{o.need(28);o.y+=6;o.setFont('times','B',11);o.text(ML,o.y,txt);o.y+=16;};
-  const chkbox=(x,y,label,on)=>{ // 画勾选框 + 文字
-    o.setDC([0,0,0]);o.rect(x,y,9.5,9.5,'S');
-    if(on){o.setFont('times','B',11);o.text(x+1.6,y-0.6,'\u00d7');}
-    o.setFont('times','',10.5);o.text(x+15,y,label);};
-  const kvRow=(k,v2,kw=170)=>{o.need(18);trow(k,String(v2||'—'),kw,W-kw);};
-
+  const q=(el,tag)=>el?[...el.getElementsByTagName(tag)]:[];
+  const WNS='http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+  const gav=(el,n)=>el?(el.getAttribute('w:'+n)??el.getAttributeNS(WNS,n)??el.getAttribute(n)):null;
+  const readCell=tc=>{ // 单元格 → {text,ck,bold,shade}
+    let s='',ck=false,bold=false;
+    q(tc,'w:t').forEach(t=>s+=t.textContent);
+    q(tc,'w:sym').forEach(sm=>{if((gav(sm,'char')||'').toUpperCase()==='F0D6')ck=true;});
+    if(q(tc,'w:b').length)bold=true;
+    const shd=q(tc,'w:shd')[0];
+    const shade=shd&&gav(shd,'fill')&&!/auto|ffffff/i.test(gav(shd,'fill'));
+    return {text:s.trim(),ck,bold,shade};
+  };
+  const drawChk=(x,y)=>{o.rect(x,y,8.5,8.5,'S');o.setFont('times','B',9.5);o.text(x+1.3,y-0.4,'\u00d7');};
   o.addPage();
-  // 表头
-  o.setFont('times','B',13);o.text(ML,o.y,'FORM I','c',W);o.y+=19;
-  o.setFont('times','',10.5);o.text(ML,o.y,'(Regulation 5)','c',W);o.y+=16;
-  o.setFont('times','B',12);o.text(ML,o.y,'THE MINES AND MINERALS DEVELOPMENT ACT, 2015','c',W);o.y+=17;
-  o.setFont('times','B',12);o.text(ML,o.y,'APPLICATION FOR A MINING RIGHT','c',W);o.y+=22;
-  // Q1 证型
-  sub('1. Type of Mining Right');
-  chkbox(ML+30,o.y,'Exploration',chk.CB_EXPLORE);
-  chkbox(ML+200,o.y,'Mining',chk.CB_MINING);o.y+=24;
-  // Q2 规模
-  sub('2. Scale of Operation');
-  chkbox(ML+30,o.y,'Large scale',chk.CB_EXPL_LARGE);
-  chkbox(ML+200,o.y,'Small-Scale',chk.CB_EXPL_SMALL2);o.y+=24;
-  chkbox(ML+30,o.y,'Artisanal',chk.CB_ARTISANAL);o.y+=26;
-  // Q3 矿种
-  sub('3. Minerals');
-  body(v.MINERALS);
-  // Q4-7 申请人
-  sub('4. Applicant');
-  kvRow('Name(s) of applicant(s)',v.APPLICANT);
-  kvRow('Type of applicant',chk.CB_INDIV?'Individual':chk.CB_COOP?'Co-operative':'Company');
-  kvRow('Physical & postal address',v.ADDR);
-  kvRow('Tel',v.TEL);kvRow('Mobile',v.MOBILE);kvRow('Fax',v.FAX);kvRow('Email',v.EMAIL);
-  sub('5. Company Particulars');
-  kvRow('Company/Co-operative Registration No.',v.REGNO);
-  // 股东表
-  sub('Shareholders');
-  const shRows=[];for(let i=1;i<=5;i++){if(v[`SH${i}_N`])shRows.push([v[`SH${i}_N`],v[`SH${i}_S`],v[`SH${i}_NA`],v[`SH${i}_ID`]]);}
-  grid(['Shareholder','Shares','Nationality','NRC / Passport'],[168,80,110,112],shRows,9.5);
-  // 董事表
-  sub('Directors');
-  const dirRows=[];for(let i=1;i<=5;i++){if(v[`DIR${i}_N`])dirRows.push([v[`DIR${i}_N`],v[`DIR${i}_S`],v[`DIR${i}_NA`],v[`DIR${i}_ID`]]);}
-  grid(['Director','Shares','Nationality','NRC / Passport'],[168,80,110,112],dirRows,9.5);
-  kvRow('Chief Executive Officer',`${v.CEO_N}${v.CEO_NA?' ('+v.CEO_NA+')':''}`);
-  kvRow('Company Secretary',`${v.SEC_N}${v.SEC_NA?' ('+v.SEC_NA+')':''}`);
-  // Q8-13 矿证历史
-  sub('6. Mining Right History');
-  kvRow('Mining rights currently held in Zambia',v.CUR1_NO);
-  kvRow('Mining rights previously held',v.PREV1_NO);
-  kvRow('Rights held by subsidiaries in Zambia',v.SUB1_NO);
-  kvRow('Rights held in other countries',v.FRN1_NO);
-  kvRow('Convicted of an offence / bankrupt',`${v.Q12A} / ${v.Q12B}`);
-  kvRow('Previous application for mining right',v.Q13A+(chk.CB_PENDING?' (Pending)':''));
-  // Q14 地块
-  sub('7. Description of Area Applied For');
-  kvRow('Province',v.PROVINCE);
-  kvRow('District',v.DISTRICT);
-  kvRow('Locality',v.LOCALITY);
-  kvRow('Size (sq. km)',v.SIZEKM2);
-  kvRow('Exploration (activity) scale',v.ACT_SCALE);
-  // 角点
-  const hasCoord=[...Array(12)].some((_,i)=>v[`C${i+1}_V1`]);
-  if(hasCoord){
-    sub('Corner Coordinates (Arc 1950)');
-    const rows=[];
-    for(let i=1;i<=12;i++){
-      if(!v[`C${i}_V1`])continue;
-      rows.push([i,`${v[`C${i}_V1`]}° ${v[`C${i}_V3`]}' ${v[`C${i}_V5`]}" S`,`${v[`C${i}_V7`]}° ${v[`C${i}_V9`]}' ${v[`C${i}_V11`]}" E`]);
+  const body=dom.getElementsByTagName('w:body')[0];
+  for(const el of [...body.children]){
+    // ---- 普通段落（标题等）----
+    if(el.tagName==='w:p'){
+      const {text,ck,bold}=readCell(el);
+      if(!text&&!ck){o.y+=7;continue;}
+      const jc=q(el,'w:jc')[0],center=gav(jc,'val')==='center';
+      o.need(16);o.setFont('times',bold?'B':'',10);
+      o.mc(ML,W,text,13,center?'c':'l');
+      if(ck)drawChk(ML+W-12,o.y-12);
+      o.y+=2;
+      continue;
     }
-    grid(['Corner','Latitude','Longitude'],[80,195,195],rows,9.5);
-  }else{
-    body('Corner coordinates: as per the coordinate schedule attached to this application.');
+    // ---- 表格 ----
+    if(el.tagName!=='w:tbl')continue;
+    const grid=q(el,'w:gridCol').map(g=>+gav(g,'w')||0);
+    const tot=grid.reduce((s,x)=>s+x,0)||1;
+    const cw=grid.map(g=>g/tot*W);           // 原件列宽(dxa)→按页宽等比
+    const xs=[0];cw.forEach(w=>xs.push(xs[xs.length-1]+w));
+    for(const tr of [...el.children].filter(c=>c.tagName==='w:tr')){
+      const tcs=[...tr.children].filter(c=>c.tagName==='w:tc');
+      let gi=0;const infos=[];
+      for(const tc of tcs){
+        const tcPr=q(tc,'w:tcPr')[0];
+        const span=+(gav(q(tcPr,'w:gridSpan')[0],'val')||1);
+        const w=Math.min(W,cw.slice(gi,gi+span).reduce((s,x)=>s+x,0)||cw[cw.length-1]);
+        infos.push({tc,x:ML+xs[Math.min(gi,xs.length-1)],w});
+        gi+=span;
+      }
+      // 先算行高（文字折行），整行放不开就换页
+      const LH=12;
+      o.setFont('times','',9);
+      let h=0;
+      infos.forEach(inf=>{
+        const {text}=readCell(inf.tc);
+        const n=Math.max(1,o.wrap(text,inf.w-8).length);
+        h=Math.max(h,n*LH+7);
+      });
+      h=Math.max(16,h);
+      o.need(h);
+      const y0=o.y;
+      infos.forEach(inf=>{
+        const {text,ck,bold,shade}=readCell(inf.tc);
+        if(shade){o.setFC([235,235,235]);o.rect(inf.x,y0,inf.w,h,'F');o.setFC([255,255,255]);}
+        o.rect(inf.x,y0,inf.w,h,'S');
+        if(ck)drawChk(inf.x+4,y0+(h-8.5)/2);
+        if(text){
+          o.setFont('times',bold?'B':'',9);
+          const yy=o.y;o.y=y0+3.5;
+          o.mc(inf.x+4,inf.w-8,text,LH,'l');
+          o.y=yy;
+        }
+      });
+      o.y=y0+h;
+    }
   }
-  // 费用+签名
-  sub('Application Fee');
-  body(v.FEE||'');
-  o.y+=20;
-  o.setFont('times','',10.5);
-  o.text(ML,o.y,`Signed for and on behalf of ${v.APPLICANT}`);o.y+=28;
-  o.text(ML,o.y,'Name: '+v.SIGN_NAME);o.y+=22;
-  o.line(ML,o.y,ML+180,o.y);o.text(ML+190,o.y-13,'Signature');
-  o.text(ML+280,o.y-13,'Date: ____________________');
+  const v=form1Values(a);
   return o.output(`${v.APPLICANT} - Form I`);
 }
 async function genForm1Pdf(){
   const a=curApp(); if(!a) return toast('先选择申请');
   try{
     const safe=s=>String(s||'').replace(/[^\w\s.-]/g,'').trim();
-    downloadBlob(form1PdfBlob(a),`Duly Filled in Application Form - ${safe(a.label||'app')}.pdf`);
+    downloadBlob(await form1PdfBlob(a),`Duly Filled in Application Form - ${safe(a.label||'app')}.pdf`);
     toast('已导出 PDF');
   }catch(e){ toast('生成失败：'+e.message); }
 }
