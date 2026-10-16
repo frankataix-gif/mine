@@ -406,7 +406,7 @@ function newApp(){
       <div style="flex:1"><label>省份 Province</label><input id="naProv" placeholder="例：Central"></div>
       <div style="flex:1"><label>县/区 District</label><input id="naDist" placeholder="例：Serenje"></div>
     </div>
-    <label>矿证面积 km²</label><input id="naKm2" type="number" step="0.01" placeholder="例：62.20">
+    <label>矿证面积 km²（≤10 自动选小型勘探证，>10 自动选大型）</label><input id="naKm2" type="number" step="0.01" placeholder="例：62.20" oninput="naKm2Type()">
 
     <div class="btnrow"><button class="btn" onclick="doNewApp()">创建</button><button class="btn gray" onclick="closeSheet()">取消</button></div>`);
 }
@@ -435,6 +435,9 @@ function parseBriefFields(t){
   const nm=grab(/(?:地块名|名称|name)\s*[:：]\s*([^\n]+)/i); if(nm) f.label=nm;
   return f;
 }
+// 面积规则：≤10 km² → 小型勘探证 SEL；>10 km² → 大型勘探证 LEL
+function typeForKm2(k){ return (k&&k<=10)?'SEL':'LEL'; }
+function naKm2Type(){ const k=parseFloat($('naKm2').value); if(k) $('naType').value=typeForKm2(k); }
 // 粘贴文本 → 自动拆解填进新建表单
 function autoFillApp(t){
   const f=parseBriefFields(t);
@@ -442,6 +445,7 @@ function autoFillApp(t){
   if(f.locRaw) window._naLoc=f.locRaw;
   set('naProv',f.province); set('naDist',f.district);
   set('naKm2',f.km2); set('naCom',f.commodity); set('naPrev',f.prevLic); set('naChief',f.chief); set('naLabel',f.label);
+  if(f.km2) $('naType').value=typeForKm2(f.km2);
 }
 function doNewApp(){
   const type=$('naType').value, coSel=$('naCo').value, com=$('naCom').value.trim();
@@ -479,7 +483,7 @@ function editApp(id){
     <label>地理位置（显示原文）</label><input id="eaLoc" value="${esc(a.area.locRaw||'')}" placeholder="Central, Serenje; Northern, Mpika">
     <div class="row"><div style="flex:1"><label>省份</label><input id="eaProv" value="${esc(a.area.province||'')}"></div>
     <div style="flex:1"><label>县/区</label><input id="eaDist" value="${esc(a.area.district||'')}"></div></div>
-    <label>面积 km²</label><input id="eaKm2" type="number" step="0.01" value="${a.area.km2||''}">
+    <label>面积 km²（≤10 → 小型勘探证，>10 → 大型）</label><input id="eaKm2" type="number" step="0.01" value="${a.area.km2||''}" oninput="const k=parseFloat(this.value);if(k)$('eaType').value=typeForKm2(k)">
     <div class="btnrow"><button class="btn" onclick="saveAppEdit('${a.id}')">保存</button><button class="btn gray" onclick="closeSheet()">取消</button></div>`);
 }
 function saveAppEdit(id){
@@ -1240,6 +1244,12 @@ function runReview(){
   if(a.type==='AMR'){
     push(0, a.applicantKind!=='company'?'ok':'fail','AMR 仅限公民个人/纯公民合作社',
       a.applicantKind==='company'?'当前主体为公司，按 2024 年新法不能持有手工采矿权':(a.applicantKind==='coop'?'合作社主体':'公民个人主体'));
+  }
+  // 3.5 面积-证型规则：≤10 km² 只能小型勘探证，>10 只能大型
+  if(a.area.km2&&['SEL','LEL'].includes(a.type)){
+    const want=typeForKm2(a.area.km2);
+    push(0, a.type===want?'ok':'fail','证型-面积匹配（≤10 km² 小证，>10 大证）',
+      a.type===want?`${a.area.km2} km² → ${LIC[want].name}`:`${a.area.km2} km² 应为 ${LIC[want].name}，当前选了 ${LIC[a.type].name}`);
   }
   // 4. 矿种
   push(0, a.commodity?'ok':'fail','矿种 Commodity', a.commodity||'门户必选，未填');
