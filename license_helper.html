@@ -1737,9 +1737,9 @@ function repShell(o,STY,secPages){
   R.sub=(num,txt)=>{o.need(30);o.y+=4;o.setFont(F,'B',11);o.setTC(AC);o.text(ML,o.y,`${num}  ${txt}`);o.setTC([0,0,0]);o.y+=18;};
   R.body=(t,ind=0)=>{o.setFont(F,'',11);o.mc(ML+ind,W-ind,t,15.7);o.y+=2;};
   R.bullet=t=>{o.setFont(F,'',11);o.need(18);o.text(ML+16,o.y,'\u2022');o.mc(ML+28,W-28,t,15.7);o.y+=1.5;};
-  R.trow=(k,v,kw=158.7,vw=311.8)=>{ // 键值行：超宽自动折行扩格
+  R.trow=(k,v,kw=158.7,vw=311.8)=>{ // 键值行：超宽自动折行扩格（行高取左右栏较大者）
     o.setFont(F,'',10);
-    const lines=o.wrap(v,vw-10),h=Math.max(17,lines.length*13.4+5);
+    const h=Math.max(17,o.wrap(v,vw-10).length*13.4+5,o.wrap(k,kw-8).length*13.4+5);
     o.need(h);
     const y0=o.y;
     o.rect(ML,y0,kw,h);o.setFont(F,'B',10);const yy0=o.y;o.y=y0+3.5;o.mc(ML+4,kw-8,k,13.4,'L');o.y=yy0;
