@@ -221,6 +221,7 @@
       <button class="btn sm green" onclick="saveDraft()">存入申请</button>
       <button class="btn sm ghost" onclick="copyDraft()">复制</button>
       <button class="btn sm" onclick="printDraft()">导出 PDF</button>
+      <button class="btn sm green" id="progPdfBtn" onclick="genProgPdf()" style="display:none">📄 正式版 PDF</button>
       <button class="btn sm gray" onclick="exportDoc()">.doc</button>
     </div>
   </div>
@@ -605,6 +606,7 @@ function renderDocs(){
           ${docDate(st)?`<span class="muted" style="font-size:11px">传于 ${docDate(st)}</span>`:''}
           ${key==='form'?`<a href="javascript:void(0)" onclick="genForm1()" style="color:var(--success);font-weight:700">🧾 生成 Form I</a>`:''}
           ${d[5]?`<a href="javascript:void(0)" onclick="jumpWrite('${d[5]}')" style="color:${(a.drafts[d[5]]||'').trim()?'var(--success)':'var(--muted)'}">${(a.drafts[d[5]]||'').trim()?'✍️ 文稿✓':'✍️ 编写'}</a>`:''}
+          ${d[5]==='prog'?`<a href="javascript:void(0)" onclick="genProgPdf()" style="color:var(--success);font-weight:700">📄 正式版 PDF</a>`:''}
           ${exp?`到期 <input type="date" value="${st.expiry||''}" onchange="setDoc('${key}','expiry',this.value)">`:''}
         </div>
       </div></div>`;
@@ -1308,6 +1310,7 @@ function renderGen(){
     <label>本地商业承诺要点（可留空）</label><input id="gpLocal" value="${esc(p.localNote||'')}" onchange="pSave('localNote',this.value)">`;
   $('genOut').value=a?(a.drafts[sel.value]||''):'';
   $('genVia').textContent='';
+  $('progPdfBtn').style.display=sel.value==='prog'?'':'none';
 }
 function pSave(k,v){ const a=curApp(); if(!a)return; a.params[k]=v; persist(); }
 $('genSel'); // noop
@@ -1643,6 +1646,282 @@ function textToPdfBlob(text){
   return new Blob([pdf],{type:'application/pdf'});
 }
 function downloadBlob(blob,name){const el=document.createElement('a');el.href=URL.createObjectURL(blob);el.download=name;el.click();}
+
+/* ================= 迷你 PDF 排版引擎（PDF 核心14字体，零依赖）================= */
+// F1-4=Times系 F5-8=Helvetica系；文字宽度用 canvas measureText 估算（px→pt ×0.75）
+const PDF_XLAT={'\u2022':'225','\u2013':'226','\u2014':'227','\u2018':'221','\u2019':'222','\u201c':'223','\u201d':'224','\u00b0':'260','\u00b2':'262','\u00b3':'263','\u00d7':'327'};
+function pdfEsc(s){let out='';for(const ch of String(s)){const c=ch.codePointAt(0);
+  if(ch==='\\'||ch==='('||ch===')')out+='\\'+ch;
+  else if(c<128)out+=ch;
+  else if(PDF_XLAT[ch])out+='\\'+PDF_XLAT[ch];
+  else if(c<256)out+='\\'+c.toString(8).padStart(3,'0');
+  else out+='?';}return out;}
+const _mc=document.createElement('canvas').getContext('2d');
+const PDF_CSSF={times:'"Times New Roman"',helv:'Arial'};
+function pdfFontId(fam,st){return 'F'+(fam==='times'?0:4)+{ '':1,B:2,I:3,BI:4 }[st||''];}
+function pdfTw(s,fam,st,sz){_mc.font=`${st.includes('I')?'italic ':''}${st.includes('B')?'bold ':''}${sz*4/3}px ${PDF_CSSF[fam]}`;return _mc.measureText(s).width*0.75;}
+function pdfDoc(){
+  const PW=595.28,PH=841.89,ML=62.4,MT=56.7,MB=62.4,W=PW-ML-62.4,pages=[];
+  const o={pages,W,PW,PH,ML,MT,MB,cur:null,y:MT,font:{fam:'times',st:'',sz:11},tc:[0,0,0],fc:[240,240,240],dc:[0,0,0]};
+  const rgb=c=>c.map(v=>(v/255).toFixed(3)).join(' ');
+  o.addPage=()=>{o.cur=[];pages.push(o.cur);o.y=MT;};
+  o.emit=s=>o.cur.push(s);
+  o.setFont=(fam,st,sz)=>{o.font={fam,st:st||'',sz};};
+  o.setTC=c=>o.tc=c;o.setFC=c=>o.fc=c;o.setDC=c=>o.dc=c;
+  o.tw=s=>pdfTw(s,o.font.fam,o.font.st,o.font.sz);
+  o.text=(x,yTop,s,al='l',w=0)=>{let xx=x;if(al!=='l'){const t=o.tw(s);xx=al==='c'?x+(w-t)/2:x+w-t;}
+    o.emit(`BT /${pdfFontId(o.font.fam,o.font.st)} ${o.font.sz} Tf ${rgb(o.tc)} rg ${xx.toFixed(2)} ${(PH-yTop-o.font.sz*0.82).toFixed(2)} Td (${pdfEsc(s)}) Tj ET`);};
+  o.line=(x1,y1,x2,y2)=>o.emit(`${rgb(o.dc)} RG ${x1.toFixed(2)} ${(PH-y1).toFixed(2)} m ${x2.toFixed(2)} ${(PH-y2).toFixed(2)} l S`);
+  o.rect=(x,yTop,w,h,mode='S')=>{const f=mode.includes('F')?rgb(o.fc)+' rg ':'';o.emit(`${f}${rgb(o.dc)} RG ${x.toFixed(2)} ${(PH-yTop-h).toFixed(2)} ${w.toFixed(2)} ${h.toFixed(2)} re ${mode==='F'?'f':mode==='FD'?'B':'S'}`);};
+  o.wrap=(txt,w)=>{const words=String(txt).split(/\s+/).filter(Boolean),lines=[];let cur='';
+    for(const wd of words){const t=cur?cur+' '+wd:wd;if(o.tw(t)<=w-2)cur=t;else{if(cur)lines.push(cur);cur=wd;}}
+    if(cur)lines.push(cur);return lines.length?lines:[''];};
+  o.mc=(x,w,txt,lh,align='J')=>{const lines=o.wrap(txt,w);let yy=o.y;
+    for(const ln of lines){o.text(x,yy,ln,align==='J'?'l':align.toLowerCase(),w);yy+=lh;}
+    o.y=yy;return lines.length*lh;};
+  o.need=h=>{if(o.y+h>PH-MB)o.addPage();};
+  o.output=(footerTxt)=>{
+    pages.forEach((pg,i)=>{o.cur=pg;o.setFont('times','I',9);o.tc=[120,120,120];
+      o.text(ML,PH-40,`${footerTxt}    |    Page ${i+1}`,'c',W);});
+    const FDEFS=['Times-Roman','Times-Bold','Times-Italic','Times-BoldItalic','Helvetica','Helvetica-Bold','Helvetica-Oblique','Helvetica-BoldOblique'];
+    const objs=[],kids=[];
+    objs[0]='<< /Type /Catalog /Pages 2 0 R >>';
+    FDEFS.forEach((f,i)=>objs[2+i]=`<< /Type /Font /Subtype /Type1 /BaseFont /${f} >>`);
+    const FR=FDEFS.map((f,i)=>`/F${i+1} ${3+i} 0 R`).join(' ');
+    pages.forEach((pg,i)=>{
+      const pid=11+i*2,cid=12+i*2;kids.push(`${pid} 0 R`);
+      const ops=pg.join('\n');
+      objs[pid-1]=`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PW} ${PH}] /Resources << /Font << ${FR} >> >> /Contents ${cid} 0 R >>`;
+      objs[cid-1]=`<< /Length ${ops.length} >>\nstream\n${ops}\nendstream`;
+    });
+    objs[1]=`<< /Type /Pages /Kids [${kids.join(' ')}] /Count ${pages.length} >>`;
+    let pdf='%PDF-1.4\n';const offs=[];
+    objs.forEach((ob,i)=>{offs.push(pdf.length);pdf+=`${i+1} 0 obj\n${ob}\nendobj\n`;});
+    const xp=pdf.length;
+    pdf+=`xref\n0 ${objs.length+1}\n0000000000 65535 f \n`;
+    offs.forEach(x=>{pdf+=String(x).padStart(10,'0')+' 00000 n \n';});
+    pdf+=`trailer\n<< /Size ${objs.length+1} /Root 1 0 R >>\nstartxref\n${xp}\n%%EOF`;
+    return new Blob([pdf],{type:'application/pdf'});
+  };
+  return o;
+}
+/* ================= 勘探工作计划正式 PDF（与 make_prog_pdf.py 同版式）================= */
+const PROG_STYLES=[
+  {name:'classic',font:'times',accent:[0,0,0],sec:'line',hdr:[240,240,240],dot:true},
+  {name:'navy',font:'helv',accent:[31,78,121],sec:'band',hdr:[31,78,121],dot:false},
+  {name:'green',font:'times',accent:[0,90,50],sec:'left',hdr:[226,239,218],dot:true},
+  {name:'modern',font:'helv',accent:[84,44,90],sec:'line',hdr:[235,228,240],dot:false},
+];
+function progInvest(a){ // 证型+面积定区间，确定性抖动；手工填 investZmw 优先
+  const p=a.params.investZmw||a.params.investUsd;
+  if(p&&parseFloat(String(p).replace(/[^\d.]/g,''))) return parseFloat(String(p).replace(/[^\d.]/g,''));
+  const km2=a.area.km2||0;
+  const [lo,hi,span]=a.type==='LEL'?[5e6,1e7,2000]:a.type==='SEL'?[2e6,5e6,10]:[1e6,2e6,5];
+  const seed=parseInt(simpleHash((appCo(a)?.name||'')+ (a.area.locRaw||'')).slice(0,6),16);
+  const jit=(seed%21-10)/100;
+  return Math.round((lo+(hi-lo)*Math.min(Math.max(km2/span+jit,0),1))/5e4)*5e4;
+}
+function simpleHash(s){let h=0;for(const c of String(s))h=((h<<5)-h+c.charCodeAt(0))|0;return Math.abs(h).toString(16);}
+function progPdfBlob(a){
+  const co=appCo(a)||{}, lic=LIC[a.type]||{};
+  const coName=co.name||a.applicantName||'[Applicant]', km2=a.area.km2||0, ha=Math.round(km2*100);
+  const loc=a.area.locRaw||`${a.area.district||''} District, ${a.area.province||''} Province`;
+  const commodity=a.commodity||'Copper';
+  const licEn=lic.en||'';
+  const invest=progInvest(a), years=+(a.params.years||4);
+  const rc=(a.params.drillRc||'2,000'), dd=(a.params.drillDd||'800');
+  const staff=a.params.staff||'26', cit=a.params.citizenPct||'92';
+  const DATE=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
+  const zmw=n=>'ZMW '+Math.round(n).toLocaleString('en-US');
+  const STY=PROG_STYLES[parseInt(simpleHash(coName).slice(0,4),16)%4];
+  const F=STY.font, AC=STY.accent;
+  const SHARE=a.type==='LEL'?[.18,.27,.37,.12,.06]:a.type==='SEL'?[.20,.30,.34,.16]:[.45,.35,.20];
+  const BACT=[
+    'Remote sensing & structural interpretation, airborne geophysics reprocessing, regional mapping (1:20,000), first-pass soil geochemistry (400m x 100m grid), reconnaissance trenching',
+    'Infill soil sampling (100m x 50m), walk-mag and IP/resistivity ground geophysics, trenching & pitting, 1:2,000 mapping, accredited laboratory assaying',
+    `RC drilling (~${rc} m) and diamond core drilling (~${dd} m), downhole logging, camp construction and maintenance`,
+    'Bulk sampling & metallurgical tests, Leapfrog 3D resource modelling, mineral resource estimate report, PFS & EIS baseline studies',
+    'Environmental measures, community relations, Zambian staff training, administration and logistics'];
+  const BUDGET=BACT.slice(0,SHARE.length).map((t,i)=>[i<SHARE.length-1?`Year ${i+1}`:'Other',t,invest*SHARE[i]]);
+  const SECTIONS=['INTRODUCTION AND PROJECT OBJECTIVES','GEOLOGICAL SETTING AND EXPLORATION RATIONALE','PHASED EXPLORATION PROGRAMME','OPERATIONAL SCHEDULE AND SEASONAL WORK PLAN','ESTIMATED FINANCIAL INVESTMENT AND BUDGET BREAKDOWN','TECHNICAL MANAGEMENT AND OPERATIONAL TEAM','HEALTH, SAFETY, ENVIRONMENT AND COMMUNITY (HSEC) COMMITMENTS','STAGE-GATE GOVERNANCE AND GO/NO-GO DECISION THRESHOLDS','ANNEX A - LICENCE AREA CORNER COORDINATES'];
+  const secPages={};
+  function build(toc){
+    const o=pdfDoc(),W=o.W,ML=o.ML;
+    const hTitle=t=>{o.setFont(F,'B',15);o.setTC(AC);String(t).split('\n').forEach(l=>{o.text(ML,o.y,l,'c',W);o.y+=20;});o.setTC([0,0,0]);};
+    const hSub=(t,sz=11,b='')=>{o.setFont(F,b,sz);o.text(ML,o.y,t,'c',W);o.y+=sz*0.52+4;};
+    const sec=(num,txt)=>{secPages[num]=o.pages.length;o.need(50);o.y+=8;
+      o.setFont(F,'B',12);
+      if(STY.sec==='band'){o.setFC(AC);o.rect(ML,o.y,W,22,'F');o.setTC([255,255,255]);o.text(ML+6,o.y+4,`${num}.  ${txt}`);o.setTC([0,0,0]);o.y+=26;}
+      else if(STY.sec==='left'){o.setFC(AC);o.rect(ML,o.y,7,19,'F');o.setTC(AC);o.text(ML+12,o.y+4,`${num}.  ${txt}`);o.setTC([0,0,0]);o.y+=26;}
+      else{o.setTC(AC);o.text(ML,o.y,`${num}.  ${txt}`);o.setTC([0,0,0]);o.y+=20;o.setDC(AC);o.line(ML,o.y,ML+W,o.y);o.y+=6;}
+      o.y+=4;};
+    const sub=(num,txt)=>{o.need(30);o.y+=4;o.setFont(F,'B',11);o.setTC(AC);o.text(ML,o.y,`${num}  ${txt}`);o.setTC([0,0,0]);o.y+=18;};
+    const body=(t,ind=0)=>{o.setFont(F,'',11);o.mc(ML+ind,W-ind,t,15.7);o.y+=2;};
+    const bullet=t=>{o.setFont(F,'',11);o.need(18);o.text(ML+16,o.y,'\u2022');o.mc(ML+28,W-28,t,15.7);o.y+=1.5;};
+    const trow=(k,v,kw=158.7,vw=311.8)=>{ // 键值行：超宽自动折行扩格
+      o.setFont(F,'',10);
+      const lines=o.wrap(v,vw-10),h=Math.max(17,lines.length*13.4+5);
+      o.need(h);
+      const y0=o.y;
+      o.rect(ML,y0,kw,h);o.setFont(F,'B',10);const yy0=o.y;o.y=y0+3.5;o.mc(ML+4,kw-8,k,13.4,'L');o.y=yy0;
+      o.rect(ML+kw,y0,vw,h);o.setFont(F,'',10);o.y=y0+3.5;o.mc(ML+kw+4,vw-8,v,13.4,'L');o.y=y0+h;};
+    // ---- 封面 ----
+    o.addPage();o.y+=108;
+    hTitle('PROPOSED PROGRAMME OF\nEXPLORATION OPERATIONS');o.y+=6;
+    o.setDC(AC);o.line(170,o.y,425,o.y);o.y+=18;
+    hSub(`Company: ${coName}`,13,'B');o.y+=6;
+    hSub(`PACRA Registration No. ${co.regNo||''}`,10);
+    hSub(co.address||'',10);o.y+=10;
+    hSub(`Application for a ${licEn}`,11,'B');
+    hSub(DATE,11);
+    // ---- 目录 ----
+    if(toc){
+      o.addPage();o.setFont(F,'B',14);o.setTC(AC);o.text(ML,o.y,'CONTENTS');o.setTC([0,0,0]);o.y+=26;o.setDC(AC);o.line(ML,o.y,ML+W,o.y);o.y+=16;
+      SECTIONS.forEach((s,i)=>{
+        const pg=String(toc[i+1]||'');
+        o.setFont(F,'B',11);o.text(ML,o.y,`${i+1}.  ${s}`);
+        o.setFont(F,'',10.5);
+        const xw=o.tw(`${i+1}.  ${s}`)+8, dotw=o.tw('.');
+        const rest=ML+W-xw-2-o.tw(pg);
+        if(STY.dot)for(let dx=xw;dx<xw+rest;dx+=dotw)o.text(dx,o.y,'.');
+        o.text(ML+W-2,o.y,pg,'r',0);
+        o.y+=20;});
+      o.y+=10;o.setFont(F,'I',9.5);o.setTC([110,110,110]);
+      o.mc(ML,W,'This document forms part of the application for a mining right submitted to the Minerals Regulation Commission / Mining Cadastre, Republic of Zambia.',14);
+      o.setTC([0,0,0]);}
+    o.addPage();
+    // ---- 1 ----
+    sec(1,SECTIONS[0]);
+    sub('1.1','Executive Summary');
+    body(`${coName} has formulated this ${years}-year Programme of Exploration Operations in support of an application for a ${licEn} covering approximately ${ha.toLocaleString('en-US')} hectares (${km2} km\xb2) in ${loc}, Zambia. The programme is designed around the exploration of ${commodity.toLowerCase()} mineralisation, and follows a systematic, phased de-risking methodology that progresses from low-impact regional screening techniques to focused geophysical and drill testing, maximising capital efficiency while minimising environmental disturbance.`);
+    sub('1.2','Scope and Objectives');
+    body('The technical and commercial objectives of this programme are to:');
+    bullet('Systematically de-risk the licence area through integrated remote sensing, reprocessed airborne geophysical data, and regional soil geochemical surveys.');
+    bullet('Define, rank and delineate structural and lithological copper targets using ground-based induced polarization (IP), magnetics, infill geochemistry and detailed mapping.');
+    bullet(`Execute a focused drilling campaign (approximately ${rc} m of Reverse Circulation and ${dd} m of Diamond Core drilling) to test depth continuity, thickness and grade of prioritised targets.`);
+    bullet('Establish an initial exploration target inventory compliant with recognised reporting standards, while maintaining the highest standards of Health, Safety, Environmental and Community (HSEC) stewardship and maximising local Zambian participation.');
+    sub('1.3','Tenure Information and Location');
+    body(`The licence area comprises approximately ${ha.toLocaleString('en-US')} hectares within ${loc}, Zambia. Access is via the national trunk road network with local access by secondary and tertiary unpaved roads. Topography across the area is characterised by undulating plateau terrain interspersed with dissected river valleys and seasonal miombo woodland cover.`);
+    sub('1.4','Project Summary');
+    trow('Applicant',coName);trow('PACRA Registration No.',co.regNo||'');
+    trow('Registered Office',co.address||'');trow('Licence Type Applied For',licEn);
+    trow('Licence Area Location',loc+', Zambia');trow('Target Commodity',commodity);
+    trow('Applied Area',`${ha.toLocaleString('en-US')} hectares (${km2} km\xb2)`);
+    trow('Exploration Period',`${years} years`);trow('Estimated Total Investment',zmw(invest));
+    trow('Planned Drilling',`approx. ${rc} m RC + ${dd} m diamond core`);
+    trow('Planned Employment',`approx. ${staff} persons, not less than ${cit}% Zambian citizens`);
+    // ---- 2 ----
+    sec(2,SECTIONS[1]);
+    sub('2.1','Regional Geological Framework');
+    body('The licence area occupies a critical geotectonic position within the Proterozoic architecture of Central and Northern Zambia. The regional geology is dominated by the northeast-trending Mesoproterozoic Irumide Belt (approximately 1.02-1.0 Ga), comprising deformed crystalline basement complexes, high-grade metasediments of the Muva Supergroup, and syn- to post-tectonic granitic to dioritic plutons, with margins adjacent to the Bangweulu Block and the northern Irumide foreland. Superimposed Pan-African structural corridors (Lufilian Arc foreland transfer zones) introduced crustal-scale shear systems, fluid circulation pathways and thermal overprints during the 550-500 Ma Pan-African orogenic cycle.');
+    sub('2.2','Local Geology and Mineralisation Model');
+    body('Locally, the licence footprint is expected to feature quartzites, pelitic to psammitic schists and amphibolites juxtaposed against gneissoid basement cores and altered intrusives. Ductile to brittle-ductile shear zones and cross-cutting northwest-to-northeast fault systems control the structural architecture and provided conduits for late hydrothermal fluids. The exploration model evaluates two complementary mineralisation styles: (1) structurally-controlled, shear-hosted hydrothermal copper in quartz-carbonate-sulphide veins and breccia matrices within high-strain zones; and (2) copper-iron associations of IOCG/metasomatic affinity along altered intrusive boundaries and regional fault intersections. Primary hypogene copper is anticipated as chalcopyrite and bornite, with supergene malachite, chrysocolla and azurite potential in the oxidised near-surface profile.');
+    sub('2.3','Exploration Rationale');
+    body(`Historical exploration across the district corridor focused largely on manganese and gemstones, leaving structurally controlled ${commodity.toLowerCase()} potential underexplored by modern geophysical and multi-element geochemical methods. The presence of regional-scale fault splays, amphibolitic rocks (efficient chemical traps for ${commodity.toLowerCase()}-bearing fluids) and proximity to deep crustal lineaments underscores the technical prospectivity of the ground. Systematic screening with modern geochemistry and targeted geophysics presents an outstanding discovery opportunity.`);
+    // ---- 3 ----
+    sec(3,SECTIONS[2]);
+    body('The exploration strategy follows a phased de-risking approach in which capital commitment scales proportionately with geoscientific confidence. Each stage has defined technical objectives that must be validated prior to initiating consecutive capital-intensive operations.');
+    const phases=[
+      ['3.1','Year 1 - Regional Screening, Geophysics and Baseline Geochemistry',[
+        'Satellite remote sensing: acquisition and multi-spectral processing of Sentinel-2 and Aster imagery to identify hydrothermally altered zones and structural lineaments.',
+        'Reprocessing of regional airborne magnetic and radiometric datasets to map basement fabrics, shear systems and potential intrusive contacts.',
+        'Regional geological mapping: field verification, regolith-landform mapping, structural measurements and lithological sampling at 1:20,000 scale.',
+        'First-pass regional soil geochemistry: systematic soil sampling on a 400 m line spacing with 100 m station intervals, assayed by handheld XRF and accredited laboratories.',
+        'UAV topographic survey and establishment of QGIS base layers.']],
+      ['3.2','Year 2 - Target Delineation, Trenching and Ground Geophysics',[
+        'High-density infill soil sampling: tightened grids of 100 m line spacing with 50 m station intervals over geochemical clusters identified in Year 1.',
+        'Trenching and pitting: excavation of trenches and shallow pits with excavators (e.g. JCB 3DX) over prioritised anomalies; systematic channel sampling.',
+        'Ground geophysical surveys: walk-mag profiling (50 m spacing) and induced polarization/resistivity surveys across anomalous zones to map chargeable sulphide bodies to ~200 m depth.',
+        'Detailed structural and alteration mapping at 1:2,000-1:5,000 scale to refine structural controls and kinematic indicators.']],
+      ['3.3','Year 3 - Subsurface Drill Testing',[
+        `Exploration drilling campaign of approximately ${(parseInt(rc.replace(/,/g,''))+parseInt(dd.replace(/,/g,''))).toLocaleString('en-US')} m across prioritised structural and IP-chargeability targets.`,
+        `Reverse Circulation (RC) drilling (~${rc} m): rapid initial testing of anomalous horizons and oxidised profiles to vertical depths of 80-120 m.`,
+        `Diamond Core (DD) drilling (~${dd} m): HQ/NQ core drilling to verify structural controls, mineralogy, downhole geometry and physical rock parameters of primary sulphide zones.`,
+        'Collation of drill-core data, updating of the geological database and preliminary 3D modelling of mineralised bodies.']],
+      ['3.4','Year 4 - Resource Estimation and Pre-Feasibility',[
+        'Integration of geochemical, geophysical and drilling datasets into a Leapfrog 3D environment to define a JORC-/NI 43-101-aligned exploration target inventory.',
+        'Bulk sampling and metallurgical testing (gravity separation and/or leaching) to determine ore recoverability.',
+        'Production of a preliminary mineral resource estimate report.',
+        'Completion of a Pre-Feasibility Study (PFS) and baseline data collection for the Environmental Impact Study (EIS), in preparation for a Mining Licence application.']]];
+    phases.forEach(([num,name,items])=>{o.need(70);sub(num,name);items.forEach(bullet);});
+    // ---- 4 ----
+    o.need(90);sec(4,SECTIONS[3]);
+    body('Exploration in Central and Northern Zambia is heavily affected by seasonal rainfall. Field schedules are structured to execute ground-intensive and earthmoving works during the dry and transitional seasons (April to November), while the peak wet season (December to March) is reserved for analytical processing, data synthesis, interpretation and subsequent programme planning.');
+    // ---- 5 预算表 ----
+    sec(5,SECTIONS[4]);
+    body(`The total ${years}-year financial commitment is ${zmw(invest)}. Expenditure scales progressively to match field activity intensity, and will be funded from the shareholders' committed capital contributions.`);
+    o.y+=3;
+    const cw=[62.4,300.7,107.4];
+    const hdr=(STY.sec==='band')?[255,255,255]:[0,0,0];
+    o.need(20);o.setFont(F,'B',10);o.setTC(hdr);o.setFC(STY.hdr);
+    let x=ML;['Stage','Main activities','Expenditure'].forEach((c,i)=>{o.rect(x,o.y,cw[i],20,'FD');o.text(x,o.y+6.5,c,'c',cw[i]);x+=cw[i];});
+    o.setTC([0,0,0]);o.y+=20;
+    BUDGET.forEach(([stage,act,amt])=>{
+      o.setFont(F,'',9.5);
+      const lines=o.wrap(act,cw[1]-10),h=Math.max(17,lines.length*13.6+4);
+      o.need(h);
+      const y0=o.y;
+      o.rect(ML,y0,cw[0],h);o.text(ML,y0+5.5,stage,'c',cw[0]);
+      o.rect(ML+cw[0],y0,cw[1],h);const yy=o.y;o.y=y0+4;o.mc(ML+cw[0]+5,cw[1]-10,act,13.6,'L');o.y=yy;
+      o.rect(ML+cw[0]+cw[1],y0,cw[2],h);o.text(ML+cw[0]+cw[1],y0+5.5,zmw(amt),'r',cw[2]-6);
+      o.y=y0+h;});
+    o.need(22);o.setFont(F,'B',10);
+    o.rect(ML,o.y,cw[0]+cw[1],19);o.text(ML+5,o.y+6,`TOTAL - committed investment over ${years} years`);
+    o.rect(ML+cw[0]+cw[1],o.y,cw[2],19);o.text(ML+cw[0]+cw[1],o.y+6,zmw(invest),'r',cw[2]-6);
+    o.y+=19+8;
+    // ---- 6 ----
+    sec(6,SECTIONS[5]);
+    body(`${coName} implements a lean, technically driven management structure. A qualified Project Geologist supervises all field operations, technical strategy and budget execution, reporting directly to the Board of Directors. The field organisation of approximately ${staff} persons will comprise:`);
+    bullet('Core technical team: project geologist, geological technicians, GIS/survey assistant.');
+    bullet('Field workforce: samplers, line-cutters, drill-site assistants, drivers and camp staff recruited locally.');
+    body(`Not less than ${cit}% of the workforce will be citizens of Zambia, with priority given to residents of the districts hosting the licence area. Skills transfer and safety induction will be provided to all citizen employees at the start of each field campaign.`);
+    // ---- 7 ----
+    sec(7,SECTIONS[6]);
+    body(`${coName} enforces a strict "Zero Harm" safety philosophy across all exploration operations, conducted in accordance with the Environmental Management Act No. 12 of 2011, the Mines and Minerals Development Act, and an approved Environmental Project Brief (EPB).`);
+    bullet('Upon completion of all trenching and drilling works, all sites will be backfilled and revegetated in strict compliance with Zambia Environmental Management Agency (ZEMA) requirements.');
+    bullet('Priority will be given to employing members of the local community for line-cutting, sampling and camp support, ensuring a positive economic impact on surrounding communities.');
+    bullet('All field work will be preceded by engagement with the local Chief and community leadership; any environmental incident will be reported to ZEMA and the Mines Safety Department as required.');
+    // ---- 8 ----
+    sec(8,SECTIONS[7]);
+    body('To ensure sound financial stewardship and avoid deploying high-cost drilling assets to low-potential targets, the Company employs a structured Stage-Gate decision framework at the conclusion of each operational year. Progression from one phase to the next is conditional upon the preceding phase meeting its defined technical criteria (e.g. drill testing proceeds only where coincident geochemical and geophysical anomalies are confirmed). This framework ensures capital is committed responsibly and exploration expenditure is governed by empirical geological data, operational transparency and strict statutory compliance.');
+    // ---- 附录A ----
+    o.addPage();sec(9,SECTIONS[8]);
+    body(`The corner coordinates of the licence area applied for (${ha.toLocaleString('en-US')} hectares, ${loc}, Zambia) are tabulated below. Coordinates are given in the Arc 1950 datum as recorded on the official Form I application.`);
+    o.y+=3;
+    const coords=(a.area.coords||[]).filter(c=>String(c).trim());
+    if(coords.length){
+      const aw=[62.4,175.8,175.8];
+      o.setFont(F,'B',10);o.setTC(hdr);o.setFC(STY.hdr);x=ML;
+      ['Corner','Latitude (S)','Longitude (E)'].forEach((c,i)=>{o.rect(x,o.y,aw[i],20,'FD');o.text(x,o.y+6.5,c,'c',aw[i]);x+=aw[i];});
+      o.setTC([0,0,0]);o.y+=20;
+      o.setFont(F,'',10);
+      coords.forEach((c,i)=>{
+        const la=c.lat??(Array.isArray(c)?c[0]:''),lo=c.lng??(Array.isArray(c)?c[1]:'');
+        o.need(19);
+        o.rect(ML,o.y,aw[0],17);o.text(ML,o.y+5,String(i+1),'c',aw[0]);
+        o.rect(ML+aw[0],o.y,aw[1],17);o.text(ML+aw[0],o.y+5,String(la),'c',aw[1]);
+        o.rect(ML+aw[0]+aw[1],o.y,aw[2],17);o.text(ML+aw[0]+aw[1],o.y+5,String(lo),'c',aw[2]);
+        o.y+=17;});
+      o.y+=8;body(`Total corner points: ${coords.length}. Datum: Arc 1950. Area computed from corner coordinates: ${km2} km\xb2.`);
+    }else{
+      o.setFont(F,'I',11);
+      o.mc(ML,W,'Corner coordinates as per the coordinate schedule attached to Form I (Duly Filled in Application Form).',15.7);}
+    return o;
+  }
+  build(); // 第一遍取页码
+  const toc={};Object.keys(secPages).forEach(k=>toc[k]=secPages[k]+1);
+  const o=build(toc);
+  return o.output(`${coName} - Proposed Programme of Exploration Operations`);
+}
+async function genProgPdf(){
+  const a=curApp(); if(!a) return toast('先选择申请');
+  try{
+    const blob=progPdfBlob(a);
+    const safe=s=>String(s||'').replace(/[^\w\s.-]/g,'').trim();
+    downloadBlob(blob,`Proposed Programme of Exploration Operations - ${safe(a.label||'app')}.pdf`);
+    toast('已导出正式 PDF');
+  }catch(e){ toast('生成失败：'+e.message); }
+}
 // 导出递交包：公司目录/申请目录两层，文件名=门户槽位英文名
 async function exportPackage(){
   const a=curApp(); if(!a) return toast('先建立申请');
@@ -1658,7 +1937,11 @@ async function exportPackage(){
     const name=safe(en);
     const draftTxt=genKey&&(a.drafts[genKey]||'').trim();
     const eff=effDoc(a,key,cat);
-    if(draftTxt){
+    if(genKey==='prog'){
+      // 勘探工作计划 → 直接生成正式版式 PDF（数据驱动，不依赖文稿）
+      try{ files.push({name:name+'.pdf',blob:progPdfBlob(a)}); manifest.push(`[系统生成·正式版式] ${name}.pdf`); }
+      catch(e){ missing.push(en+'（生成失败）'); manifest.push(`[生成失败] ${en}`); }
+    }else if(draftTxt){
       files.push({name:name+'.pdf',blob:textToPdfBlob(a.drafts[genKey])});
       manifest.push(`[生成文稿] ${en}.pdf`);
     }else if(key==='form'&&!eff.d.mediaKey){
