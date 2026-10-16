@@ -600,12 +600,12 @@ function renderDocs(){
         <div class="doc-name">${en} ${eff.src==='co'?'<span style="font-size:11px;color:var(--primary);font-weight:700">公司档</span>':''}</div>
         <div class="doc-cn">${cn}</div>
         <div class="doc-meta">
-          <label for="filePick" style="cursor:pointer" onclick="uploadDocKey='${key}';uploadScope='app'">📎 ${st.mediaKey?'替换':'上传文件'}</label>
+          ${!DOC_PDF[d[5]]?`<label for="filePick" style="cursor:pointer" onclick="uploadDocKey='${key}';uploadScope='app'">📎 ${st.mediaKey?'替换':'上传文件'}</label>`:''}
           ${st.mediaKey?`<a href="javascript:void(0)" onclick="viewFile('${st.mediaKey}','${jsq(st.fileName||'文件')}')" title="${esc(st.fileName||'')}">${esc(st.fileName||'查看')}</a>`:''}
           ${st.srcPath?`<a href="javascript:void(0)" onclick="openSrcDir('${jsq(st.srcPath)}')" title="打开来源文件夹">${'📁'}</a>`:''}
           ${docDate(st)?`<span class="muted" style="font-size:11px">传于 ${docDate(st)}</span>`:''}
           ${key==='form'?`<a href="javascript:void(0)" onclick="genForm1()" style="color:var(--success);font-weight:700">🧾 生成 Form I</a>`:''}
-          ${d[5]?`<a href="javascript:void(0)" onclick="jumpWrite('${d[5]}')" style="color:${(a.drafts[d[5]]||'').trim()?'var(--success)':'var(--muted)'}">${(a.drafts[d[5]]||'').trim()?'✍️ 文稿✓':'✍️ 编写'}</a>`:''}
+          ${d[5]&&!DOC_PDF[d[5]]?`<a href="javascript:void(0)" onclick="jumpWrite('${d[5]}')" style="color:${(a.drafts[d[5]]||'').trim()?'var(--success)':'var(--muted)'}">${(a.drafts[d[5]]||'').trim()?'✍️ 文稿✓':'✍️ 编写'}</a>`:''}
           ${DOC_PDF[d[5]]?`<a href="javascript:void(0)" onclick="genDocPdf('${d[5]}')" style="color:var(--success);font-weight:700">📄 正式版 PDF</a>`:''}
           ${exp?`到期 <input type="date" value="${st.expiry||''}" onchange="setDoc('${key}','expiry',this.value)">`:''}
         </div>
