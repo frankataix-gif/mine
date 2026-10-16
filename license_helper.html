@@ -1997,9 +1997,95 @@ function envPdfBlob(a){
   const toc={};Object.keys(secPages).forEach(k=>toc[k]=secPages[k]+1);
   return build(toc).output(`${coName} - Environmental Commitment Plan`);
 }
+/* ================= Employment & Training of Zambian Citizens 正式 PDF ================= */
+function empPdfBlob(a){
+  const B=reportBase(a),{co,coName,km2,ha,loc,commodity,licEn,DATE,zmw,STY}=B;
+  const years=+(a.params.years||4), staff=+(String(a.params.staff||'26').replace(/\D/g,''))||26;
+  const cit=+(String(a.params.citizenPct||'92').replace(/\D/g,''))||92;
+  const invest=progInvest(a);
+  // 人力结构（峰值=staff）：管理3/技术6/技能8/普工9 的比例
+  const mix=[.12,.23,.30,.35];
+  const ramp=[.60,.85,1.0,.90]; // Y1..Y4 用工爬坡
+  const CATS=[
+    ['Management & Senior Technical','Exploration Manager, Senior Geologist, GIS Specialist',mix[0]],
+    ['Technical & Supervisory','Field Geologists, Drill Supervisors, Surveyors, Sampling Leads',mix[1]],
+    ['Skilled & Semi-Skilled Trades','Excavator/Backhoe Operators, Mechanics, Core Cutters, Camp Drivers, Electricians',mix[2]],
+    ['Unskilled / General Labour','Trenching workers, line cutters, sample porters, camp support and security',mix[3]],
+  ];
+  const WROWS=CATS.map(([n,eg,m])=>[n,...ramp.slice(0,years).map(r=>Math.max(1,Math.round(staff*m*r)))]);
+  const totalY=ramp.slice(0,years).map(r=>Math.round(staff*r));
+  // 公民化率目标（按年）
+  const citY=years>=4?[75,82,88,92]:[70,80,90];
+  // 培训预算 = 总投资的1%分年（凑整千）
+  const tAll=Math.round(invest*0.012/1000)*1000;
+  const TROWS=[
+    ['Induction & OHS training (all employees, annual refresher)',Math.round(tAll*.28/1000)*1000],
+    ['Technical skills transfer (GPS, geological logging, pXRF, core cutting)',Math.round(tAll*.34/1000)*1000],
+    ['Machinery operation & maintenance (JCB operators, mechanics)',Math.round(tAll*.20/1000)*1000],
+    ['Graduate mentorship & professional development sponsorship',Math.round(tAll*.18/1000)*1000],
+  ];
+  const SECTIONS=['EXECUTIVE SUMMARY AND POLICY COMMITMENT','EMPLOYMENT FORECAST AND WORKFORCE LOCALIZATION PLAN','STRUCTURED TRAINING AND SKILLS DEVELOPMENT PROGRAMME','SKILLS TRANSFER AND SUCCESSION PLANNING','HEALTH, SAFETY, EQUAL OPPORTUNITY AND WELFARE COMMITMENTS','IMPLEMENTATION SCHEDULE AND MONITORING FRAMEWORK'];
+  const secPages={};
+  function build(toc){
+    const o=pdfDoc(),{sec,sub,body,bullet,trow,grid,cover,toc:tocP,F,AC,W,ML}=repShell(o,STY,secPages);
+    cover('PROPOSALS FOR THE EMPLOYMENT AND|TRAINING OF CITIZENS OF ZAMBIA',coName,co,licEn,DATE);
+    if(toc) tocP(SECTIONS,toc);
+    o.addPage();
+    // ---- 1 ----
+    sec(1,SECTIONS[0]);
+    body(`${coName} ("the Company") submits these Proposals for the Employment and Training of Citizens of Zambia in support of its application for a ${licEn} covering approximately ${ha.toLocaleString('en-US')} hectares (${km2} km\xb2) in ${loc}, Zambia. The exploration programme covers desktop studies, UAV topographic surveys, geochemical soil sampling, pitting and trenching (using backhoe loaders such as the JCB 3DX), RC and diamond drilling campaigns, bulk sampling and temporary camp logistics.`);
+    sub('1.1','Policy Commitment');
+    body('In compliance with the Mines and Minerals Development Act No. 11 of 2015 and national local-content policy, the Company shall guarantee priority of employment to citizens of Zambia across all organisational tiers — unskilled, semi-skilled, technical and managerial — and shall implement a structured programme for skills development, mentorship and succession planning throughout the tenure of the licence.');
+    bullet('100% Zambian representation in unskilled and semi-skilled roles from commencement of operations.');
+    bullet('A targeted path toward at least 85-90% Zambian representation in technical and supervisory roles by the later years of the programme.');
+    bullet('Priority sourcing of unskilled and support labour directly from the surrounding chiefdoms and villages hosting the licence area.');
+    // ---- 2 ----
+    sec(2,SECTIONS[1]);
+    body('The manpower projection below reflects the phased ramp-up of field activity over the exploration tenure. Headcounts represent peak field-season strength in each year.');
+    o.y+=3;
+    grid(['Workforce Category / Roles',...Array.from({length:years},(_,i)=>`Year ${i+1}`)], [250,...Array(years).fill(55.1)],
+         [...WROWS,['Total headcount (peak field season)',...totalY]],9.3);
+    o.y+=4;
+    body(`Localization trajectory: unskilled and semi-skilled categories shall be staffed 100% by Zambian citizens from the outset; overall citizen representation across the total workforce shall not fall below ${cit}%, rising from approximately ${citY[0]}% in Year 1 to ${citY[citY.length-1]}% by Year ${years} as trained Zambian staff take over technical and supervisory functions.`);
+    // ---- 3 ----
+    sec(3,SECTIONS[2]);
+    sub('3.1','Basic Operational & Safety Training (Induction and OHS)');
+    bullet('Mandatory field safety induction, hazard identification, First Aid training and PPE compliance for every employee before site deployment.');
+    bullet('Environmental protection awareness covering topsoil preservation, hydrocarbon spill prevention and drill-hole capping standards.');
+    sub('3.2','Technical and Specialized Skills Transfer');
+    bullet('Modern exploration methodologies: GPS navigation, geological logging, portable XRF analyzer operation, and core orientation and cutting procedures.');
+    bullet('Heavy machinery operation and daily maintenance protocols, including JCB 3DX backhoe loader pre-start inspections and hydraulic safety.');
+    sub('3.3','Mentorship and Professional Development');
+    bullet('Junior Zambian graduate geologists and mining engineers shall be sponsored through continuous field mentorship under senior professionals, with structured progress reviews each field season.');
+    // ---- 4 ----
+    sec(4,SECTIONS[3]);
+    body('The Company\'s policy is that expatriate specialists are engaged strictly for specialized technical oversight and knowledge transfer, and not as permanent staffing. Each expatriate technical expert shall be formally paired with a Zambian understudy or deputy, with documented annual performance benchmarks, such that operational control is transferred to Zambian personnel within 24 to 36 months of commencement of each function.');
+    bullet('Succession plans shall be documented for every expatriate-held position, reviewed annually against measurable competency milestones.');
+    bullet('Where a suitably qualified Zambian candidate exists for any position, that candidate shall be given preference in recruitment.');
+    // ---- 5 ----
+    sec(5,SECTIONS[4]);
+    bullet('Fair remuneration aligned with Zambian labour law and applicable National Joint Negotiating Council standards, paid promptly and documented.');
+    bullet('Gender diversity: the Company shall actively encourage the recruitment and technical training of female professionals and local women in field operations.');
+    bullet('Worker welfare: supply of complete PPE at no cost, potable water at all work sites, medical emergency protocols including first-aid stations and evacuation plans, and hygienic on-site sanitation facilities.');
+    bullet('Equal opportunity: recruitment, promotion and training selection shall be conducted without discrimination on grounds of tribe, religion, gender or disability.');
+    // ---- 6 ----
+    sec(6,SECTIONS[5]);
+    body('The Company shall allocate a dedicated annual training budget of approximately ' + zmw(tAll) + ' across the exploration tenure, distributed as follows:');
+    o.y+=3;
+    grid(['Training Module','Annual Allocation (ZMW)'],[330,140],[...TROWS.map(([m,v])=>[m,zmw(v)]),['Total annual training budget',zmw(TROWS.reduce((s,[,v])=>s+v,0))]],9.3);
+    o.y+=4;
+    bullet('The Company shall submit annual employment and training audit returns to the Director of Mines and the Mining Cadastre, documenting workforce composition, localization ratios, training delivered and expenditure incurred.');
+    bullet('Training records, certification and succession progress shall be maintained at site level and made available for inspection by officers of the Ministry.');
+    return o;
+  }
+  build();
+  const toc={};Object.keys(secPages).forEach(k=>toc[k]=secPages[k]+1);
+  return build(toc).output(`${coName} - Proposals for Employment and Training of Citizens of Zambia`);
+}
 /* ================= 通用导出入口 ================= */
 const DOC_PDF={prog:{fn:a=>progPdfBlob(a),en:'Proposed Programme of Exploration Operations'},
-               env:{fn:a=>envPdfBlob(a),en:'Environmental Commitment Plan'}};
+               env:{fn:a=>envPdfBlob(a),en:'Environmental Commitment Plan'},
+               emp:{fn:a=>empPdfBlob(a),en:'Proposals for Employment and Training of Citizens of Zambia'}};
 async function genDocPdf(key){
   const a=curApp(); if(!a) return toast('先选择申请');
   const d=DOC_PDF[key]; if(!d) return toast('该文件暂无正式版式');
