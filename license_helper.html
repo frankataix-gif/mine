@@ -485,6 +485,9 @@ function editApp(id){
   const a=S.apps.find(x=>x.id===id); if(!a) return;
   openSheet(`<h3>修改申请</h3>
     <label>名称</label><input id="eaLabel" value="${esc(a.label)}">
+    <label>申请主体</label><select id="eaCo">${S.companies.map(c=>`<option value="${c.id}" ${a.companyId===c.id?'selected':''}>${esc(c.name)}${c.kind==='person'?'（个人）':''}</option>`).join('')}
+      <option value="person" ${a.applicantKind==='person'&&!a.companyId?'selected':''}>公民个人（未建档）</option>
+      <option value="coop" ${a.applicantKind==='coop'&&!a.companyId?'selected':''}>合作社</option></select>
     <label>证型</label><select id="eaType">${Object.keys(LIC).map(k=>`<option value="${k}" ${a.type===k?'selected':''}>${LIC[k].name} ${LIC[k].en}</option>`).join('')}</select>
     <label>矿种</label><input id="eaCom" value="${esc(a.commodity||'')}">
     <label>地理位置（显示原文）</label><input id="eaLoc" value="${esc(a.area.locRaw||'')}" placeholder="Central, Serenje; Northern, Mpika">
@@ -496,6 +499,10 @@ function editApp(id){
 function saveAppEdit(id){
   const a=S.apps.find(x=>x.id===id); if(!a) return;
   a.label=$('eaLabel').value.trim()||a.label;
+  const coSel=$('eaCo').value, selCo=S.companies.find(c=>c.id===coSel);
+  a.companyId=(coSel==='person'||coSel==='coop')?null:coSel;
+  a.applicantKind=coSel==='coop'?'coop':(selCo&&selCo.kind==='person')?'person':coSel==='person'?'person':'company';
+  if(selCo&&selCo.kind==='person') a.applicantName=selCo.name;
   a.type=$('eaType').value; a.commodity=$('eaCom').value.trim();
   a.area.province=$('eaProv').value.trim(); a.area.district=$('eaDist').value.trim();
   a.area.locRaw=$('eaLoc').value.trim();
