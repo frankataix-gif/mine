@@ -606,14 +606,16 @@ function renderDocs(){
     const [key,en,cn,cat,exp]=d;
     if(ord(d)!==lastOrd){ lastOrd=ord(d); html+=`<h3 style="margin:10px 0 2px">${catTitle[lastOrd]}</h3>`; }
     const eff=effDoc(a,key,cat), st=eff.d;
-    const canUp=cat!=='A'||key==='form'||!a.companyId; // A类仅在有公司档时只读；个人申请(AMR)仍需上传
+    const selCoRec=a.companyId?S.companies.find(c=>c.id===a.companyId):null;
+    const isPers=selCoRec&&selCoRec.kind==='person';
+    const canUp=cat!=='A'||key==='form'||!a.companyId||isPers; // 公司档A类只读；个人档A类可在申请页上传（写回个人档）
     html+=`<div class="doc" ${canUp?`ondragover="event.preventDefault()" ondrop="docDrop(event,'${key}','app')"`:''}>
       <button class="chip s${st.status}" onclick="cycleStatus('${key}')">${ST_TXT[st.status]}</button>
       <div class="doc-body">
         <div class="doc-name">${en} ${eff.src==='co'?'<span style="font-size:11px;color:var(--primary);font-weight:700">公司档</span>':''}</div>
         <div class="doc-cn">${cn}</div>
         <div class="doc-meta">
-          ${!DOC_PDF[d[5]]&&canUp?`<label for="filePick" style="cursor:pointer" onclick="uploadDocKey='${key}';uploadScope='app'">📎 ${st.mediaKey?'替换':'上传文件'}</label>`:''}
+          ${!DOC_PDF[d[5]]&&canUp?`<label for="filePick" style="cursor:pointer" onclick="uploadDocKey='${key}';uploadScope='${cat==='A'&&isPers?'coApp':'app'}';window.uploadCoId='${isPers?a.companyId:''}'">📎 ${st.mediaKey?'替换':'上传文件'}</label>`:''}
           ${st.mediaKey?`<a href="javascript:void(0)" onclick="viewFile('${st.mediaKey}','${jsq(st.fileName||'文件')}')" title="${esc(st.fileName||'')}">${esc(st.fileName||'查看')}</a>`:''}
           ${st.srcPath?`<a href="javascript:void(0)" onclick="openSrcDir('${jsq(st.srcPath)}')" title="打开来源文件夹">${'📁'}</a>`:''}
           ${docDate(st)?`<span class="muted" style="font-size:11px">传于 ${docDate(st)}</span>`:''}
@@ -709,7 +711,8 @@ function docDrop(e, key, scope){
   handlePickedFile(f, key, scope||'co');
 }
 async function handlePickedFile(f, uploadDocKey, uploadScope){
-  const a=curApp(), co=curCo(), key=uploadDocKey;
+  const a=curApp(), key=uploadDocKey;
+  const co=uploadScope==='coApp'?S.companies.find(c=>c.id===window.uploadCoId):curCo();
   toast('上传中…');
   try{
     // 走 Worker /upload 代传 R2，避开 file:// 源被 R2 CORS 拦截
@@ -717,7 +720,7 @@ async function handlePickedFile(f, uploadDocKey, uploadScope){
     const r=await fetch(API+'/upload',{method:'POST',body:fd});
     const j=await r.json();
     if(!j.ok||!j.key) throw new Error(j.error||('HTTP '+r.status));
-    if(uploadScope==='co'&&co){
+    if((uploadScope==='co'||uploadScope==='coApp')&&co){
       if(key.startsWith('x_')){
         const xd=(co.extraDocs||[]).find(d=>('x_'+d.id)===key);
         if(xd){ xd.fileName=f.name; xd.mediaKey=j.key; xd.at=new Date().toISOString().slice(0,10); }
@@ -729,7 +732,7 @@ async function handlePickedFile(f, uploadDocKey, uploadScope){
         try{ const t=await extractPdfText(f); mergeProfile(co,analyzeText(t,{people:key==='pacra'})); toast('已上传并解析字段'); }
         catch(e2){ toast('已上传（PDF 文本解析失败，可能是扫描件）'); }
       }else toast('已上传到公司档');
-      persist(); renderCo();
+      persist(); uploadScope==='coApp'?renderDocs():renderCo();
     }else{
       if(!a) return toast('先建立申请');
       a.docs[key]=a.docs[key]||{status:0};
