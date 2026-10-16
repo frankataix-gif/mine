@@ -2083,9 +2083,66 @@ function empPdfBlob(a){
   return build(toc).output(`${coName} - Proposals for Employment and Training of Citizens of Zambia`);
 }
 /* ================= 通用导出入口 ================= */
+/* ================= Promotion of Local Business Development 正式 PDF ================= */
+function localPdfBlob(a){
+  const B=reportBase(a),{co,coName,km2,ha,loc,commodity,licEn,DATE,zmw,STY}=B;
+  const invest=progInvest(a);
+  const SECTIONS=['EXECUTIVE SUMMARY AND CORPORATE POLICY STATEMENT','CATEGORIZED PROCUREMENT STRATEGY FOR GOODS','SERVICES AND CONTRACTING STRATEGY','SUPPLIER CAPACITY BUILDING AND ENTERPRISE DEVELOPMENT','MONITORING, AUDITING AND REPORTING FRAMEWORK'];
+  const GROWS=[
+    ['Camp & Sustenance Supplies','Fresh food, agricultural produce and daily consumables','100% local — sourced directly from local farmers and markets in the districts hosting the licence area'],
+    ['Construction & Field Materials','Cement, timber, fencing materials and basic hardware for camp construction','Zambian suppliers preferred — district hardware merchants first, provincial suppliers where unavailable'],
+    ['Operational Consumables','Standard PPE (uniforms, boots, hard hats), fuel, basic mechanical spares','Zambian-owned distributors and fuel stations prioritized for all routine consumables'],
+  ];
+  const SROWS=[
+    ['Logistics & Transport','Material haulage and personnel movement','Contracted to local and national Zambian transport companies'],
+    ['Earthmoving & Plant Hire','Excavator/backhoe loader (e.g. JCB 3DX) rental for trenching','Zambian plant-hire vendors contracted wherever technically feasible'],
+    ['Ancillary Services','Security services, camp catering and site cleaning','Awarded to community-based SMEs in the surrounding chiefdoms'],
+    ['Technical Services','Environmental compliance consulting (ZEMA), drilling contractors','Zambian environmental consultants and local drilling contractors prioritized where technically feasible'],
+  ];
+  const secPages={};
+  function build(toc){
+    const o=pdfDoc(),{sec,sub,body,bullet,trow,grid,cover,toc:tocP,F,AC,W,ML}=repShell(o,STY,secPages);
+    cover('PROPOSALS FOR THE PROMOTION OF|LOCAL BUSINESS DEVELOPMENT',coName,co,licEn,DATE);
+    if(toc) tocP(SECTIONS,toc);
+    o.addPage();
+    // ---- 1 ----
+    sec(1,SECTIONS[0]);
+    body(`${coName} ("the Company") submits these Proposals for the Promotion of Local Business Development in support of its application for a ${licEn} covering approximately ${ha.toLocaleString('en-US')} hectares (${km2} km\xb2) in ${loc}, Zambia. The document is prepared in accordance with the Mines and Minerals Development Act No. 11 of 2015 and the guidelines of the Citizens Economic Empowerment Commission (CEEC).`);
+    sub('1.1','Corporate Policy Statement');
+    body('The Company commits to prioritizing Zambian-owned enterprises for the supply of goods and services throughout the exploration phase. The objective is to integrate the local business community into the project supply chain, thereby stimulating the local economy and complying with national wealth-creation directives. Preference shall be granted, in descending order, to enterprises based in the districts hosting the licence area, then to Zambian-citizen-owned companies, and thereafter to companies registered in Zambia.');
+    // ---- 2 ----
+    sec(2,SECTIONS[1]);
+    body('The goods categories below will be sourced exclusively or preferentially from Zambian businesses:');
+    o.y+=3;
+    grid(['Category','Description','Sourcing Policy'],[150,160,160],GROWS,9.3);
+    // ---- 3 ----
+    sec(3,SECTIONS[2]);
+    body('The following services will be contracted to Zambian-owned companies:');
+    o.y+=3;
+    grid(['Service Area','Scope','Contracting Policy'],[140,160,170],SROWS,9.3);
+    // ---- 4 ----
+    sec(4,SECTIONS[3]);
+    body('The Company shall actively assist local small and medium enterprises in meeting mining industry standards:');
+    bullet('Payment terms shall be relaxed for micro-enterprises (shortened payment cycles or partial advance payment) to support their cash flow.');
+    bullet('Clear written specifications on quality, safety and delivery requirements shall be issued with every request for quotation directed at local suppliers.');
+    bullet('Constructive feedback shall be offered to unsuccessful local bidders to help them qualify for future procurement opportunities.');
+    bullet('Where feasible, larger contract packages shall be broken into smaller lots within the capacity of local SMEs.');
+    // ---- 5 ----
+    sec(5,SECTIONS[4]);
+    bullet('The Company shall maintain a Local Procurement Register recording every contract and purchase order placed, the supplier\'s ownership status, and the value of Zambian content delivered.');
+    bullet('An annual report shall be submitted to the Director of Mines setting out the percentage of the exploration budget spent on Zambian goods and services, with a target of not less than 60% of addressable spend.');
+    bullet('The register and annual reports shall be made available for inspection by officers of the Ministry and the Citizens Economic Empowerment Commission.');
+    return o;
+  }
+  build();
+  const toc={};Object.keys(secPages).forEach(k=>toc[k]=secPages[k]+1);
+  return build(toc).output(`${coName} - Proposals for Promotion of Local Business Development`);
+}
+/* ================= 通用导出入口 ================= */
 const DOC_PDF={prog:{fn:a=>progPdfBlob(a),en:'Proposed Programme of Exploration Operations'},
                env:{fn:a=>envPdfBlob(a),en:'Environmental Commitment Plan'},
-               emp:{fn:a=>empPdfBlob(a),en:'Proposals for Employment and Training of Citizens of Zambia'}};
+               emp:{fn:a=>empPdfBlob(a),en:'Proposals for Employment and Training of Citizens of Zambia'},
+               local:{fn:a=>localPdfBlob(a),en:'Proposals for Promotion of Local Business Development'}};
 async function genDocPdf(key){
   const a=curApp(); if(!a) return toast('先选择申请');
   const d=DOC_PDF[key]; if(!d) return toast('该文件暂无正式版式');
