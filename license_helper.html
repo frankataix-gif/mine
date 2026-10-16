@@ -594,13 +594,13 @@ function renderDocs(){
     const [key,en,cn,cat,exp]=d;
     if(ord(d)!==lastOrd){ lastOrd=ord(d); html+=`<h3 style="margin:10px 0 2px">${catTitle[lastOrd]}</h3>`; }
     const eff=effDoc(a,key,cat), st=eff.d;
-    html+=`<div class="doc" ondragover="event.preventDefault()" ondrop="docDrop(event,'${key}','app')">
+    html+=`<div class="doc" ${cat!=='C'?`ondragover="event.preventDefault()" ondrop="docDrop(event,'${key}','app')"`:''}>
       <button class="chip s${st.status}" onclick="cycleStatus('${key}')">${ST_TXT[st.status]}</button>
       <div class="doc-body">
         <div class="doc-name">${en} ${eff.src==='co'?'<span style="font-size:11px;color:var(--primary);font-weight:700">公司档</span>':''}</div>
         <div class="doc-cn">${cn}</div>
         <div class="doc-meta">
-          ${!DOC_PDF[d[5]]?`<label for="filePick" style="cursor:pointer" onclick="uploadDocKey='${key}';uploadScope='app'">📎 ${st.mediaKey?'替换':'上传文件'}</label>`:''}
+          ${!DOC_PDF[d[5]]&&cat!=='C'?`<label for="filePick" style="cursor:pointer" onclick="uploadDocKey='${key}';uploadScope='app'">📎 ${st.mediaKey?'替换':'上传文件'}</label>`:''}
           ${st.mediaKey?`<a href="javascript:void(0)" onclick="viewFile('${st.mediaKey}','${jsq(st.fileName||'文件')}')" title="${esc(st.fileName||'')}">${esc(st.fileName||'查看')}</a>`:''}
           ${st.srcPath?`<a href="javascript:void(0)" onclick="openSrcDir('${jsq(st.srcPath)}')" title="打开来源文件夹">${'📁'}</a>`:''}
           ${docDate(st)?`<span class="muted" style="font-size:11px">传于 ${docDate(st)}</span>`:''}
