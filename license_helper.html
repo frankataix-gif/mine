@@ -221,7 +221,7 @@
       <button class="btn sm green" onclick="saveDraft()">存入申请</button>
       <button class="btn sm ghost" onclick="copyDraft()">复制</button>
       <button class="btn sm" onclick="printDraft()">导出 PDF</button>
-      <button class="btn sm green" id="progPdfBtn" onclick="genProgPdf()" style="display:none">📄 正式版 PDF</button>
+      <button class="btn sm green" id="progPdfBtn" onclick="genDocPdf($('genSel').value)" style="display:none">📄 正式版 PDF</button>
       <button class="btn sm gray" onclick="exportDoc()">.doc</button>
     </div>
   </div>
@@ -606,7 +606,7 @@ function renderDocs(){
           ${docDate(st)?`<span class="muted" style="font-size:11px">传于 ${docDate(st)}</span>`:''}
           ${key==='form'?`<a href="javascript:void(0)" onclick="genForm1()" style="color:var(--success);font-weight:700">🧾 生成 Form I</a>`:''}
           ${d[5]?`<a href="javascript:void(0)" onclick="jumpWrite('${d[5]}')" style="color:${(a.drafts[d[5]]||'').trim()?'var(--success)':'var(--muted)'}">${(a.drafts[d[5]]||'').trim()?'✍️ 文稿✓':'✍️ 编写'}</a>`:''}
-          ${d[5]==='prog'?`<a href="javascript:void(0)" onclick="genProgPdf()" style="color:var(--success);font-weight:700">📄 正式版 PDF</a>`:''}
+          ${DOC_PDF[d[5]]?`<a href="javascript:void(0)" onclick="genDocPdf('${d[5]}')" style="color:var(--success);font-weight:700">📄 正式版 PDF</a>`:''}
           ${exp?`到期 <input type="date" value="${st.expiry||''}" onchange="setDoc('${key}','expiry',this.value)">`:''}
         </div>
       </div></div>`;
@@ -1310,7 +1310,7 @@ function renderGen(){
     <label>本地商业承诺要点（可留空）</label><input id="gpLocal" value="${esc(p.localNote||'')}" onchange="pSave('localNote',this.value)">`;
   $('genOut').value=a?(a.drafts[sel.value]||''):'';
   $('genVia').textContent='';
-  $('progPdfBtn').style.display=sel.value==='prog'?'':'none';
+  $('progPdfBtn').style.display=DOC_PDF[sel.value]?'':'none';
 }
 function pSave(k,v){ const a=curApp(); if(!a)return; a.params[k]=v; persist(); }
 $('genSel'); // noop
@@ -1724,19 +1724,90 @@ function progInvest(a){ // 证型+面积定区间，确定性抖动；手工填 
   return Math.round((lo+(hi-lo)*Math.min(Math.max(km2/span+jit,0),1))/5e4)*5e4;
 }
 function simpleHash(s){let h=0;for(const c of String(s))h=((h<<5)-h+c.charCodeAt(0))|0;return Math.abs(h).toString(16);}
-function progPdfBlob(a){
+/* ===== 报告骨架：封面+目录+章节，所有正式版报告共用 ===== */
+function repShell(o,STY,secPages){
+  const F=STY.font,AC=STY.accent,W=o.W,ML=o.ML;
+  const R={o,W,ML,F,AC,STY};
+  R.sec=(num,txt)=>{secPages[num]=o.pages.length;o.need(50);o.y+=8;
+    o.setFont(F,'B',12);
+    if(STY.sec==='band'){o.setFC(AC);o.rect(ML,o.y,W,22,'F');o.setTC([255,255,255]);o.text(ML+6,o.y+4,`${num}.  ${txt}`);o.setTC([0,0,0]);o.y+=26;}
+    else if(STY.sec==='left'){o.setFC(AC);o.rect(ML,o.y,7,19,'F');o.setTC(AC);o.text(ML+12,o.y+4,`${num}.  ${txt}`);o.setTC([0,0,0]);o.y+=26;}
+    else{o.setTC(AC);o.text(ML,o.y,`${num}.  ${txt}`);o.setTC([0,0,0]);o.y+=20;o.setDC(AC);o.line(ML,o.y,ML+W,o.y);o.y+=6;}
+    o.y+=4;};
+  R.sub=(num,txt)=>{o.need(30);o.y+=4;o.setFont(F,'B',11);o.setTC(AC);o.text(ML,o.y,`${num}  ${txt}`);o.setTC([0,0,0]);o.y+=18;};
+  R.body=(t,ind=0)=>{o.setFont(F,'',11);o.mc(ML+ind,W-ind,t,15.7);o.y+=2;};
+  R.bullet=t=>{o.setFont(F,'',11);o.need(18);o.text(ML+16,o.y,'\u2022');o.mc(ML+28,W-28,t,15.7);o.y+=1.5;};
+  R.trow=(k,v,kw=158.7,vw=311.8)=>{ // 键值行：超宽自动折行扩格
+    o.setFont(F,'',10);
+    const lines=o.wrap(v,vw-10),h=Math.max(17,lines.length*13.4+5);
+    o.need(h);
+    const y0=o.y;
+    o.rect(ML,y0,kw,h);o.setFont(F,'B',10);const yy0=o.y;o.y=y0+3.5;o.mc(ML+4,kw-8,k,13.4,'L');o.y=yy0;
+    o.rect(ML+kw,y0,vw,h);o.setFont(F,'',10);o.y=y0+3.5;o.mc(ML+kw+4,vw-8,v,13.4,'L');o.y=y0+h;};
+  R.grid=(heads,cw,rows,fs=9.5)=>{ // 通用多列表格：行高自适应
+    o.need(24);o.setFont(F,'B',10);
+    o.setFC(STY.hdr);o.setTC(STY.sec==='band'?[255,255,255]:[0,0,0]);
+    let x=ML;
+    heads.forEach((c,i)=>{o.rect(x,o.y,cw[i],20,'FD');o.text(x,o.y+6.5,c,'c',cw[i]);x+=cw[i];});
+    o.setTC([0,0,0]);o.y+=20;
+    rows.forEach(row=>{
+      o.setFont(F,'',fs);
+      const h=Math.max(17,...row.map((c,i)=>o.wrap(c,cw[i]-10).length*13.6+4));
+      o.need(h);
+      const y0=o.y;x=ML;
+      row.forEach((c,i)=>{
+        o.rect(x,y0,cw[i],h);
+        const yy=o.y;o.y=y0+3.5;o.mc(x+4,cw[i]-8,String(c),13.6,'L');o.y=yy;
+        x+=cw[i];});
+      o.y=y0+h;});};
+  R.cover=(title,coName,co,licEn,DATE)=>{
+    o.addPage();o.y+=132;
+    o.setFont(F,'B',17);o.setTC(AC);
+    title.split('|').forEach(l=>{o.text(ML,o.y,l,'c',W,0.6);o.y+=26;});
+    o.setTC([0,0,0]);o.y+=10;
+    o.setDC(AC);o.emit('0.9 w');o.line(168,o.y,427,o.y);o.emit('0.4 w');o.y+=30;
+    o.setFont(F,'B',13.5);o.text(ML,o.y,coName,'c',W,0.3);o.y+=26;
+    o.setFont(F,'',10.5);o.setTC([60,60,60]);
+    o.text(ML,o.y,`PACRA Registration No. ${co.regNo||''}`,'c',W);o.y+=19;
+    o.text(ML,o.y,co.address||'','c',W);o.setTC([0,0,0]);
+    o.y+=34;
+    o.setFont(F,'B',12);o.text(ML,o.y,`Application for a ${licEn}`,'c',W);o.y+=24;
+    o.setFont(F,'',11);o.setTC([60,60,60]);o.text(ML,o.y,DATE,'c',W);o.setTC([0,0,0]);
+    o.setFont(F,'I',9.5);o.setTC([130,130,130]);
+    o.text(ML,755,'Submitted to the Minerals Regulation Commission · Mining Cadastre, Republic of Zambia','c',W);
+    o.setTC([0,0,0]);};
+  R.toc=(SECTIONS,toc)=>{
+    o.addPage();o.setFont(F,'B',14);o.setTC(AC);o.text(ML,o.y,'CONTENTS');o.setTC([0,0,0]);o.y+=26;o.setDC(AC);o.line(ML,o.y,ML+W,o.y);o.y+=16;
+    SECTIONS.forEach((s,i)=>{
+      const pg=String(toc[i+1]||'');
+      o.setFont(F,'B',11);o.text(ML,o.y,`${i+1}.  ${s}`);
+      o.setFont(F,'',10.5);
+      const xw=o.tw(`${i+1}.  ${s}`)+8, dotw=o.tw('.');
+      const rest=ML+W-xw-2-o.tw(pg);
+      if(STY.dot)for(let dx=xw;dx<xw+rest;dx+=dotw)o.text(dx,o.y,'.');
+      o.text(ML+W-2,o.y,pg,'r',0);
+      o.y+=20;});
+    o.y+=10;o.setFont(F,'I',9.5);o.setTC([110,110,110]);
+    o.mc(ML,W,'This document forms part of the application for a mining right submitted to the Minerals Regulation Commission / Mining Cadastre, Republic of Zambia.',14);
+    o.setTC([0,0,0]);};
+  return R;
+}
+function reportBase(a){ // 公共上下文
   const co=appCo(a)||{}, lic=LIC[a.type]||{};
-  const coName=co.name||a.applicantName||'[Applicant]', km2=a.area.km2||0, ha=Math.round(km2*100);
-  const loc=a.area.locRaw||`${a.area.district||''} District, ${a.area.province||''} Province`;
-  const commodity=a.commodity||'Copper';
-  const licEn=lic.en||'';
+  return {co, lic,
+    coName:co.name||a.applicantName||'[Applicant]',
+    km2:a.area.km2||0, ha:Math.round((a.area.km2||0)*100),
+    loc:(a.area.locRaw||`${a.area.district||''} District, ${a.area.province||''} Province`),
+    commodity:a.commodity||'Copper', licEn:lic.en||'',
+    DATE:new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}),
+    zmw:n=>'ZMW '+Math.round(n).toLocaleString('en-US'),
+    STY:PROG_STYLES[parseInt(simpleHash(co.name||a.applicantName||'x').slice(0,4),16)%4]};
+}
+function progPdfBlob(a){
+  const B=reportBase(a),{co,coName,km2,ha,loc,commodity,licEn,DATE,zmw,STY}=B;
   const invest=progInvest(a), years=+(a.params.years||4);
   const rc=(a.params.drillRc||'2,000'), dd=(a.params.drillDd||'800');
   const staff=a.params.staff||'26', cit=a.params.citizenPct||'92';
-  const DATE=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
-  const zmw=n=>'ZMW '+Math.round(n).toLocaleString('en-US');
-  const STY=PROG_STYLES[parseInt(simpleHash(coName).slice(0,4),16)%4];
-  const F=STY.font, AC=STY.accent;
   const SHARE=a.type==='LEL'?[.18,.27,.37,.12,.06]:a.type==='SEL'?[.20,.30,.34,.16]:[.45,.35,.20];
   const BACT=[
     'Remote sensing & structural interpretation, airborne geophysics reprocessing, regional mapping (1:20,000), first-pass soil geochemistry (400m x 100m grid), reconnaissance trenching',
@@ -1748,61 +1819,9 @@ function progPdfBlob(a){
   const SECTIONS=['INTRODUCTION AND PROJECT OBJECTIVES','GEOLOGICAL SETTING AND EXPLORATION RATIONALE','PHASED EXPLORATION PROGRAMME','OPERATIONAL SCHEDULE AND SEASONAL WORK PLAN','ESTIMATED FINANCIAL INVESTMENT AND BUDGET BREAKDOWN','TECHNICAL MANAGEMENT AND OPERATIONAL TEAM','HEALTH, SAFETY, ENVIRONMENT AND COMMUNITY (HSEC) COMMITMENTS','STAGE-GATE GOVERNANCE AND GO/NO-GO DECISION THRESHOLDS'];
   const secPages={};
   function build(toc){
-    const o=pdfDoc(),W=o.W,ML=o.ML;
-    const hTitle=t=>{o.setFont(F,'B',15);o.setTC(AC);String(t).split('\n').forEach(l=>{o.text(ML,o.y,l,'c',W);o.y+=20;});o.setTC([0,0,0]);};
-    const hSub=(t,sz=11,b='')=>{o.setFont(F,b,sz);o.text(ML,o.y,t,'c',W);o.y+=sz*0.52+4;};
-    const sec=(num,txt)=>{secPages[num]=o.pages.length;o.need(50);o.y+=8;
-      o.setFont(F,'B',12);
-      if(STY.sec==='band'){o.setFC(AC);o.rect(ML,o.y,W,22,'F');o.setTC([255,255,255]);o.text(ML+6,o.y+4,`${num}.  ${txt}`);o.setTC([0,0,0]);o.y+=26;}
-      else if(STY.sec==='left'){o.setFC(AC);o.rect(ML,o.y,7,19,'F');o.setTC(AC);o.text(ML+12,o.y+4,`${num}.  ${txt}`);o.setTC([0,0,0]);o.y+=26;}
-      else{o.setTC(AC);o.text(ML,o.y,`${num}.  ${txt}`);o.setTC([0,0,0]);o.y+=20;o.setDC(AC);o.line(ML,o.y,ML+W,o.y);o.y+=6;}
-      o.y+=4;};
-    const sub=(num,txt)=>{o.need(30);o.y+=4;o.setFont(F,'B',11);o.setTC(AC);o.text(ML,o.y,`${num}  ${txt}`);o.setTC([0,0,0]);o.y+=18;};
-    const body=(t,ind=0)=>{o.setFont(F,'',11);o.mc(ML+ind,W-ind,t,15.7);o.y+=2;};
-    const bullet=t=>{o.setFont(F,'',11);o.need(18);o.text(ML+16,o.y,'\u2022');o.mc(ML+28,W-28,t,15.7);o.y+=1.5;};
-    const trow=(k,v,kw=158.7,vw=311.8)=>{ // 键值行：超宽自动折行扩格
-      o.setFont(F,'',10);
-      const lines=o.wrap(v,vw-10),h=Math.max(17,lines.length*13.4+5);
-      o.need(h);
-      const y0=o.y;
-      o.rect(ML,y0,kw,h);o.setFont(F,'B',10);const yy0=o.y;o.y=y0+3.5;o.mc(ML+4,kw-8,k,13.4,'L');o.y=yy0;
-      o.rect(ML+kw,y0,vw,h);o.setFont(F,'',10);o.y=y0+3.5;o.mc(ML+kw+4,vw-8,v,13.4,'L');o.y=y0+h;};
-    // ---- 封面 ----
-    o.addPage();o.y+=132;
-    // 大标题（加字距）
-    o.setFont(F,'B',17);o.setTC(AC);
-    'PROPOSED PROGRAMME OF|EXPLORATION OPERATIONS'.split('|').forEach(l=>{o.text(ML,o.y,l,'c',W,0.6);o.y+=26;});
-    o.setTC([0,0,0]);
-    o.y+=10;
-    o.setDC(AC);o.emit('0.9 w');o.line(168,o.y,427,o.y);o.emit('0.4 w');o.y+=30;
-    // 公司块
-    o.setFont(F,'B',13.5);o.text(ML,o.y,coName,'c',W,0.3);o.y+=26;
-    o.setFont(F,'',10.5);o.setTC([60,60,60]);
-    o.text(ML,o.y,`PACRA Registration No. ${co.regNo||''}`,'c',W);o.y+=19;
-    o.text(ML,o.y,co.address||'','c',W);o.setTC([0,0,0]);
-    o.y+=34;
-    // 证型 + 日期
-    o.setFont(F,'B',12);o.text(ML,o.y,`Application for a ${licEn}`,'c',W);o.y+=24;
-    o.setFont(F,'',11);o.setTC([60,60,60]);o.text(ML,o.y,DATE,'c',W);o.setTC([0,0,0]);
-    // 页脚标语
-    o.setFont(F,'I',9.5);o.setTC([130,130,130]);
-    o.text(ML,755,'Submitted to the Minerals Regulation Commission · Mining Cadastre, Republic of Zambia','c',W);
-    o.setTC([0,0,0]);
-    // ---- 目录 ----
-    if(toc){
-      o.addPage();o.setFont(F,'B',14);o.setTC(AC);o.text(ML,o.y,'CONTENTS');o.setTC([0,0,0]);o.y+=26;o.setDC(AC);o.line(ML,o.y,ML+W,o.y);o.y+=16;
-      SECTIONS.forEach((s,i)=>{
-        const pg=String(toc[i+1]||'');
-        o.setFont(F,'B',11);o.text(ML,o.y,`${i+1}.  ${s}`);
-        o.setFont(F,'',10.5);
-        const xw=o.tw(`${i+1}.  ${s}`)+8, dotw=o.tw('.');
-        const rest=ML+W-xw-2-o.tw(pg);
-        if(STY.dot)for(let dx=xw;dx<xw+rest;dx+=dotw)o.text(dx,o.y,'.');
-        o.text(ML+W-2,o.y,pg,'r',0);
-        o.y+=20;});
-      o.y+=10;o.setFont(F,'I',9.5);o.setTC([110,110,110]);
-      o.mc(ML,W,'This document forms part of the application for a mining right submitted to the Minerals Regulation Commission / Mining Cadastre, Republic of Zambia.',14);
-      o.setTC([0,0,0]);}
+    const o=pdfDoc(),{sec,sub,body,bullet,trow,grid,cover,toc:tocP,F,AC}=repShell(o,STY,secPages);
+    cover('PROPOSED PROGRAMME OF|EXPLORATION OPERATIONS',coName,co,licEn,DATE);
+    if(toc) tocP(SECTIONS,toc);
     o.addPage();
     // ---- 1 ----
     sec(1,SECTIONS[0]);
@@ -1905,15 +1924,92 @@ function progPdfBlob(a){
   const o=build(toc);
   return o.output(`${coName} - Proposed Programme of Exploration Operations`);
 }
-async function genProgPdf(){
+/* ================= Environmental Commitment Plan 正式 PDF ================= */
+function envPdfBlob(a){
+  const B=reportBase(a),{co,coName,km2,ha,loc,commodity,licEn,DATE,STY}=B;
+  const SECTIONS=['EXECUTIVE SUMMARY AND POLICY STATEMENT','ANTICIPATED ENVIRONMENTAL IMPACTS','ENVIRONMENTAL MITIGATION AND MANAGEMENT MEASURES','WASTE MANAGEMENT PLAN','SITE REHABILITATION AND CLOSURE PLAN','HEALTH, SAFETY AND COMMUNITY RELATIONS'];
+  const MATRIX=[
+    ['Grid line cutting & camp clearing','Vegetation loss; habitat disturbance; soil exposure','Grid lines shall be cut to the minimum practical width; clearing restricted to the area immediately required for works; no felling within riparian zones; no burning of cleared vegetation on site.'],
+    ['Trenching & pitting','Topsoil loss; erosion; open excavation hazard to people and livestock','Topsoil shall be stripped and stockpiled separately from subsoil; open trenches demarcated with visible tape/fencing; trenches backfilled and re-contoured promptly after sampling is completed.'],
+    ['RC & diamond drilling','Drill mud spillage; noise; risk to groundwater','Drilling fluids contained in lined sumps or recirculated; only biodegradable additives used; all drill holes permanently capped within 7 days of completion; refuelling at least 50 m from watercourses.'],
+    ['Fuel & lubricant storage','Hydrocarbon spills; soil and groundwater contamination','All fuel and oil stored on spill trays or within bund walls of not less than 110% of container capacity; spill kits maintained at every storage and refuelling point; machinery inspected daily for leaks.'],
+    ['Camp operations','Sewage, greywater and litter','Pit latrines sited at least 100 m from any watercourse; greywater discharged to soakaway pits; no burning or unauthorised dumping of waste on site.'],
+    ['Vehicle movements','Dust generation; soil compaction; traffic hazards','Speed limits enforced on all access tracks; dust suppression applied near settlements during the dry season; vehicles confined to demarcated routes only.'],
+    ['Community interface','Land access; crop or property damage','Prior engagement with the local Chief and landholders before any entry; agreed access routes; lawful compensation paid for any damage to crops or property.'],
+  ];
+  const secPages={};
+  function build(toc){
+    const o=pdfDoc(),{sec,sub,body,bullet,trow,grid,cover,toc:tocP,F,AC}=repShell(o,STY,secPages);
+    cover('ENVIRONMENTAL COMMITMENT|PLAN',coName,co,licEn,DATE);
+    if(toc) tocP(SECTIONS,toc);
+    o.addPage();
+    // ---- 1 ----
+    sec(1,SECTIONS[0]);
+    body(`${coName} ("the Company") hereby presents this Environmental Commitment Plan in support of its application for a ${licEn} covering approximately ${ha.toLocaleString('en-US')} hectares (${km2} km\xb2) in ${loc}, Zambia. The planned ${commodity.toLowerCase()} exploration programme comprises remote sensing and geological mapping, soil geochemical sampling, mechanical trenching and pitting, Reverse Circulation (RC) and diamond core drilling, and the establishment of a temporary exploration camp. In accordance with ZEMA screening criteria, the anticipated environmental impact of these activities is assessed as low to moderate and is fully manageable through the measures set out in this Plan.`);
+    sub('1.1','Policy Statement');
+    body('The Company shall conduct all exploration activities in strict compliance with the Environmental Management Act No. 12 of 2011, the Mines and Minerals Development Act, the Water Resources Management Act, and all applicable regulations of the Zambia Environmental Management Agency (ZEMA), operating under an approved Environmental Project Brief (EPB).');
+    body('The Company is committed to sustainable exploration practice, the prevention of pollution at source, the progressive rehabilitation of all disturbed areas, and full respect for the customary rights and interests of local communities and traditional leadership.');
+    // ---- 2 ----
+    sec(2,SECTIONS[1]);
+    sub('2.1','Land and Vegetation');
+    body('Line cutting for geophysical and geochemical grids, trench and pit excavation, drill-pad construction and camp clearing will result in localised removal of vegetation cover and disturbance of topsoil within the licence area. The affected footprint will be kept to the minimum required for safe and effective operations.');
+    sub('2.2','Water and Soil');
+    body('Drilling muds and cuttings, accidental hydrocarbon leakage from machinery (excavators, drill rigs, generators and vehicles), and camp wastewater present a potential risk of soil and shallow groundwater contamination if not properly contained and managed.');
+    sub('2.3','Air and Noise');
+    body('Vehicle movement on unpaved tracks and earthmoving works will generate dust, while drilling rigs, generators and compressors will produce noise that may disturb nearby residents and wildlife during field seasons.');
+    sub('2.4','Waste Generation');
+    body('The programme will generate domestic refuse at the camp, used oils and filters from machinery servicing, scrap materials, drill cuttings and used sample packaging. In the absence of controls, such waste could accumulate and contaminate the site and surrounding areas.');
+    // ---- 3 矩阵 ----
+    sec(3,SECTIONS[2]);
+    body('The Company shall implement the mitigation and management measures set out in the matrix below. For every identified environmental aspect, a corresponding preventive or remedial control is defined and will be enforced by the site supervisor.');
+    o.y+=3;
+    grid(['Activity / Aspect','Potential Impact','Mitigation and Management Measure'],[118,140,212],MATRIX,9);
+    // ---- 4 ----
+    sec(4,SECTIONS[3]);
+    body('All waste generated during the exploration programme shall be segregated at source, securely stored, and disposed of only through lawful channels:');
+    bullet('Segregation at source. Waste shall be separated into general/domestic waste, recyclable materials, and hazardous waste (used engine oil, oil filters, batteries, contaminated rags and soil, and chemical containers).');
+    bullet('Storage. General waste shall be held in lidded bins; hazardous waste shall be stored in labelled, sealed drums on bunded pallets under cover, pending removal.');
+    bullet('Disposal. General waste shall be removed to an authorised disposal site or a designated on-site pit which is covered, compacted and clearly marked; hazardous waste shall be transported to a licensed waste contractor in Lusaka or Kabwe, and disposal records shall be retained for inspection.');
+    bullet('Drill cuttings and spent muds. Non-toxic drill cuttings and water-based muds shall be dried in lined sumps and buried with a topsoil cover, or spread and re-contoured on site; any additive suspected of toxicity shall be removed off-site for licensed disposal.');
+    // ---- 5 恢复 ----
+    sec(5,SECTIONS[4]);
+    body('The Company is committed to progressive rehabilitation of every disturbed site, with the objective of returning the land to a condition capable of supporting its original vegetation and land use:');
+    sub('5.1','Topsoil Management');
+    body('Prior to any trenching, pitting or pad construction, topsoil shall be stripped and stockpiled separately from subsoil, in low heaps not exceeding 2 m in height and positioned clear of drainage lines. During backfilling, subsoil shall be replaced first and the conserved topsoil spread as the final surface layer, so that the seed bank and soil fertility are preserved for natural revegetation.');
+    sub('5.2','Trench, Pit and Pad Restoration');
+    body('All trenches and pits shall be backfilled and compacted in layers, re-contoured to match natural drainage, and covered with the conserved topsoil, within 30 days of completion of sampling at each site. No open excavation shall be left unattended without fencing and warning signs.');
+    sub('5.3','Drill Hole Capping');
+    body('Every drill hole shall be permanently sealed within 7 days of completion using a cement plug or secure locking cap, so that no open hole can injure livestock or wildlife or provide a pathway for surface contamination to reach groundwater. Collar positions and capping records shall be maintained and made available to ZEMA or the Mines Safety Department on request.');
+    sub('5.4','Hydrocarbon and Chemical Control');
+    body('All fuel storage areas shall be equipped with spill trays or bund walls providing containment of not less than 110% of the largest container volume, and spill kits (absorbent pads, booms, gloves and disposal bags) shall be maintained at each storage and refuelling point. Any contaminated soil shall be excavated, drummed and removed to licensed disposal.');
+    sub('5.5','Camp Demobilisation and Revegetation');
+    body('Upon demobilisation, all equipment, fuels, reagents and waste shall be removed from site; the camp area shall be ripped or loosened where compacted and covered with topsoil. Revegetation shall rely on natural regrowth assisted, where necessary, by planting of native grass and tree species, and shall be monitored through the following rainy season. Before-and-after photographic records shall be kept for each site.');
+    // ---- 6 ----
+    sec(6,SECTIONS[5]);
+    body('The Company shall protect the health and safety of its employees and host communities throughout the programme:');
+    bullet('PPE. Personal protective equipment (helmets, safety boots, high-visibility clothing, and hearing and eye protection for drilling crews) shall be provided free of charge to all employees, with mandatory safety induction before commencement of field work.');
+    bullet('First aid and emergency response. A first-aid station shall be maintained at the camp, first-aid kits carried in all field vehicles, a trained first-aider present on each shift, and an evacuation plan established to the nearest clinic.');
+    bullet('Community relations. All field work shall be preceded by engagement with the local Chief and community leadership; a grievance register shall be maintained at site; priority for non-technical employment shall be given to residents of the surrounding communities; and customary land, crops, graves and cultural sites shall be respected with appropriate buffer zones.');
+    bullet('Incident reporting. Any environmental incident (spill, fire, injury, community complaint) shall be recorded and reported to ZEMA and the Mines Safety Department as required by law.');
+    return o;
+  }
+  build();
+  const toc={};Object.keys(secPages).forEach(k=>toc[k]=secPages[k]+1);
+  return build(toc).output(`${coName} - Environmental Commitment Plan`);
+}
+/* ================= 通用导出入口 ================= */
+const DOC_PDF={prog:{fn:a=>progPdfBlob(a),en:'Proposed Programme of Exploration Operations'},
+               env:{fn:a=>envPdfBlob(a),en:'Environmental Commitment Plan'}};
+async function genDocPdf(key){
   const a=curApp(); if(!a) return toast('先选择申请');
+  const d=DOC_PDF[key]; if(!d) return toast('该文件暂无正式版式');
   try{
-    const blob=progPdfBlob(a);
     const safe=s=>String(s||'').replace(/[^\w\s.-]/g,'').trim();
-    downloadBlob(blob,`Proposed Programme of Exploration Operations - ${safe(a.label||'app')}.pdf`);
+    downloadBlob(d.fn(a),`${d.en} - ${safe(a.label||'app')}.pdf`);
     toast('已导出正式 PDF');
   }catch(e){ toast('生成失败：'+e.message); }
 }
+async function genProgPdf(){ return genDocPdf('prog'); }
 // 导出递交包：公司目录/申请目录两层，文件名=门户槽位英文名
 async function exportPackage(){
   const a=curApp(); if(!a) return toast('先建立申请');
@@ -1929,9 +2025,9 @@ async function exportPackage(){
     const name=safe(en);
     const draftTxt=genKey&&(a.drafts[genKey]||'').trim();
     const eff=effDoc(a,key,cat);
-    if(genKey==='prog'){
-      // 勘探工作计划 → 直接生成正式版式 PDF（数据驱动，不依赖文稿）
-      try{ files.push({name:name+'.pdf',blob:progPdfBlob(a)}); manifest.push(`[系统生成·正式版式] ${name}.pdf`); }
+    if(DOC_PDF[genKey]){
+      // 有正式版式的支持性文件 → 数据驱动生成 PDF（不依赖文稿）
+      try{ files.push({name:name+'.pdf',blob:DOC_PDF[genKey].fn(a)}); manifest.push(`[系统生成·正式版式] ${name}.pdf`); }
       catch(e){ missing.push(en+'（生成失败）'); manifest.push(`[生成失败] ${en}`); }
     }else if(draftTxt){
       files.push({name:name+'.pdf',blob:textToPdfBlob(a.drafts[genKey])});
