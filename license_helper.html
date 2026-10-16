@@ -604,7 +604,7 @@ function renderDocs(){
           ${st.mediaKey?`<a href="javascript:void(0)" onclick="viewFile('${st.mediaKey}','${jsq(st.fileName||'文件')}')" title="${esc(st.fileName||'')}">${esc(st.fileName||'查看')}</a>`:''}
           ${st.srcPath?`<a href="javascript:void(0)" onclick="openSrcDir('${jsq(st.srcPath)}')" title="打开来源文件夹">${'📁'}</a>`:''}
           ${docDate(st)?`<span class="muted" style="font-size:11px">传于 ${docDate(st)}</span>`:''}
-          ${key==='form'?`<a href="javascript:void(0)" onclick="genForm1()" style="color:var(--success);font-weight:700">🧾 生成 Form I</a>`:''}
+          ${key==='form'?`<a href="javascript:void(0)" onclick="genForm1()" style="color:var(--success);font-weight:700">🧾 生成 Form I</a><a href="javascript:void(0)" onclick="genForm1Pdf()" style="color:var(--success);font-weight:700">📄 PDF</a>`:''}
           ${d[5]&&!DOC_PDF[d[5]]?`<a href="javascript:void(0)" onclick="jumpWrite('${d[5]}')" style="color:${(a.drafts[d[5]]||'').trim()?'var(--success)':'var(--muted)'}">${(a.drafts[d[5]]||'').trim()?'✍️ 文稿✓':'✍️ 编写'}</a>`:''}
           ${DOC_PDF[d[5]]?`<a href="javascript:void(0)" onclick="genDocPdf('${d[5]}')" style="color:var(--success);font-weight:700">📄 正式版 PDF</a>`:''}
           ${exp?`到期 <input type="date" value="${st.expiry||''}" onchange="setDoc('${key}','expiry',this.value)">`:''}
@@ -2333,6 +2333,102 @@ async function buildForm1Blob(a){
   xml=xml.replace(/\{\{([A-Z0-9_]+)\}\}/g,(m,k)=>xmlEsc2(vals[k]??''));
   files['word/document.xml']=new TextEncoder().encode(xml);
   return makeZip(Object.entries(files).map(([name,data])=>({name,data})));
+}
+/* ================= Form I 官方申请表的 PDF 版（内容与 docx 一致，版式为规整表单）================= */
+function form1PdfBlob(a){
+  const v=form1Values(a), chk=form1Checks(a);
+  const o=pdfDoc(),W=o.W,ML=o.ML;
+  const {trow,grid}=repShell(o,PROG_STYLES[0],{}); // 经典黑白版式
+  const body=(t,ind=0)=>{o.setFont('times','',10.5);o.mc(ML+ind,W-ind,t,14.6);o.y+=2;};
+  const sub=(txt)=>{o.need(28);o.y+=6;o.setFont('times','B',11);o.text(ML,o.y,txt);o.y+=16;};
+  const chkbox=(x,y,label,on)=>{ // 画勾选框 + 文字
+    o.setDC([0,0,0]);o.rect(x,y,9.5,9.5,'S');
+    if(on){o.setFont('times','B',11);o.text(x+1.6,y-0.6,'\u00d7');}
+    o.setFont('times','',10.5);o.text(x+15,y,label);};
+  const kvRow=(k,v2,kw=170)=>{o.need(18);trow(k,String(v2||'—'),kw,W-kw);};
+
+  o.addPage();
+  // 表头
+  o.setFont('times','B',13);o.text(ML,o.y,'FORM I','c',W);o.y+=19;
+  o.setFont('times','',10.5);o.text(ML,o.y,'(Regulation 5)','c',W);o.y+=16;
+  o.setFont('times','B',12);o.text(ML,o.y,'THE MINES AND MINERALS DEVELOPMENT ACT, 2015','c',W);o.y+=17;
+  o.setFont('times','B',12);o.text(ML,o.y,'APPLICATION FOR A MINING RIGHT','c',W);o.y+=22;
+  // Q1 证型
+  sub('1. Type of Mining Right');
+  chkbox(ML+30,o.y,'Exploration',chk.CB_EXPLORE);
+  chkbox(ML+200,o.y,'Mining',chk.CB_MINING);o.y+=24;
+  // Q2 规模
+  sub('2. Scale of Operation');
+  chkbox(ML+30,o.y,'Large scale',chk.CB_EXPL_LARGE);
+  chkbox(ML+200,o.y,'Small-Scale',chk.CB_EXPL_SMALL2);o.y+=24;
+  chkbox(ML+30,o.y,'Artisanal',chk.CB_ARTISANAL);o.y+=26;
+  // Q3 矿种
+  sub('3. Minerals');
+  body(v.MINERALS);
+  // Q4-7 申请人
+  sub('4. Applicant');
+  kvRow('Name(s) of applicant(s)',v.APPLICANT);
+  kvRow('Type of applicant',chk.CB_INDIV?'Individual':chk.CB_COOP?'Co-operative':'Company');
+  kvRow('Physical & postal address',v.ADDR);
+  kvRow('Tel',v.TEL);kvRow('Mobile',v.MOBILE);kvRow('Fax',v.FAX);kvRow('Email',v.EMAIL);
+  sub('5. Company Particulars');
+  kvRow('Company/Co-operative Registration No.',v.REGNO);
+  // 股东表
+  sub('Shareholders');
+  const shRows=[];for(let i=1;i<=5;i++){if(v[`SH${i}_N`])shRows.push([v[`SH${i}_N`],v[`SH${i}_S`],v[`SH${i}_NA`],v[`SH${i}_ID`]]);}
+  grid(['Shareholder','Shares','Nationality','NRC / Passport'],[168,80,110,112],shRows,9.5);
+  // 董事表
+  sub('Directors');
+  const dirRows=[];for(let i=1;i<=5;i++){if(v[`DIR${i}_N`])dirRows.push([v[`DIR${i}_N`],v[`DIR${i}_S`],v[`DIR${i}_NA`],v[`DIR${i}_ID`]]);}
+  grid(['Director','Shares','Nationality','NRC / Passport'],[168,80,110,112],dirRows,9.5);
+  kvRow('Chief Executive Officer',`${v.CEO_N}${v.CEO_NA?' ('+v.CEO_NA+')':''}`);
+  kvRow('Company Secretary',`${v.SEC_N}${v.SEC_NA?' ('+v.SEC_NA+')':''}`);
+  // Q8-13 矿证历史
+  sub('6. Mining Right History');
+  kvRow('Mining rights currently held in Zambia',v.CUR1_NO);
+  kvRow('Mining rights previously held',v.PREV1_NO);
+  kvRow('Rights held by subsidiaries in Zambia',v.SUB1_NO);
+  kvRow('Rights held in other countries',v.FRN1_NO);
+  kvRow('Convicted of an offence / bankrupt',`${v.Q12A} / ${v.Q12B}`);
+  kvRow('Previous application for mining right',v.Q13A+(chk.CB_PENDING?' (Pending)':''));
+  // Q14 地块
+  sub('7. Description of Area Applied For');
+  kvRow('Province',v.PROVINCE);
+  kvRow('District',v.DISTRICT);
+  kvRow('Locality',v.LOCALITY);
+  kvRow('Size (sq. km)',v.SIZEKM2);
+  kvRow('Exploration (activity) scale',v.ACT_SCALE);
+  // 角点
+  const hasCoord=[...Array(12)].some((_,i)=>v[`C${i+1}_V1`]);
+  if(hasCoord){
+    sub('Corner Coordinates (Arc 1950)');
+    const rows=[];
+    for(let i=1;i<=12;i++){
+      if(!v[`C${i}_V1`])continue;
+      rows.push([i,`${v[`C${i}_V1`]}° ${v[`C${i}_V3`]}' ${v[`C${i}_V5`]}" S`,`${v[`C${i}_V7`]}° ${v[`C${i}_V9`]}' ${v[`C${i}_V11`]}" E`]);
+    }
+    grid(['Corner','Latitude','Longitude'],[80,195,195],rows,9.5);
+  }else{
+    body('Corner coordinates: as per the coordinate schedule attached to this application.');
+  }
+  // 费用+签名
+  sub('Application Fee');
+  body(v.FEE||'');
+  o.y+=20;
+  o.setFont('times','',10.5);
+  o.text(ML,o.y,`Signed for and on behalf of ${v.APPLICANT}`);o.y+=28;
+  o.text(ML,o.y,'Name: '+v.SIGN_NAME);o.y+=22;
+  o.line(ML,o.y,ML+180,o.y);o.text(ML+190,o.y-13,'Signature');
+  o.text(ML+280,o.y-13,'Date: ____________________');
+  return o.output(`${v.APPLICANT} - Form I`);
+}
+async function genForm1Pdf(){
+  const a=curApp(); if(!a) return toast('先选择申请');
+  try{
+    const safe=s=>String(s||'').replace(/[^\w\s.-]/g,'').trim();
+    downloadBlob(form1PdfBlob(a),`Duly Filled in Application Form - ${safe(a.label||'app')}.pdf`);
+    toast('已导出 PDF');
+  }catch(e){ toast('生成失败：'+e.message); }
 }
 async function genForm1(){
   const a=curApp(); if(!a) return toast('先选择申请');
