@@ -307,6 +307,12 @@ const DOC_DEFS = {
 };
 const ST_TXT = ['缺','已收','已核','问题'];
 
+// 个人档案（AMR 手工证申请人）：证件文件清单
+const PERSON_DOCS = [
+  ['idapp','National Registration Card / Passport','身份证件（NRC 或护照）',0],
+  ['tax',  'Valid Tax Clearance Certificate','税务清关证',1],
+  ['bank', 'Bank Account Details','银行账户信息',0],
+];
 // 公司级基础文件：传一次，名下所有申请自动引用（等同门户"灰色=账户级文件"）
 const CO_DOCS = [
   ['inc',  'Certificate of Incorporation', '公司注册证', 0],
@@ -400,7 +406,7 @@ function newApp(){
     <select id="naType">${Object.keys(LIC).map(k=>`<option value="${k}">${LIC[k].name} ${LIC[k].en}</option>`).join('')}</select>
 
     <label>申请主体</label>
-    <select id="naCo">${S.companies.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}<option value="_new">（新建公司档案…）</option><option value="person">公民个人</option><option value="coop">合作社</option></select>
+    <select id="naCo">${S.companies.map(c=>`<option value="${c.id}">${esc(c.name)}${c.kind==='person'?'（个人）':''}</option>`).join('')}<option value="_new">（新建公司档案…）</option><option value="person">公民个人（未建档）</option><option value="coop">合作社</option></select>
     <label>矿种 Commodity</label><input id="naCom" value="Copper" placeholder="例：Copper; Tantalum">
     <div class="row">
       <div style="flex:1"><label>省份 Province</label><input id="naProv" placeholder="例：Central"></div>
@@ -453,9 +459,11 @@ function doNewApp(){
   if (coSel==='_new'){ closeSheet(); newCo(()=>newApp()); return; }
   const km2=parseFloat($('naKm2').value)||null;
   const brief=($('naPaste')?$('naPaste').value:'').trim();
+  const selCo=S.companies.find(c=>c.id===coSel);
+  const isPerson=selCo&&selCo.kind==='person';
   const app={ id:uid(), type, label, commodity:com, companyId:(coSel==='person'||coSel==='coop')?null:coSel,
     brief,
-    applicantKind:(coSel==='person'?'person':coSel==='coop'?'coop':'company'), applicantName:$('naApplicant')?$('naApplicant').value.trim():'',
+    applicantKind:(coSel==='person'?'person':coSel==='coop'?'coop':isPerson?'person':'company'), applicantName:isPerson?selCo.name:($('naApplicant')?$('naApplicant').value.trim():''),
     area:{name:'',province:$('naProv').value.trim(),district:$('naDist').value.trim(),locRaw:window._naLoc||'',chief:'',
       km2,units:km2?Math.round(km2/UNIT_HA):null,coords:[],datum:'GCS_Arc1950',prevLic:'',prevNote:'',desc:''},
     params:{investUsd:'',years:'',staff:'',citizenPct:'',localNote:'',phases:''},
@@ -906,6 +914,18 @@ function doNewCo(){
   S.companies.push(c); curCoId=c.id; persist(); closeSheet(); renderCo();
   if(window._afterCo){ window._afterCo(); window._afterCo=null; }
 }
+function newPerson(){
+  openSheet(`<h3>新建个人（AMR 手工证申请人）</h3>
+    <label>姓名（与证件一致）</label><input id="npName" placeholder="例：JOHN BANDA">
+    <label>国籍</label><input id="npNat" value="ZAMBIA" placeholder="例：ZAMBIA">
+    <label>证件号（NRC / 护照）</label><input id="npId" placeholder="例：123456/78/1">
+    <div class="btnrow"><button class="btn" onclick="doNewPerson()">创建</button><button class="btn gray" onclick="closeSheet()">取消</button></div>`);
+}
+function doNewPerson(){
+  const n=$('npName').value.trim(); if(!n) return toast('填姓名');
+  const c={id:uid(),kind:'person',name:n,nat:$('npNat').value.trim()||'ZAMBIA',idNo:$('npId').value.trim(),dob:'',phone:'',email:'',address:'',docs:{}};
+  S.companies.push(c); curCoId=c.id; persist(); closeSheet(); renderCo();
+}
 function onCoSel(){ /* 公司选择改为列表点击进入（curCoId） */ }
 function renderCo(){
   saveUI();
@@ -920,9 +940,14 @@ function renderCo(){
         <div class="doc-body"><div class="doc-name">${esc(c.name)}</div>
         <div class="doc-cn">${shTxt||'<span class="muted">未解析</span>'}</div></div><span class="muted">›</span></div>`;
     };
-    const zl=S.companies.filter(hasZm), full=S.companies.filter(c=>!hasZm(c));
-    f.innerHTML=`<div class="row"><h2 style="flex:1">公司档案（${S.companies.length} 家）</h2><button class="btn sm" onclick="newCo()">＋公司</button></div>`
+    const cos=S.companies.filter(c=>c.kind!=='person'), pers=S.companies.filter(c=>c.kind==='person');
+    const zl=cos.filter(hasZm), full=cos.filter(c=>!hasZm(c));
+    const prow=c=>`<div class="doc" style="cursor:pointer" onclick="curCoId='${c.id}';renderCo()">
+      <div class="doc-body"><div class="doc-name">${esc(c.name)} <span style="font-size:11px;color:var(--warning);font-weight:700">个人</span></div>
+      <div class="doc-cn">${[c.nat,c.idNo].filter(Boolean).map(esc).join(' · ')||'<span class="muted">未填证件</span>'}</div></div><span class="muted">›</span></div>`;
+    f.innerHTML=`<div class="row"><h2 style="flex:1">公司档案（${S.companies.length} 个）</h2><button class="btn sm ghost" onclick="newPerson()">＋个人</button><button class="btn sm" onclick="newCo()">＋公司</button></div>`
       +(S.companies.length?'':'<div class="empty">还没有公司，点右上角「＋公司」新建</div>')
+      +(pers.length?`<h3 style="margin:12px 0 2px">个人（AMR 手工证申请人）</h3>`+pers.map(prow).join(''):'')
       +(zl.length?`<h3 style="margin:12px 0 2px">有赞比亚当地人持股（${zl.length}）</h3>`+zl.map(row).join(''):'')
       +(full.length?`<h3 style="margin:12px 0 2px">全资公司（${full.length}）</h3>`+full.map(row).join(''):'');
     return;
@@ -930,6 +955,23 @@ function renderCo(){
   // 详情模式
   const c=curCo();
   if(!c){ curCoId=null; return renderCo(); }
+  if(c.kind==='person'){ // 个人档案详情：身份信息 + 证件文件
+    f.innerHTML=`<div class="muted" style="font-size:13px;margin-bottom:6px"><a href="javascript:void(0)" onclick="curCoId=null;renderCo()">‹ 返回列表</a></div>
+      <div class="row"><h2 style="flex:1;font-size:1.05rem">${esc(c.name)} <span style="font-size:12px;color:var(--warning)">个人</span></h2>
+        <button class="btn sm ghost" onclick="delCo()">删除</button></div>
+      <h3 style="display:flex;align-items:center;gap:8px">身份信息（Form I 自动引用）
+        <a href="javascript:void(0)" style="font-size:12px;font-weight:400" onclick="window._coInfo=window._coInfo==='${c.id}'?null:'${c.id}';renderCo()">${window._coInfo===c.id?'收起':'编辑'}</a></h3>
+      <div class="card" id="coInfo" style="margin-bottom:6px"></div>
+      <h3 style="display:flex;align-items:center;gap:8px">证件文件（AMR 申请自动引用 Identity of Applicant）
+        <a href="javascript:void(0)" style="font-size:12px;font-weight:400" onclick="window._coEdit=window._coEdit==='${c.id}'?null:'${c.id}';renderCo()">${window._coEdit===c.id?'收起':'编辑'}</a></h3>
+      <div class="muted" style="font-size:11px;margin:-4px 0 4px">点「缺/上传」选文件，或直接把文件拖到对应行上</div><div id="coDocs"></div>
+      <h3 style="display:flex;align-items:center;gap:8px">其他文件
+        <a href="javascript:void(0)" style="font-size:12px;font-weight:400" onclick="window._exEdit=window._exEdit==='${c.id}'?null:'${c.id}';renderCo()">${window._exEdit===c.id?'收起':'编辑'}</a></h3>
+      <div id="coExtra"></div>
+      ${window._exEdit===c.id?'<button class="btn sm ghost" onclick="addExtraDoc()">＋文件</button>':''}`;
+    renderCoInfo(); renderCoDocs(); renderCoExtra();
+    return;
+  }
   const zm=(c.shareholders||[]).filter(s=>/zambia|赞/i.test(s.nationality||'')).reduce((t,s)=>t+(+s.pct||0),0);
   f.innerHTML=`<div class="muted" style="font-size:13px;margin-bottom:6px"><a href="javascript:void(0)" onclick="curCoId=null;renderCo()">‹ 返回公司列表</a></div>
     <div class="row"><h2 style="flex:1;font-size:1.05rem">${esc(c.name)}</h2>
@@ -964,6 +1006,11 @@ const CO_INFO_FIELDS=[
   ['tel','Tel',0],['phone','Mobile',0],['fax','Fax',0],['email','Email',0],
   ['ceo','CEO 姓名',0],['ceoNat','CEO 国籍',0],['secretary','Company Secretary 姓名',0],['secNat','秘书国籍',0],
 ];
+const PERSON_INFO_FIELDS=[
+  ['name','姓名（与证件一致）',1],['nat','国籍',0],['idNo','证件号（NRC / 护照）',0],
+  ['dob','出生日期（dd/mm/yyyy）',0],['phone','Mobile',0],['email','Email',0],
+  ['address','住址（physical & postal）',1],
+];
 const coVal=(c,k)=>k==='capital'?(c.capital||c.shareCapital||''):(c[k]||'');
 function coInfoDone(c){
   const need=['regNo','regDate','address','phone','email','capital','ceo','secretary'];
@@ -973,8 +1020,9 @@ function coInfoDone(c){
 function renderCoInfo(){
   const c=curCo(); if(!c) return;
   const ed=window._coInfo===c.id;
+  const FIELDS=c.kind==='person'?PERSON_INFO_FIELDS:CO_INFO_FIELDS;
   $('coInfo').innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 14px">'
-    +CO_INFO_FIELDS.map(([k,label,full])=>{
+    +FIELDS.map(([k,label,full])=>{
       const v=coVal(c,k);
       if(ed) return `<div style="grid-column:${full?'1/-1':'auto'}"><label style="margin:4px 0 2px">${label}</label>
         <input value="${esc(v)}" onchange="cSet('${k}',this.value)" ${k==='name'?'style="font-weight:700"':''}></div>`;
@@ -1086,7 +1134,8 @@ function delCo(){
 function renderCoDocs(){
   const c=curCo(); if(!c) return;
   if(!c.docs) c.docs={};
-  $('coDocs').innerHTML=CO_DOCS.map(([key,en,cn,exp])=>{
+  const DOC_LIST=c.kind==='person'?PERSON_DOCS:CO_DOCS;
+  $('coDocs').innerHTML=DOC_LIST.map(([key,en,cn,exp])=>{
     const d=c.docs[key]||{};
     const chipBtn=d.mediaKey
       ?`<button class="chip s1" onclick="viewFile('${d.mediaKey}','${jsq(d.fileName||'文件')}')">已收</button>`
@@ -2289,7 +2338,7 @@ function form1Values(a){
   const v={
     MINERALS:a.commodity||'Copper', APPLICANT:co.name||a.applicantName||'', ADDR:co.address||'',
     TEL:co.tel||'/', MOBILE:co.phone||'/', FAX:co.fax||'/', EMAIL:'frankataix@gmail.com',
-    REGNO:co.regNo||'', DOB:'', NAT:'', IDNO:'',
+    REGNO:co.regNo||'', DOB:co.dob||'', NAT:co.nat||'', IDNO:co.idNo||'',
     PROVINCE:appProvinces(a), DISTRICT:a.area.district||'', LOCALITY:a.area.name||a.area.locRaw||'',
     SIZEKM2:a.area.km2||'', FEE:'', SIGN_NAME:(co.ceo||sh[0]?.name||''),
     ACT_SCALE:{LEL:'Large-scale',SEL:'Small-scale',AMR:'Artisanal'}[a.type]||'Large-scale',
