@@ -992,58 +992,56 @@ function renderCo(){
   // 详情模式
   const c=curCo();
   if(!c){ curCoId=null; return renderCo(); }
+  // 详情模式：全页一个「编辑/保存」总开关，编辑态下所有区块可改可删
+  const c=curCo();
+  if(!c){ curCoId=null; return renderCo(); }
+  const ed=window._coEdit===c.id;
+  const editBtn=`<button class="btn sm ${ed?'':'ghost'}" onclick="coEditToggle('${c.id}')">${ed?'✓ 保存':'✏️ 编辑'}</button>`;
+  const delRow=ed?`<div class="btnrow" style="gap:8px;margin-bottom:8px"><button class="btn sm danger" onclick="delCo()">🗑 删除档案</button></div>`:'';
   if(c.kind==='person'){ // 个人档案详情：身份信息 + 证件文件
-    const menu=window._coMenu===c.id;
     f.innerHTML=`<div class="muted" style="font-size:13px;margin-bottom:6px"><a href="javascript:void(0)" onclick="curCoId=null;renderCo()">‹ 返回列表</a></div>
-      <div class="row"><h2 style="flex:1;font-size:1.05rem">${esc(c.name)} <span style="font-size:12px;color:var(--warning)">个人</span></h2>
-        <button class="btn sm ghost" onclick="window._coMenu=window._coMenu==='${c.id}'?null:'${c.id}';renderCo()">编辑</button></div>
-      ${menu?`<div class="btnrow" style="gap:8px;margin-bottom:8px">
-        <button class="btn sm" onclick="window._coInfo='${c.id}';window._coMenu=null;renderCo()">✏️ 修改信息</button>
-        <button class="btn sm danger" onclick="delCo()">🗑 删除档案</button></div>`:''}
-      <h3 style="display:flex;align-items:center;gap:8px">身份信息（Form I 自动引用）
-        <a href="javascript:void(0)" style="font-size:12px;font-weight:400" onclick="window._coInfo=window._coInfo==='${c.id}'?null:'${c.id}';renderCo()">${window._coInfo===c.id?'收起':'编辑'}</a></h3>
+      <div class="row"><h2 style="flex:1;font-size:1.05rem">${esc(c.name)} <span style="font-size:12px;color:var(--warning)">个人</span></h2>${editBtn}</div>
+      ${delRow}
+      ${ed?'<div class="tipbox">编辑模式：改字段、删文件都行，改完点右上角「✓ 保存」</div>':''}
+      <h3 style="display:flex;align-items:center;gap:8px">身份信息（Form I 自动引用）</h3>
       <div class="card" id="coInfo" style="margin-bottom:6px"></div>
-      <h3 style="display:flex;align-items:center;gap:8px">证件文件（AMR 申请自动引用 Identity of Applicant）
-        <a href="javascript:void(0)" style="font-size:12px;font-weight:400" onclick="window._coEdit=window._coEdit==='${c.id}'?null:'${c.id}';renderCo()">${window._coEdit===c.id?'收起':'编辑'}</a></h3>
+      <h3 style="display:flex;align-items:center;gap:8px">证件文件（AMR 申请自动引用 Identity of Applicant）</h3>
       <div class="muted" style="font-size:11px;margin:-4px 0 4px">点「缺/上传」选文件，或直接把文件拖到对应行上</div><div id="coDocs"></div>
-      <h3 style="display:flex;align-items:center;gap:8px">其他文件
-        <a href="javascript:void(0)" style="font-size:12px;font-weight:400" onclick="window._exEdit=window._exEdit==='${c.id}'?null:'${c.id}';renderCo()">${window._exEdit===c.id?'收起':'编辑'}</a></h3>
+      <h3 style="display:flex;align-items:center;gap:8px">其他文件</h3>
       <div id="coExtra"></div>
-      ${window._exEdit===c.id?'<button class="btn sm ghost" onclick="addExtraDoc()">＋文件</button>':''}`;
+      ${ed?'<button class="btn sm ghost" onclick="addExtraDoc()">＋文件</button>':''}`;
     renderCoInfo(); renderCoDocs(); renderCoExtra();
     return;
   }
   const zm=(c.shareholders||[]).filter(s=>/zambia|赞/i.test(s.nationality||'')).reduce((t,s)=>t+(+s.pct||0),0);
-  const menu=window._coMenu===c.id;
   f.innerHTML=`<div class="muted" style="font-size:13px;margin-bottom:6px"><a href="javascript:void(0)" onclick="curCoId=null;renderCo()">‹ 返回公司列表</a></div>
     <div class="row"><h2 style="flex:1;font-size:1.05rem">${esc(c.name)}</h2>
       ${coSrcDir(c)?`<button class="btn sm ghost" onclick="openSrcDir('${jsq(coSrcDir(c)+'/x')}')">📁 打开文件夹</button>`:''}
       <button class="btn sm" onclick="analyzeCo()">解析文件提取股东</button>
-      <button class="btn sm ghost" onclick="window._coMenu=window._coMenu==='${c.id}'?null:'${c.id}';renderCo()">编辑</button></div>
-    ${menu?`<div class="btnrow" style="gap:8px;margin-bottom:8px">
-      <button class="btn sm" onclick="window._coInfo='${c.id}';window._coMenu=null;renderCo()">✏️ 修改信息</button>
-      <button class="btn sm danger" onclick="delCo()">🗑 删除档案</button></div>`:''}
+      ${editBtn}</div>
+    ${delRow}
+    ${ed?'<div class="tipbox">编辑模式：改字段、增删股东/董事、删文件都行，改完点右上角「✓ 保存」</div>':''}
     <h3 style="display:flex;align-items:center;gap:8px">基础信息库（Form I 自动引用）
-      <a href="javascript:void(0)" style="font-size:12px;font-weight:400" onclick="window._coInfo=window._coInfo==='${c.id}'?null:'${c.id}';renderCo()">${window._coInfo===c.id?'收起':'编辑'}</a>
       <span class="muted" style="font-size:11px;font-weight:400">${coInfoDone(c)}</span></h3>
     <div class="card" id="coInfo" style="margin-bottom:6px"></div>
     <div style="display:flex;align-items:center;gap:8px"><span style="font-size:13px;font-weight:700">股东 Shareholders</span>
-      <span class="muted" style="font-size:11px">赞方合计 <b style="color:${Math.round(zm)>=5?'var(--success)':'var(--danger)'}">${Math.round(zm)}%</b></span>
-      <a href="javascript:void(0)" style="font-size:12px" onclick="window._shEdit=window._shEdit==='${c.id}'?null:'${c.id}';renderCo()">${window._shEdit===c.id?'收起':'编辑'}</a></div>
+      <span class="muted" style="font-size:11px">赞方合计 <b style="color:${Math.round(zm)>=5?'var(--success)':'var(--danger)'}">${Math.round(zm)}%</b></span></div>
     <div id="shList"></div>
-    ${window._shEdit===c.id?'<button class="btn sm ghost" onclick="shAdd()">＋股东</button>':''}
-    <div style="display:flex;align-items:center;gap:8px;margin-top:4px"><span style="font-size:13px;font-weight:700">董事 Directors</span>
-      <a href="javascript:void(0)" style="font-size:12px" onclick="window._dirEdit=window._dirEdit==='${c.id}'?null:'${c.id}';renderCo()">${window._dirEdit===c.id?'收起':'编辑'}</a></div>
+    ${ed?'<button class="btn sm ghost" onclick="shAdd()">＋股东</button>':''}
+    <div style="display:flex;align-items:center;gap:8px;margin-top:4px"><span style="font-size:13px;font-weight:700">董事 Directors</span></div>
     <div id="dirList"></div>
-    ${window._dirEdit===c.id?'<button class="btn sm ghost" onclick="dirAdd()">＋董事</button>':''}
-    <h3 style="display:flex;align-items:center;gap:8px">基础文件（所有公司必备标准件）
-      <a href="javascript:void(0)" style="font-size:12px;font-weight:400" onclick="window._coEdit=window._coEdit==='${c.id}'?null:'${c.id}';renderCo()">${window._coEdit===c.id?'收起':'编辑'}</a></h3>
+    ${ed?'<button class="btn sm ghost" onclick="dirAdd()">＋董事</button>':''}
+    <h3 style="display:flex;align-items:center;gap:8px">基础文件（所有公司必备标准件）</h3>
     <div class="muted" style="font-size:11px;margin:-4px 0 4px">点「缺/上传」选文件，或直接把文件拖到对应行上</div><div id="coDocs"></div>
-    <h3 style="display:flex;align-items:center;gap:8px">其他文件（本公司特有：矿证、出口许可证等）
-      <a href="javascript:void(0)" style="font-size:12px;font-weight:400" onclick="window._exEdit=window._exEdit==='${c.id}'?null:'${c.id}';renderCo()">${window._exEdit===c.id?'收起':'编辑'}</a></h3>
+    <h3 style="display:flex;align-items:center;gap:8px">其他文件（本公司特有：矿证、出口许可证等）</h3>
     <div id="coExtra"></div>
-    ${window._exEdit===c.id?'<button class="btn sm ghost" onclick="addExtraDoc()">＋文件</button>':''}`;
+    ${ed?'<button class="btn sm ghost" onclick="addExtraDoc()">＋文件</button>':''}`;
   renderCoInfo(); renderSh(); renderDirs(); renderCoDocs(); renderCoExtra();
+}
+// 编辑总开关：进入编辑态全页可改；退出=保存（字段 onchange 已实时入库）
+function coEditToggle(id){
+  if(window._coEdit===id){ window._coEdit=null; renderCo(); toast('已保存'); }
+  else { window._coEdit=id; renderCo(); }
 }
 // 基础信息库字段：Form I Q6/Q7 引用的公司证件与联系信息
 const CO_INFO_FIELDS=[
@@ -1065,7 +1063,7 @@ function coInfoDone(c){
 }
 function renderCoInfo(){
   const c=curCo(); if(!c) return;
-  const ed=window._coInfo===c.id;
+  const ed=window._coEdit===c.id;
   const FIELDS=c.kind==='person'?PERSON_INFO_FIELDS:CO_INFO_FIELDS;
   $('coInfo').innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 14px">'
     +FIELDS.map(([k,label,full])=>{
@@ -1082,7 +1080,7 @@ function renderCoInfo(){
 function renderDirs(){
   const c=curCo(); if(!c) return;
   const dirs=(c.directors&&c.directors.length?c.directors:c.shareholders)||[];
-  const ed=window._dirEdit===c.id;
+  const ed=window._coEdit===c.id;
   $('dirList').innerHTML=dirs.length?dirs.map((p,i)=>{
     if(!ed) return `<div class="doc" style="padding:4px 0"><span style="width:30px;font-size:14px;color:${/ZAMBIA/i.test(p.nationality||'')?'var(--success)':'var(--text)'}">${/ZAMBIA/i.test(p.nationality||'')?'赞':'外'}</span>
       <div class="doc-body"><div class="doc-name" style="font-weight:400">${esc(p.name)}${p.nationality?`（${esc(p.nationality)}）`:''}${p.idNo?` <span class="muted" style="font-size:11px">${esc(p.idNo)}</span>`:''}</div></div></div>`;
@@ -1118,12 +1116,12 @@ function renderCoExtra(){
     <div class="doc-body"><div class="doc-name">${esc(d.label)}</div>
     <div class="doc-meta">
       ${!d.mediaKey?`<label for="filePick" onclick="uploadDocKey='x_${d.id}';uploadScope='co'">上传</label>`:''}
-      ${d.mediaKey&&window._exEdit===c.id?`<a class="red" href="javascript:void(0)" onclick="delCoDoc('x_${d.id}')">删除文件</a>`:''}
+      ${d.mediaKey&&window._coEdit===c.id?`<a class="red" href="javascript:void(0)" onclick="delCoDoc('x_${d.id}')">删除文件</a>`:''}
       ${d.mediaKey?`<a href="javascript:void(0)" onclick="viewFile('${d.mediaKey}','${jsq(d.fileName||'文件')}')" title="${esc(d.fileName||'')}">${esc(d.fileName||'查看')}</a>`:''}
       ${(d.srcPath||coSrcDir(c))?`<a href="javascript:void(0)" onclick="openSrcDir('${jsq(d.srcPath||(coSrcDir(c)+'/x'))}')" title="打开来源文件夹">📁</a>`:''}
       ${docDate(d)?`<span class="muted" style="font-size:11px">传于 ${docDate(d)}</span>`:''}
     </div></div>
-    ${window._exEdit===c.id?`<button class="del" onclick="delExtraDoc('${d.id}')">×</button>`:''}</div>`).join('')
+    ${window._coEdit===c.id?`<button class="del" onclick="delExtraDoc('${d.id}')">×</button>`:''}</div>`).join('')
     ||'<div class="muted" style="padding:2px 0 6px">暂无，点下方＋文件添加</div>';
 }
 function delExtraDoc(id){
@@ -1138,7 +1136,7 @@ function renderSh(){
   }
   const sum=(c.shareholders||[]).reduce((s,x)=>s+(+x.pct||0),0);
   const warn=c.shareholders.length&&Math.abs(sum-100)>1?`<div style="color:var(--danger);font-size:12px;padding:2px 0">⚠ 占比合计 ${Math.round(sum)}% ≠100%，请核对股数</div>`:'';
-  const shEd=window._shEdit===c.id;
+  const shEd=window._coEdit===c.id;
   const hd=shEd?'<div class="doc" style="padding:2px 0;color:var(--muted);font-size:11px"><span style="width:30px"></span><div class="doc-body" style="display:flex;gap:6px"><span style="flex:2.4">姓名</span><span style="flex:1.2">国籍</span><span style="flex:1.2">证件号(NRC/护照)</span><span style="flex:1.2;text-align:right">股份数</span><span style="width:56px;text-align:right">占比</span></div><span style="width:26px"></span></div>':'';
   $('shList').innerHTML=hd+warn+(c.shareholders.map((p,i)=>{
     const zm=/zambia|赞/i.test(p.nationality||'');
