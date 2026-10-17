@@ -947,15 +947,13 @@ function renderCo(){
       const shTxt=sh.map(s=>`<span style="${/zambia|赞/i.test(s.nationality||'')?'color:var(--success);font-weight:700':''}">${esc(s.name)} ${s.pct!=null?Math.round(s.pct)+'%':''}</span>`).join('；');
       return `<div class="doc" style="cursor:pointer" onclick="curCoId='${c.id}';renderCo()">
         <div class="doc-body"><div class="doc-name">${esc(c.name)}</div>
-        <div class="doc-cn">${shTxt||'<span class="muted">未解析</span>'}</div></div><span class="muted">›</span>
-        <button class="del" title="删除档案" onclick="event.stopPropagation();delCoById('${c.id}')">×</button></div>`;
+        <div class="doc-cn">${shTxt||'<span class="muted">未解析</span>'}</div></div><span class="muted">›</span></div>`;
     };
     const cos=S.companies.filter(c=>c.kind!=='person'), pers=S.companies.filter(c=>c.kind==='person');
     const zl=cos.filter(hasZm), full=cos.filter(c=>!hasZm(c));
     const prow=c=>`<div class="doc" style="cursor:pointer" onclick="curCoId='${c.id}';renderCo()">
       <div class="doc-body"><div class="doc-name">${esc(c.name)} <span style="font-size:11px;color:var(--warning);font-weight:700">个人</span></div>
-      <div class="doc-cn">${[c.nat,c.idNo].filter(Boolean).map(esc).join(' · ')||'<span class="muted">未填证件</span>'}</div></div><span class="muted">›</span>
-      <button class="del" title="删除档案" onclick="event.stopPropagation();delCoById('${c.id}')">×</button></div>`;
+      <div class="doc-cn">${[c.nat,c.idNo].filter(Boolean).map(esc).join(' · ')||'<span class="muted">未填证件</span>'}</div></div><span class="muted">›</span></div>`;
     f.innerHTML=`<div class="row"><h2 style="flex:1">公司档案（${S.companies.length} 个）</h2><button class="btn sm ghost" onclick="newPerson()">＋个人</button><button class="btn sm" onclick="newCo()">＋公司</button></div>`
       +(S.companies.length?'':'<div class="empty">还没有公司，点右上角「＋公司」新建</div>')
       +(pers.length?`<h3 style="margin:12px 0 2px">个人（AMR 手工证申请人）</h3>`+pers.map(prow).join(''):'')
@@ -967,9 +965,13 @@ function renderCo(){
   const c=curCo();
   if(!c){ curCoId=null; return renderCo(); }
   if(c.kind==='person'){ // 个人档案详情：身份信息 + 证件文件
+    const menu=window._coMenu===c.id;
     f.innerHTML=`<div class="muted" style="font-size:13px;margin-bottom:6px"><a href="javascript:void(0)" onclick="curCoId=null;renderCo()">‹ 返回列表</a></div>
       <div class="row"><h2 style="flex:1;font-size:1.05rem">${esc(c.name)} <span style="font-size:12px;color:var(--warning)">个人</span></h2>
-        <button class="btn sm ghost" onclick="delCo()">删除</button></div>
+        <button class="btn sm ghost" onclick="window._coMenu=window._coMenu==='${c.id}'?null:'${c.id}';renderCo()">编辑</button></div>
+      ${menu?`<div class="btnrow" style="gap:8px;margin-bottom:8px">
+        <button class="btn sm" onclick="window._coInfo='${c.id}';window._coMenu=null;renderCo()">✏️ 修改信息</button>
+        <button class="btn sm" style="background:var(--danger);color:#fff;border-color:var(--danger)" onclick="delCo()">🗑 删除档案</button></div>`:''}
       <h3 style="display:flex;align-items:center;gap:8px">身份信息（Form I 自动引用）
         <a href="javascript:void(0)" style="font-size:12px;font-weight:400" onclick="window._coInfo=window._coInfo==='${c.id}'?null:'${c.id}';renderCo()">${window._coInfo===c.id?'收起':'编辑'}</a></h3>
       <div class="card" id="coInfo" style="margin-bottom:6px"></div>
@@ -984,11 +986,15 @@ function renderCo(){
     return;
   }
   const zm=(c.shareholders||[]).filter(s=>/zambia|赞/i.test(s.nationality||'')).reduce((t,s)=>t+(+s.pct||0),0);
+  const menu=window._coMenu===c.id;
   f.innerHTML=`<div class="muted" style="font-size:13px;margin-bottom:6px"><a href="javascript:void(0)" onclick="curCoId=null;renderCo()">‹ 返回公司列表</a></div>
     <div class="row"><h2 style="flex:1;font-size:1.05rem">${esc(c.name)}</h2>
       ${coSrcDir(c)?`<button class="btn sm ghost" onclick="openSrcDir('${jsq(coSrcDir(c)+'/x')}')">📁 打开文件夹</button>`:''}
       <button class="btn sm" onclick="analyzeCo()">解析文件提取股东</button>
-      <button class="btn sm ghost" onclick="delCo()">删除</button></div>
+      <button class="btn sm ghost" onclick="window._coMenu=window._coMenu==='${c.id}'?null:'${c.id}';renderCo()">编辑</button></div>
+    ${menu?`<div class="btnrow" style="gap:8px;margin-bottom:8px">
+      <button class="btn sm" onclick="window._coInfo='${c.id}';window._coMenu=null;renderCo()">✏️ 修改信息</button>
+      <button class="btn sm" style="background:var(--danger);color:#fff;border-color:var(--danger)" onclick="delCo()">🗑 删除档案</button></div>`:''}
     <h3 style="display:flex;align-items:center;gap:8px">基础信息库（Form I 自动引用）
       <a href="javascript:void(0)" style="font-size:12px;font-weight:400" onclick="window._coInfo=window._coInfo==='${c.id}'?null:'${c.id}';renderCo()">${window._coInfo===c.id?'收起':'编辑'}</a>
       <span class="muted" style="font-size:11px;font-weight:400">${coInfoDone(c)}</span></h3>
@@ -1143,13 +1149,7 @@ function delCo(){
   S.apps.forEach(a=>{ if(a.companyId===c.id) a.companyId=null; });
   curCoId=null; persist(); renderCo();
 }
-function delCoById(id){ // 列表行内删除（不进详情）
-  const c=S.companies.find(x=>x.id===id); if(!c) return;
-  const used=S.apps.filter(a=>a.companyId===id).length;
-  if(!confirm(`删除档案「${c.name}」？${used?`名下 ${used} 个申请将失去引用；`:''}云端已传文件保留，仅移除记录。`)) return;
-  S.companies=S.companies.filter(x=>x.id!==id);
-  S.apps.forEach(a=>{ if(a.companyId===id) a.companyId=null; });
-  persist(); renderCo();
+function delCoById(id){ // 保留：其他入口可能调用
 }
 function renderCoDocs(){
   const c=curCo(); if(!c) return;
