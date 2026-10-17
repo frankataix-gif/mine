@@ -122,6 +122,32 @@
   .viewer-bd{flex:1;overflow-y:auto;padding:10px;background:#525659}
   .viewer-bd canvas{display:block;width:100%;max-width:900px;margin:0 auto 12px;box-shadow:0 1px 4px rgba(0,0,0,.4)}
   .viewer-bd img{display:block;max-width:100%;margin:0 auto}
+  /* 统一交互态 */
+  .btn:hover{filter:brightness(1.07)}
+  .btn:disabled{opacity:.55;cursor:default}
+  .doc{transition:background .15s}
+  .doc:hover{background:#fafbfc}
+  .stat{transition:box-shadow .15s}
+  .stat:hover{box-shadow:0 2px 8px rgba(0,0,0,.08)}
+  /* 文档行动作链接 → 小药丸按钮（点得准、看得清） */
+  .doc-meta a,.doc-meta label{color:var(--primary);text-decoration:none;display:inline-block;
+    padding:2px 9px;border-radius:7px;background:var(--primary-light);font-weight:600;line-height:1.7}
+  .doc-meta a:hover,.doc-meta label:hover{background:#dbeafe}
+  .doc-meta a.red{color:var(--danger);background:#fee2e2}
+  .doc-meta a.red:hover{background:#fecaca}
+  .doc-meta a.green{color:var(--success);background:#dcfce7}
+  .doc-meta a.green:hover{background:#bbf7d0}
+  /* 文档分组标题 */
+  .grp{font-size:11.5px;font-weight:700;color:var(--muted);letter-spacing:.05em;
+    margin:14px 0 0;padding:8px 0 2px;border-top:1px solid var(--border)}
+  .grp:first-child{margin-top:0;border-top:none;padding-top:0}
+  /* 通用删除/更多按钮（原生按钮样式收不住） */
+  .del{flex:0 0 auto;background:none;border:none;color:var(--danger);font-size:17px;cursor:pointer;padding:4px 6px}
+  /* 证型标签 */
+  .ltag{display:inline-block;font-size:12px;font-weight:700;padding:2px 9px;border-radius:7px;color:#fff}
+  .ltag.lel{background:var(--primary)}
+  .ltag.sel{background:var(--success)}
+  .ltag.amr{background:var(--warning)}
 </style>
 </head>
 <body>
@@ -145,10 +171,11 @@
   <div id="appDetailWrap">
   <div class="card" id="appSum"></div>
   <div class="card">
-    <div class="row"><h2 style="flex:1">材料清单</h2><span class="muted" id="progTxt">0/0</span>
+    <div class="row"><h2 style="flex:1">材料清单</h2><span class="muted" id="progTxt">0/0</span></div>
+    <div class="pbar"><div class="pfill" id="pfill"></div></div>
+    <div class="btnrow" style="margin-top:10px">
       <button class="btn sm" id="genAllBtn" onclick="genAllDocs()">AI 生成全部支持性文件</button>
       <button class="btn sm green" onclick="exportPackage()">导出递交包 ZIP</button></div>
-    <div class="pbar"><div class="pfill" id="pfill"></div></div>
     <div id="docList"></div>
   </div>
   <div class="card">
@@ -478,7 +505,7 @@ function appMenu(id){
     <div class="btnrow" style="flex-direction:column;align-items:stretch">
       <button class="btn" onclick="closeSheet();editApp('${a.id}')">✏️ 修改信息</button>
       <button class="btn gray" onclick="closeSheet()">取消</button>
-      <button class="btn" style="background:var(--danger)" onclick="closeSheet();delApp('${a.id}')">🗑 删除申请</button>
+      <button class="btn danger" onclick="closeSheet();delApp('${a.id}')">🗑 删除申请</button>
     </div>`);
 }
 function editApp(id){
@@ -521,7 +548,7 @@ function delApp(id){
 function renderAppSel(){
   const sel=$('appSel');
   sel.innerHTML = S.apps.length ? `<option value="" ${!curApp()?'selected':''}>— 选择申请 —</option>`+S.apps.map(a=>`<option value="${a.id}" ${a.id===curAppId?'selected':''}>${esc(a.label)}（${LIC[a.type].name}）</option>`).join('') : '<option value="">— 还没有申请 —</option>';
-  $('licBadge').textContent = curApp() ? curApp().type : '—';
+  const lb=$('licBadge'); lb.textContent=curApp()?curApp().type:''; lb.style.display=curApp()?'':'none';
 }
 
 /* ================= 清单 ================= */
@@ -548,10 +575,10 @@ function renderAppList(){
     const stTxt={prep:'准备中',submitted:'已递交',paid:'已缴费',granted:'已获批',rejected:'被拒',abandoned:'放弃'}[a.status||'prep'];
     const loc=a.area.locRaw||[a.area.district,a.area.province].filter(Boolean).join(', ')||'—';
     const size=a.area.km2?a.area.km2+' km²':(a.area.units?a.area.units+' 单位':'—');
-    const stCls={granted:'s2',rejected:'s3',abandoned:'s3'}[a.status]||'s0';
+    const stCls={submitted:'s1',paid:'s1',granted:'s2',rejected:'s3',abandoned:'s3'}[a.status]||'s0';
     return `<div class="doc" style="cursor:pointer;align-items:center" onclick="curAppId='${a.id}';saveUI();renderAll()">
       <div class="doc-body">
-        <div class="doc-name" style="display:flex;align-items:center;gap:8px">${LIC[a.type]?LIC[a.type].name:''}
+        <div class="doc-name" style="display:flex;align-items:center;gap:8px"><span class="ltag ${(a.type||'').toLowerCase()}">${LIC[a.type]?LIC[a.type].name:a.type}</span>
           <span class="chip ${stCls}" style="min-width:0;padding:1px 8px;font-size:11px">${stTxt}</span>
           <span class="muted" style="font-weight:400;font-size:12px">材料 ${done}/${req}</span></div>
         <div class="doc-cn" style="margin-top:2px">${co?esc(co.name):'—'}<br>${esc(loc)} · ${size} · ${esc(a.commodity||'—')}</div></div>
@@ -582,7 +609,7 @@ function renderAppSum(a){
       <button class="btn sm ghost" onclick="editApp('${a.id}')">修改</button></div>
     <div class="stat-grid">
       <div class="stat"><div class="v">${lic.name||a.type}</div><div class="k">矿证类型</div></div>
-      <div class="stat"><div class="v" style="font-size:14px">${co?esc(co.name):'—'}</div><div class="k">申请公司</div></div>
+      <div class="stat"><div class="v" style="font-size:14px">${co?esc(co.name):(a.applicantName?esc(a.applicantName):'—')}</div><div class="k">申请主体</div></div>
       <div class="stat"><div class="v" style="font-size:14px">${esc(loc)}</div><div class="k">地理位置</div></div>
       <div class="stat"><div class="v">${size}</div><div class="k">矿证面积</div></div>
       <div class="stat"><div class="v">${esc(a.commodity||'—')}</div><div class="k">矿产品种</div></div>
@@ -610,12 +637,12 @@ function renderDocs(){
   let html='', lastOrd=-1;
   for(const d of sorted){
     const [key,en,cn,cat,exp]=d;
-    if(ord(d)!==lastOrd){ lastOrd=ord(d); html+=`<h3 style="margin:10px 0 2px">${catTitle[lastOrd]}</h3>`; }
+    if(ord(d)!==lastOrd){ lastOrd=ord(d); html+=`<h3 class="grp">${catTitle[lastOrd]}</h3>`; }
     const eff=effDoc(a,key,cat), st=eff.d;
     const selCoRec=a.companyId?S.companies.find(c=>c.id===a.companyId):null;
     const isPers=selCoRec&&selCoRec.kind==='person';
     const canUp=cat!=='A'||key==='form'||!a.companyId||isPers; // 公司档A类只读；个人档A类可在申请页上传（写回个人档）
-    html+=`<div class="doc" ${canUp?`ondragover="event.preventDefault()" ondrop="docDrop(event,'${key}','app')"`:''}>
+    html+=`<div class="doc" ${canUp?`ondragover="event.preventDefault()" ondrop="docDrop(event,'${key}','${cat==='A'&&isPers?'coApp':'app'}',${isPers?`'${a.companyId}'`:''})"`:''}>
       <button class="chip s${st.status}" onclick="cycleStatus('${key}')">${ST_TXT[st.status]}</button>
       <div class="doc-body">
         <div class="doc-name">${en} ${eff.src==='co'?'<span style="font-size:11px;color:var(--primary);font-weight:700">公司档</span>':''}</div>
@@ -625,9 +652,9 @@ function renderDocs(){
           ${st.mediaKey?`<a href="javascript:void(0)" onclick="viewFile('${st.mediaKey}','${jsq(st.fileName||'文件')}')" title="${esc(st.fileName||'')}">${esc(st.fileName||'查看')}</a>`:''}
           ${st.srcPath?`<a href="javascript:void(0)" onclick="openSrcDir('${jsq(st.srcPath)}')" title="打开来源文件夹">${'📁'}</a>`:''}
           ${docDate(st)?`<span class="muted" style="font-size:11px">传于 ${docDate(st)}</span>`:''}
-          ${key==='form'?`<a href="javascript:void(0)" onclick="genForm1()" style="color:var(--success);font-weight:700">🧾 生成 Form I</a><a href="javascript:void(0)" onclick="genForm1Pdf()" style="color:var(--success);font-weight:700">📄 PDF</a>`:''}
-          ${d[5]&&!DOC_PDF[d[5]]?`<a href="javascript:void(0)" onclick="jumpWrite('${d[5]}')" style="color:${(a.drafts[d[5]]||'').trim()?'var(--success)':'var(--muted)'}">${(a.drafts[d[5]]||'').trim()?'✍️ 文稿✓':'✍️ 编写'}</a>`:''}
-          ${DOC_PDF[d[5]]?`<a href="javascript:void(0)" onclick="genDocPdf('${d[5]}')" style="color:var(--success);font-weight:700">📄 正式版 PDF</a>`:''}
+          ${key==='form'?`<a class="green" href="javascript:void(0)" onclick="genForm1()">🧾 生成 Form I</a><a class="green" href="javascript:void(0)" onclick="genForm1Pdf()">📄 PDF</a>`:''}
+          ${d[5]&&!DOC_PDF[d[5]]?`<a href="javascript:void(0)" onclick="jumpWrite('${d[5]}')" ${(a.drafts[d[5]]||'').trim()?'class="green"':'style="color:var(--muted);background:var(--light)"'}>${(a.drafts[d[5]]||'').trim()?'✍️ 文稿✓':'✍️ 编写'}</a>`:''}
+          ${DOC_PDF[d[5]]?`<a class="green" href="javascript:void(0)" onclick="genDocPdf('${d[5]}')">📄 正式版 PDF</a>`:''}
           ${exp?`到期 <input type="date" value="${st.expiry||''}" onchange="setDoc('${key}','expiry',this.value)">`:''}
         </div>
       </div></div>`;
@@ -710,10 +737,11 @@ $('filePick').addEventListener('change', e=>{
   handlePickedFile(f, uploadDocKey, uploadScope);
 });
 // 拖拽上传：把文件拖到某行 = 上传到该槽位（不依赖文件选择框，彻底解决弹不出来的环境）
-function docDrop(e, key, scope){
+function docDrop(e, key, scope, coId){
   e.preventDefault(); e.stopPropagation();
   const f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];
   if(!f) return;
+  window.uploadCoId=coId||'';
   handlePickedFile(f, key, scope||'co');
 }
 async function handlePickedFile(f, uploadDocKey, uploadScope){
@@ -971,7 +999,7 @@ function renderCo(){
         <button class="btn sm ghost" onclick="window._coMenu=window._coMenu==='${c.id}'?null:'${c.id}';renderCo()">编辑</button></div>
       ${menu?`<div class="btnrow" style="gap:8px;margin-bottom:8px">
         <button class="btn sm" onclick="window._coInfo='${c.id}';window._coMenu=null;renderCo()">✏️ 修改信息</button>
-        <button class="btn sm" style="background:var(--danger);color:#fff;border-color:var(--danger)" onclick="delCo()">🗑 删除档案</button></div>`:''}
+        <button class="btn sm danger" onclick="delCo()">🗑 删除档案</button></div>`:''}
       <h3 style="display:flex;align-items:center;gap:8px">身份信息（Form I 自动引用）
         <a href="javascript:void(0)" style="font-size:12px;font-weight:400" onclick="window._coInfo=window._coInfo==='${c.id}'?null:'${c.id}';renderCo()">${window._coInfo===c.id?'收起':'编辑'}</a></h3>
       <div class="card" id="coInfo" style="margin-bottom:6px"></div>
@@ -994,7 +1022,7 @@ function renderCo(){
       <button class="btn sm ghost" onclick="window._coMenu=window._coMenu==='${c.id}'?null:'${c.id}';renderCo()">编辑</button></div>
     ${menu?`<div class="btnrow" style="gap:8px;margin-bottom:8px">
       <button class="btn sm" onclick="window._coInfo='${c.id}';window._coMenu=null;renderCo()">✏️ 修改信息</button>
-      <button class="btn sm" style="background:var(--danger);color:#fff;border-color:var(--danger)" onclick="delCo()">🗑 删除档案</button></div>`:''}
+      <button class="btn sm danger" onclick="delCo()">🗑 删除档案</button></div>`:''}
     <h3 style="display:flex;align-items:center;gap:8px">基础信息库（Form I 自动引用）
       <a href="javascript:void(0)" style="font-size:12px;font-weight:400" onclick="window._coInfo=window._coInfo==='${c.id}'?null:'${c.id}';renderCo()">${window._coInfo===c.id?'收起':'编辑'}</a>
       <span class="muted" style="font-size:11px;font-weight:400">${coInfoDone(c)}</span></h3>
@@ -1090,7 +1118,7 @@ function renderCoExtra(){
     <div class="doc-body"><div class="doc-name">${esc(d.label)}</div>
     <div class="doc-meta">
       ${!d.mediaKey?`<label for="filePick" onclick="uploadDocKey='x_${d.id}';uploadScope='co'">上传</label>`:''}
-      ${d.mediaKey&&window._exEdit===c.id?`<a href="javascript:void(0)" style="color:var(--danger)" onclick="delCoDoc('x_${d.id}')">删除文件</a>`:''}
+      ${d.mediaKey&&window._exEdit===c.id?`<a class="red" href="javascript:void(0)" onclick="delCoDoc('x_${d.id}')">删除文件</a>`:''}
       ${d.mediaKey?`<a href="javascript:void(0)" onclick="viewFile('${d.mediaKey}','${jsq(d.fileName||'文件')}')" title="${esc(d.fileName||'')}">${esc(d.fileName||'查看')}</a>`:''}
       ${(d.srcPath||coSrcDir(c))?`<a href="javascript:void(0)" onclick="openSrcDir('${jsq(d.srcPath||(coSrcDir(c)+'/x'))}')" title="打开来源文件夹">📁</a>`:''}
       ${docDate(d)?`<span class="muted" style="font-size:11px">传于 ${docDate(d)}</span>`:''}
@@ -1149,8 +1177,6 @@ function delCo(){
   S.apps.forEach(a=>{ if(a.companyId===c.id) a.companyId=null; });
   curCoId=null; persist(); renderCo();
 }
-function delCoById(id){ // 保留：其他入口可能调用
-}
 function renderCoDocs(){
   const c=curCo(); if(!c) return;
   if(!c.docs) c.docs={};
@@ -1164,7 +1190,7 @@ function renderCoDocs(){
       <div class="doc-body"><div class="doc-name">${en}</div><div class="doc-cn">${cn}</div>
       <div class="doc-meta">
         ${!d.mediaKey?`<label for="filePick" onclick="uploadDocKey='${key}';uploadScope='co'">上传</label>`:''}
-        ${d.mediaKey&&window._coEdit===c.id?`<a href="javascript:void(0)" style="color:var(--danger)" onclick="delCoDoc('${key}')">删除</a>`:''}
+        ${d.mediaKey&&window._coEdit===c.id?`<a class="red" href="javascript:void(0)" onclick="delCoDoc('${key}')">删除</a>`:''}
         ${d.mediaKey?`<a href="javascript:void(0)" onclick="viewFile('${d.mediaKey}','${jsq(d.fileName||'文件')}')" title="${esc(d.fileName||'')}">${esc(d.fileName||'查看')}</a>`:''}
         ${d.srcPath?`<a href="javascript:void(0)" onclick="openSrcDir('${jsq(d.srcPath)}')" title="打开来源文件夹">${'📁'}</a>`:''}
         ${docDate(d)?`<span class="muted" style="font-size:11px">传于 ${docDate(d)}</span>`:''}
@@ -1180,8 +1206,6 @@ function delCoDoc(k){
   delete c.docs[k]; persist(); renderCo(); toast('已删除，点「缺」重新上传');
 }
 function coSet(k,v){ const c=curCo(); c[k]=v; persist(); if(k==='name')renderAppSel(); }
-function renderPersons(){ /* 人员信息改由文件自动解析，见 co.profile */ }
-
 /* ================= 区域与坐标 ================= */
 function renderArea(){
   const a=curApp(), c=$('areaCard');
@@ -1393,7 +1417,6 @@ function renderGen(){
   $('progPdfBtn').style.display=DOC_PDF[sel.value]?'':'none';
 }
 function pSave(k,v){ const a=curApp(); if(!a)return; a.params[k]=v; persist(); }
-$('genSel'); // noop
 function genCtx(){
   const a=curApp(), co=appCo(a), lic=a?LIC[a.type]:null;
   const units=a?(a.area.units??gridUnits()?.units??null):null;
@@ -1678,7 +1701,7 @@ async function genAllDocs(){
     try{ a.drafts[k]=await genAI(k); }catch(e){ a.drafts[k]=a.drafts[k]||tpl(k); }
     persist(); renderDocs();
   }
-  $('genAllBtn').disabled=false; $('genAllBtn').textContent='AI 生成全部 B 类文件';
+  $('genAllBtn').disabled=false; $('genAllBtn').textContent='AI 生成全部支持性文件';
   toast('B 类文件已全部生成，到「编写」页逐份核对润色');
 }
 function copyDraft(){ navigator.clipboard.writeText($('genOut').value).then(()=>toast('已复制')); }
@@ -2374,11 +2397,20 @@ function form1Values(a){
   v.CUR1_NO='None'; v.SUB1_NO='None'; v.FRN1_NO='None';
   for(let i=1;i<=4;i++){['LIC','LOC','AR','DT'].forEach(s=>v[`HIST${i}_${s}`]='');}
   // 角点：V1,V2=纬D; V3,V4=纬M; V5,V6=纬S; V7..V12=经DMS（每值只占首格）
+  // coords 存的是字符串数组，纬/经按 S-N / E-W 后缀（无后缀按数值域 5–20°=纬,21–35°=经）自动归位
   for(let i=1;i<=12;i++){ for(let j=1;j<=12;j++) v[`C${i}_V${j}`]=''; }
-  (a.area.coords||[]).filter(c=>String(c).trim()).slice(0,12).forEach((c,i)=>{
-    const lat=dmsParts(c.lat??c[0]??c), lng=dmsParts(c.lng??c[1]??c);
-    if(lat){v[`C${i+1}_V1`]=lat.d; v[`C${i+1}_V3`]=lat.m; v[`C${i+1}_V5`]=lat.s;}
-    if(lng){v[`C${i+1}_V7`]=lng.d; v[`C${i+1}_V9`]=lng.m; v[`C${i+1}_V11`]=lng.s;}
+  let nL=0,nE=0;
+  (a.area.coords||[]).filter(c=>String(c).trim()).forEach(c=>{
+    if(typeof c==='object'&&c){ // {lat,lng} 对
+      const n=Math.min(nL++,11); const lat=dmsParts(c.lat),lng=dmsParts(c.lng);
+      if(lat){v[`C${n+1}_V1`]=lat.d;v[`C${n+1}_V3`]=lat.m;v[`C${n+1}_V5`]=lat.s;}
+      if(lng){v[`C${n+1}_V7`]=lng.d;v[`C${n+1}_V9`]=lng.m;v[`C${n+1}_V11`]=lng.s;}
+      nE=Math.max(nE,nL); return;
+    }
+    const p=dmsParts(c); if(!p) return;
+    const isLat=/[NS]/i.test(c)||(!/[EW]/i.test(c)&&p.d>=5&&p.d<=20);
+    if(isLat&&nL<12){const n=nL++;v[`C${n+1}_V1`]=p.d;v[`C${n+1}_V3`]=p.m;v[`C${n+1}_V5`]=p.s;}
+    else if(!isLat&&nE<12){const n=nE++;v[`C${n+1}_V7`]=p.d;v[`C${n+1}_V9`]=p.m;v[`C${n+1}_V11`]=p.s;}
   });
   return v;
 }
