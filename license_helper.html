@@ -989,9 +989,6 @@ function renderCo(){
       +(full.length?`<h3 style="margin:12px 0 2px">全资公司（${full.length}）</h3>`+full.map(row).join(''):'');
     return;
   }
-  // 详情模式
-  const c=curCo();
-  if(!c){ curCoId=null; return renderCo(); }
   // 详情模式：全页一个「编辑/保存」总开关，编辑态下所有区块可改可删
   const c=curCo();
   if(!c){ curCoId=null; return renderCo(); }
