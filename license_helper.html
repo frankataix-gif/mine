@@ -567,7 +567,7 @@ function effDoc(a, key, cat){
 function renderAppList(){
   const box=$('appList');
   if(!box) return;
-  box.innerHTML=S.apps.map(a=>{
+  box.innerHTML=[...S.apps].sort((x,y)=>(y.createdAt||'').localeCompare(x.createdAt||'')).map(a=>{
     const defs=DOC_DEFS[a.type]||[];
     const req=defs.filter(d=>d[3]!=='C').length;
     const done=defs.filter(d=>d[3]!=='C'&&effDoc(a,d[0],d[3]).d.status>=1).length;
@@ -576,11 +576,13 @@ function renderAppList(){
     const loc=a.area.locRaw||[a.area.district,a.area.province].filter(Boolean).join(', ')||'—';
     const size=a.area.km2?a.area.km2+' km²':(a.area.units?a.area.units+' 单位':'—');
     const stCls={submitted:'s1',paid:'s1',granted:'s2',rejected:'s3',abandoned:'s3'}[a.status]||'s0';
+    const created=(a.createdAt||'').slice(0,10);
     return `<div class="doc" style="cursor:pointer;align-items:center" onclick="curAppId='${a.id}';saveUI();renderAll()">
       <div class="doc-body">
         <div class="doc-name" style="display:flex;align-items:center;gap:8px"><span class="ltag ${(a.type||'').toLowerCase()}">${LIC[a.type]?LIC[a.type].name:a.type}</span>
           <span class="chip ${stCls}" style="min-width:0;padding:1px 8px;font-size:11px">${stTxt}</span>
-          <span class="muted" style="font-weight:400;font-size:12px">材料 ${done}/${req}</span></div>
+          <span class="muted" style="font-weight:400;font-size:12px">材料 ${done}/${req}</span>
+          ${created?`<span class="muted" style="font-weight:400;font-size:11px;margin-left:auto">建 ${created}</span>`:''}</div>
         <div class="doc-cn" style="margin-top:2px">${co?esc(co.name):'—'}<br>${esc(loc)} · ${size} · ${esc(a.commodity||'—')}</div></div>
       <button class="del" style="color:var(--muted)" title="设置" onclick="event.stopPropagation();appMenu('${a.id}')">⋯</button></div>`;
   }).join('')||'<div class="empty">还没有申请，点右上角「＋申请」创建</div>';
